@@ -46,6 +46,7 @@
 {% for interface in interfaces %}
 /** {{interface.description.text|ei_escape_names}} */
 pub mod {{strip_prefix(interface.name)}} {
+    #[derive(Clone, Debug)]
     pub struct {{strip_prefix(interface.name)|camel}} {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -103,6 +104,7 @@ pub mod {{strip_prefix(interface.name)}} {
 
     {% for enum in interface.enums %}
      /** {{enum.description.text|ei_escape_names}} */
+    #[derive(Clone, Copy, Debug)]
     pub enum {{enum.camel_name}} {
         {% for entry in enum.entries %}
         /** {{entry.summary}} */
@@ -118,6 +120,7 @@ pub mod {{strip_prefix(interface.name)}} {
     {% endfor %}
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum {{incoming_enum(interface)}} {
         {% for incoming in interface.incoming %}
             /** {{incoming.description.text|ei_escape_names}} */
@@ -137,6 +140,7 @@ pub mod {{strip_prefix(interface.name)}} {
 // map opcodes
 
 #[non_exhaustive]
+#[derive(Debug)]
 pub enum {{incoming_enum(interfaces[0])}} {
     {% for interface in interfaces %}
         {{interface.name|camel}}({{strip_prefix(interface.name)}}::{{incoming_enum(interface)}}),

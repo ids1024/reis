@@ -27,7 +27,7 @@ pub mod eis {
 // TODO Listener?
 // TODO versioning?
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Connection {
     socket: Arc<UnixStream>,
 }

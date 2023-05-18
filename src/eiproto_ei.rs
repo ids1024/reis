@@ -22,6 +22,7 @@ Once the `ei_connection.connection` event has been sent the handshake
 is destroyed by the EIS implementation.
  */
 pub mod handshake {
+    #[derive(Clone, Debug)]
     pub struct Handshake {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -148,6 +149,7 @@ pub mod handshake {
     from the EIS implementation. A context type of sender is a libei context
     sending events to the EIS implementation.
      */
+    #[derive(Clone, Copy, Debug)]
     pub enum ContextType {
         /** this client receives events from the EIS implementation */
         Receiver = 1,
@@ -162,6 +164,7 @@ pub mod handshake {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         This event is sent exactly once and immediately after connection
@@ -237,6 +240,7 @@ Note that for a client to receive this object, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod connection {
+    #[derive(Clone, Debug)]
     pub struct Connection {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -306,6 +310,7 @@ pub mod connection {
     This enum may be extended in the future, clients must be able to handle
     values that are not in their supported version of this enum.
      */
+    #[derive(Clone, Copy, Debug)]
     pub enum DisconnectReason {
         /** client was purposely disconnected */
         Disconnected = 0,
@@ -328,6 +333,7 @@ pub mod connection {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         This event may be sent by the EIS implementation immediately before
@@ -435,6 +441,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod callback {
+    #[derive(Clone, Debug)]
     pub struct Callback {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -443,6 +450,7 @@ pub mod callback {
     impl Callback {}
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         Notify the client when the related request is done. Immediately after this event
@@ -465,6 +473,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod pingpong {
+    #[derive(Clone, Debug)]
     pub struct Pingpong {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -486,6 +495,7 @@ pub mod pingpong {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {}
 }
 
@@ -506,6 +516,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod seat {
+    #[derive(Clone, Debug)]
     pub struct Seat {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -551,6 +562,7 @@ pub mod seat {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         This seat has been removed and a client should release all
@@ -649,6 +661,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod device {
+    #[derive(Clone, Debug)]
     pub struct Device {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -768,6 +781,7 @@ pub mod device {
     within the device's specified physical size. Physical devices do not have
     regions and no `ei_device.region` events are sent for such devices.
      */
+    #[derive(Clone, Copy, Debug)]
     pub enum DeviceType {
         /** a virtual device */
         Virtual = 1,
@@ -782,6 +796,7 @@ pub mod device {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         This device has been removed and a client should release all
@@ -1007,6 +1022,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod pointer {
+    #[derive(Clone, Debug)]
     pub struct Pointer {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -1048,6 +1064,7 @@ pub mod pointer {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         This object has been removed and a client should release all
@@ -1089,6 +1106,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod pointer_absolute {
+    #[derive(Clone, Debug)]
     pub struct PointerAbsolute {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -1132,6 +1150,7 @@ pub mod pointer_absolute {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         This object has been removed and a client should release all
@@ -1173,6 +1192,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod scroll {
+    #[derive(Clone, Debug)]
     pub struct Scroll {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -1274,6 +1294,7 @@ pub mod scroll {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         This object has been removed and a client should release all
@@ -1341,6 +1362,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod button {
+    #[derive(Clone, Debug)]
     pub struct Button {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -1386,6 +1408,7 @@ pub mod button {
     /**
     The logical state of a button.
      */
+    #[derive(Clone, Copy, Debug)]
     pub enum ButtonState {
         /** the button is logically up */
         Released = 0,
@@ -1400,6 +1423,7 @@ pub mod button {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         This pointer has been removed and a client should release all
@@ -1444,6 +1468,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod keyboard {
+    #[derive(Clone, Debug)]
     pub struct Keyboard {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -1490,6 +1515,7 @@ pub mod keyboard {
     /**
     The logical state of a key.
      */
+    #[derive(Clone, Copy, Debug)]
     pub enum KeyState {
         /** the key is logically up */
         Released = 0,
@@ -1506,6 +1532,7 @@ pub mod keyboard {
     The keymap type describes how the keymap in the `ei_keyboard.keymap` event
     should be parsed.
      */
+    #[derive(Clone, Copy, Debug)]
     pub enum KeymapType {
         /** a libxkbcommon-compatible XKB keymap */
         Xkb = 1,
@@ -1518,6 +1545,7 @@ pub mod keyboard {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         This keyboard has been removed and a client should release all
@@ -1615,6 +1643,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod touchscreen {
+    #[derive(Clone, Debug)]
     pub struct Touchscreen {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
@@ -1700,6 +1729,7 @@ pub mod touchscreen {
     }
 
     #[non_exhaustive]
+    #[derive(Debug)]
     pub enum Event {
         /**
         This touch has been removed and a client should release all
@@ -1766,6 +1796,7 @@ pub mod touchscreen {
 // map opcodes
 
 #[non_exhaustive]
+#[derive(Debug)]
 pub enum Event {
     EiHandshake(handshake::Event),
     EiConnection(connection::Event),
