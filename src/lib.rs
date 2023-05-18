@@ -2,9 +2,13 @@ use rustix::{
     io::{IoSlice, IoSliceMut},
     net,
 };
-use std::os::unix::{
-    io::{BorrowedFd, OwnedFd},
-    net::UnixStream,
+use std::{
+    env,
+    os::unix::{
+        io::{BorrowedFd, OwnedFd},
+        net::UnixStream,
+    },
+    path::PathBuf,
 };
 
 #[allow(unused_parens)]
@@ -57,4 +61,12 @@ impl Connection {
         );
         Ok(response.bytes)
     }
+}
+
+// Want to fallback to higher number if exists, on server?
+// create on server, not client.
+fn socket_path() -> Option<PathBuf> {
+    let mut path = PathBuf::from(env::var_os("XDG_RUNTIME_DIR")?);
+    path.push("eis-0");
+    Some(path)
 }
