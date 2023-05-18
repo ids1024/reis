@@ -5,6 +5,8 @@
 // Define module for each interface?
 // TODO Cleaner/safer way to strip out Ei/Eis prefix?
 
+{# TODO handle destructor #}
+
 {% macro strip_prefix(name) -%}
     {{ name.removeprefix('eis_').removeprefix('ei_') }}
 {%- endmacro %}

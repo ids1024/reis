@@ -8,9 +8,9 @@ use std::{
     env,
     os::unix::{
         io::{BorrowedFd, OwnedFd},
-        net::UnixStream,
+        net::{UnixListener, UnixStream},
     },
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::Arc,
 };
 
@@ -21,6 +21,26 @@ pub mod ei {
 
 #[allow(unused_parens)]
 pub mod eis {
+    pub struct Listener {
+        listener: super::UnixListener
+    }
+
+    impl Listener {
+        pub fn bind(path: &super::Path) -> std::io::Result<Self> {
+            Ok(Self {
+                listener: super::UnixListener::bind(path)?
+            })
+        }
+
+        pub fn incoming(&self) -> impl Iterator<Item = super::Connection> + '_ {
+            self.listener.incoming().filter_map(Result::ok).map(|socket| {
+                super::Connection {
+                    socket: super::Arc::new(socket)
+                }
+            })
+        }
+    }
+
     include!("eiproto_eis.rs");
 }
 
