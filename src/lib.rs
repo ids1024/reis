@@ -11,6 +11,7 @@ use std::{
         net::UnixStream,
     },
     path::PathBuf,
+    sync::Arc,
 };
 
 #[allow(unused_parens)]
@@ -26,12 +27,14 @@ pub mod eis {
 // TODO Listener?
 // TODO versioning?
 
+#[derive(Clone)]
 struct Connection {
-    socket: UnixStream,
+    socket: Arc<UnixStream>,
 }
 
 impl Connection {
     // TODO EINTR
+    // TODO send return value? send more?
     fn send(&self, data: &[u8], fds: &[BorrowedFd]) -> rustix::io::Result<()> {
         let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(fds.len()))];
         let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
@@ -66,6 +69,11 @@ impl Connection {
                 .flatten(),
         );
         Ok(response.bytes)
+    }
+
+    fn new_id(&self) -> u64 {
+        // TODO
+        42
     }
 
     fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {

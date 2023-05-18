@@ -24,7 +24,7 @@
     {% elif arg.protocol_type == 'object' and owned %} {{interface_type(arg.interface)}}
     {% elif arg.protocol_type == 'object' %} &{{interface_type(arg.interface)}}
     {% elif arg.protocol_type == 'new_id' and arg.interface %} {{interface_type(arg.interface)}} {# TODO #}
-    {% elif arg.protocol_type == 'new_id' %} usize {# TODO interface arg? #}
+    {% elif arg.protocol_type == 'new_id' %} u64 {# TODO interface arg? #}
     {% elif arg.protocol_type == 'float' %} f32
     {% elif arg.protocol_type == 'fd' and owned %} std::os::unix::io::OwnedFd
     {% elif arg.protocol_type == 'fd' %} std::os::unix::io::BorrowedFd
@@ -38,26 +38,56 @@
 {% for interface in interfaces %}
 /** {{interface.description.text|ei_escape_names}} */
 pub mod {{strip_prefix(interface.name)}} {
-    pub struct {{strip_prefix(interface.name)|camel}};
+    pub struct {{strip_prefix(interface.name)|camel}} {
+        pub(crate) connection: crate::Connection,
+        pub(crate) id: u64,
+    }
 
     impl {{strip_prefix(interface.name)|camel}} {
         {% for outgoing in interface.outgoing %}
-	/** {{outgoing.description.text|ei_escape_names}} */
+        /** {{outgoing.description.text|ei_escape_names}} */
         pub fn {{outgoing.name}}(
-	    &self,
-	    {%- for arg in outgoing.arguments %}
-	    {% if arg.protocol_type != 'new_id' %}
-	    _{{arg.name}}: {{arg_type(arg, false)}},
-	    {% endif %}
-	    {% endfor -%}
-	    ) -> Result<(
-	    {%- for arg in outgoing.arguments %}
-	    {% if arg.protocol_type == 'new_id' %}
-	    {{arg_type(arg, true)}}
-	    {% endif %}
-	    {% endfor -%}
-	    ), ()>{
-	    Err(()) // TODO
+            &self,
+            {%- for arg in outgoing.arguments %}
+            {% if arg.protocol_type != 'new_id' %}
+            {{arg.name}}: {{arg_type(arg, false)}},
+            {% endif %}
+            {% endfor -%}
+            ) -> rustix::io::Result<(
+            {%- for arg in outgoing.arguments %}
+            {% if arg.protocol_type == 'new_id' %}
+            {{arg_type(arg, true)}}
+            {% endif %}
+            {% endfor -%}
+            )>{
+            {%- for arg in outgoing.arguments %}
+            {% if arg.protocol_type == 'new_id' %}
+            let {{arg.name}} = self.connection.new_id();
+            {% endif -%}
+            {% endfor -%}
+
+            let args = &[
+            {%- for arg in outgoing.arguments %}
+                crate::Arg::{{arg.protocol_type|camel}}({{arg.name}}.into()),
+            {% endfor -%}
+            ];
+
+            self.connection.request(self.id, {{outgoing.opcode}}, args)?;
+	    
+	    Ok((
+            {%- for arg in outgoing.arguments %}
+            {% if arg.protocol_type == 'new_id' %}
+            {% if arg.interface %}
+            {{arg_type(arg, true)}} {
+                connection: self.connection.clone(),
+                id: {{arg.name}}
+            }
+            {% else -%}
+            {{arg.name}} {# TODO how to handle type that's not statically known? #}
+            {% endif -%}
+            {% endif -%}
+            {% endfor -%}
+	    ))
         }
 
         {% endfor %}
@@ -71,19 +101,25 @@ pub mod {{strip_prefix(interface.name)}} {
         {{entry.name|camel}} = {{entry.value}},
         {% endfor %}
     }
+
+    impl From<{{enum.camel_name}}> for u32 {
+        fn from(value: {{enum.camel_name}}) -> u32 {
+            value as u32
+        }
+    }
     {% endfor %}
 
     // XXX name
     pub enum Event {
         {% for incoming in interface.incoming %}
-	    /** {{incoming.description.text|ei_escape_names}} */
-	    {{ incoming.name|camel }}
-	        {% if incoming.arguments %}
-	        { {% for arg in incoming.arguments %}
-		    /** {{arg.summary}} */
-		    {{arg.name}}: {{arg_type(arg, true)}},
-		{% endfor %} }
-		{% endif %},
+            /** {{incoming.description.text|ei_escape_names}} */
+            {{ incoming.name|camel }}
+                {% if incoming.arguments %}
+                { {% for arg in incoming.arguments %}
+                    /** {{arg.summary}} */
+                    {{arg.name}}: {{arg_type(arg, true)}},
+                {% endfor %} }
+                {% endif %},
         {% endfor %}
     }
 }
