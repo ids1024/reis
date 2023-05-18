@@ -1835,3 +1835,19 @@ pub mod touchscreen {
 }
 
 // map opcodes
+
+#[non_exhaustive]
+pub enum Request {
+    EisHandshake(handshake::Request),
+    EisConnection(connection::Request),
+    EisCallback(callback::Request),
+    EisPingpong(pingpong::Request),
+    EisSeat(seat::Request),
+    EisDevice(device::Request),
+    EisPointer(pointer::Request),
+    EisPointerAbsolute(pointer_absolute::Request),
+    EisScroll(scroll::Request),
+    EisButton(button::Request),
+    EisKeyboard(keyboard::Request),
+    EisTouchscreen(touchscreen::Request),
+}

@@ -1764,3 +1764,19 @@ pub mod touchscreen {
 }
 
 // map opcodes
+
+#[non_exhaustive]
+pub enum Event {
+    EiHandshake(handshake::Event),
+    EiConnection(connection::Event),
+    EiCallback(callback::Event),
+    EiPingpong(pingpong::Event),
+    EiSeat(seat::Event),
+    EiDevice(device::Event),
+    EiPointer(pointer::Event),
+    EiPointerAbsolute(pointer_absolute::Event),
+    EiScroll(scroll::Event),
+    EiButton(button::Event),
+    EiKeyboard(keyboard::Event),
+    EiTouchscreen(touchscreen::Event),
+}

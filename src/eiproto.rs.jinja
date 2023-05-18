@@ -14,7 +14,7 @@
 {%- endmacro %}
 
 {% macro arg_type(arg, owned) -%}
-    {% if arg.enum != None %} {{ arg.enum.camel_name }}
+    {% if arg.enum != None %} {{ arg.enum.name|camel }}
     {% elif arg.protocol_type == 'string' and owned %} String
     {% elif arg.protocol_type == 'string' %} &str
     {% elif arg.protocol_type == 'int32' %} i32
@@ -33,6 +33,14 @@
 {%- endmacro %}
 
 {% macro return_type(arguments) -%}
+{%- endmacro %}
+
+{% macro incoming_enum(interface) -%}
+    {% if interface.name.startswith('eis_') %}
+    Request
+    {% else %}
+    Event
+    {% endif %}
 {%- endmacro %}
 
 {% for interface in interfaces %}
@@ -110,11 +118,7 @@ pub mod {{strip_prefix(interface.name)}} {
     {% endfor %}
 
     #[non_exhaustive]
-    {% if interface.name.startswith('eis_') %}
-    pub enum Request {
-    {% else %}
-    pub enum Event {
-    {% endif %}
+    pub enum {{incoming_enum(interface)}} {
         {% for incoming in interface.incoming %}
             /** {{incoming.description.text|ei_escape_names}} */
             {{ incoming.name|camel }}
@@ -131,3 +135,10 @@ pub mod {{strip_prefix(interface.name)}} {
 {% endfor %}
 
 // map opcodes
+
+#[non_exhaustive]
+pub enum {{incoming_enum(interfaces[0])}} {
+    {% for interface in interfaces %}
+        {{interface.name|camel}}({{strip_prefix(interface.name)}}::{{incoming_enum(interface)}}),
+    {% endfor %}
+}
