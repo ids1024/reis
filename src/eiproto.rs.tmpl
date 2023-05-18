@@ -109,8 +109,12 @@ pub mod {{strip_prefix(interface.name)}} {
     }
     {% endfor %}
 
-    // XXX name
+    #[non_exhaustive]
+    {% if interface.name.startswith('eis_') %}
+    pub enum Request {
+    {% else %}
     pub enum Event {
+    {% endif %}
         {% for incoming in interface.incoming %}
             /** {{incoming.description.text|ei_escape_names}} */
             {{ incoming.name|camel }}
