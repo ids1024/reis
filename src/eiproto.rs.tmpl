@@ -1,0 +1,95 @@
+{# ei-scanner jinja template, for `` #}
+
+#![allow(unused_parens)]
+
+// GENERATED FILE
+
+// Define module for each interface?
+// TODO Cleaner/safer way to strip out Ei/Eis prefix?
+
+{% macro strip_prefix(name) -%}
+    {{ name.removeprefix('eis_').removeprefix('ei_') }}
+{%- endmacro %}
+
+{% macro interface_type(interface) -%}
+    super::{{strip_prefix(interface.name)}}::{{strip_prefix(interface.name)|camel}}
+{%- endmacro %}
+
+{% macro arg_type(arg, owned) -%}
+    {% if arg.enum != None %} {{ arg.enum.camel_name }}
+    {% elif arg.signature == 's' and owned %} String
+    {% elif arg.signature == 's' %} &str
+    {% elif arg.signature == 'i' %} i32
+    {% elif arg.signature == 'u' %} u32
+    {% elif arg.signature == 'x' %} i64 {# XXX? #}
+    {% elif arg.signature == 't' %} u64 {# XXX? #}
+    {% elif arg.signature == 'o' and owned %} {{interface_type(arg.interface)}}
+    {% elif arg.signature == 'o' %} &{{interface_type(arg.interface)}}
+    {% elif arg.signature == 'n' and arg.interface %} {{interface_type(arg.interface)}} {# TODO #}
+    {% elif arg.signature == 'n' %} usize {# TODO interface arg? #}
+    {% elif arg.signature == 'f' %} f32
+    {% elif arg.signature == 'h' and owned %} std::os::unix::io::OwnedFd
+    {% elif arg.signature == 'h' %} std::os::unix::io::BorrowedFd
+    {% else %} unhandled_arg_type_{{arg.signature}} 
+    {% endif %}
+{%- endmacro %}
+
+{% macro return_type(arguments) -%}
+{%- endmacro %}
+
+{% for interface in interfaces %}
+/** {{interface.description.text|ei_escape_names}} */
+pub mod {{strip_prefix(interface.name)}} {
+    pub struct {{strip_prefix(interface.name)|camel}};
+
+    impl {{strip_prefix(interface.name)|camel}} {
+        {% for outgoing in interface.outgoing %}
+	/** {{outgoing.description.text|ei_escape_names}} */
+        pub fn {{outgoing.name}}(
+	    &self,
+	    {%- for arg in outgoing.arguments %}
+	    {% if arg.signature != 'n' %}
+	    _{{arg.name}}: {{arg_type(arg, false)}},
+	    {% endif %}
+	    {% endfor -%}
+	    ) -> Result<(
+	    {%- for arg in outgoing.arguments %}
+	    {% if arg.signature == 'n' %}
+	    {{arg_type(arg, true)}}
+	    {% endif %}
+	    {% endfor -%}
+	    ), ()>{
+	    Err(()) // TODO
+        }
+
+        {% endfor %}
+    }
+
+    {% for enum in interface.enums %}
+     /** {{enum.description.text|ei_escape_names}} */
+    pub enum {{enum.camel_name}} {
+        {% for entry in enum.entries %}
+        /** {{entry.summary}} */
+        {{entry.name|camel}} = {{entry.value}},
+        {% endfor %}
+    }
+    {% endfor %}
+
+    // XXX name
+    pub enum Event {
+        {% for incoming in interface.incoming %}
+	    /** {{incoming.description.text|ei_escape_names}} */
+	    {{ incoming.name|camel }}
+	        {% if incoming.arguments %}
+	        { {% for arg in incoming.arguments %}
+		    /** {{arg.summary}} */
+		    {{arg.name}}: {{arg_type(arg, true)}},
+		{% endfor %} }
+		{% endif %},
+        {% endfor %}
+    }
+}
+
+{% endfor %}
+
+// map opcodes
