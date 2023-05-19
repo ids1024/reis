@@ -7,3 +7,6 @@ edition = "2021"
 [dependencies]
 # calloop = { version = "0.10.5", optional = true } # TODO calloop source
 rustix = { version = "0.37.19", features = ["net"] }
+
+[dev-dependencies]
+calloop = { version = "0.10.5" }

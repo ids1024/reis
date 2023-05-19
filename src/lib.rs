@@ -9,9 +9,9 @@ use rustix::{
     net,
 };
 use std::{
-    env,
+    env, io,
     os::unix::{
-        io::{BorrowedFd, OwnedFd},
+        io::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
         net::{UnixListener, UnixStream},
     },
     path::{Path, PathBuf},
@@ -25,24 +25,38 @@ pub mod ei {
 
 #[allow(unused_parens)]
 pub mod eis {
+    use std::os::unix::io::{AsFd, AsRawFd, BorrowedFd, RawFd};
+
     pub struct Listener {
         listener: super::UnixListener,
     }
 
+    // TODO lockfile, unlink, etc.
     impl Listener {
         pub fn bind(path: &super::Path) -> std::io::Result<Self> {
-            Ok(Self {
-                listener: super::UnixListener::bind(path)?,
-            })
+            let listener = super::UnixListener::bind(path)?;
+            listener.set_nonblocking(true)?;
+            Ok(Self { listener })
         }
 
-        pub fn incoming(&self) -> impl Iterator<Item = super::Connection> + '_ {
-            self.listener
-                .incoming()
-                .filter_map(Result::ok)
-                .map(|socket| super::Connection {
-                    socket: super::Arc::new(socket),
-                })
+        pub fn accept(&self) -> std::io::Result<Option<super::Connection>> {
+            match self.listener.accept() {
+                Ok((socket, _)) => Ok(Some(super::Connection::new(socket)?)),
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
+                Err(e) => Err(e),
+            }
+        }
+    }
+
+    impl AsFd for Listener {
+        fn as_fd(&self) -> BorrowedFd {
+            self.listener.as_fd()
+        }
+    }
+
+    impl AsRawFd for Listener {
+        fn as_raw_fd(&self) -> RawFd {
+            self.listener.as_raw_fd()
         }
     }
 
@@ -52,12 +66,37 @@ pub mod eis {
 // TODO Listener?
 // TODO versioning?
 
+struct ConnectionInner {
+    socket: UnixStream,
+    last_id: u64,
+    client: bool,
+}
+
 #[derive(Clone, Debug)]
 pub struct Connection {
     socket: Arc<UnixStream>,
 }
 
+impl AsFd for Connection {
+    fn as_fd(&self) -> BorrowedFd {
+        self.socket.as_fd()
+    }
+}
+
+impl AsRawFd for Connection {
+    fn as_raw_fd(&self) -> RawFd {
+        self.socket.as_raw_fd()
+    }
+}
+
 impl Connection {
+    fn new(socket: UnixStream) -> io::Result<Self> {
+        socket.set_nonblocking(true)?;
+        Ok(Self {
+            socket: Arc::new(socket),
+        })
+    }
+
     // TODO EINTR
     // TODO send return value? send more?
     fn send(&self, data: &[u8], fds: &[BorrowedFd]) -> rustix::io::Result<()> {
