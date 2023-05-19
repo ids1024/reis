@@ -1,5 +1,18 @@
 use calloop::generic::Generic;
 use reis::eis;
+use std::{collections::VecDeque, os::unix::io::{AsRawFd, OwnedFd, RawFd}};
+
+struct ConnectionState {
+    connection: reis::Connection,
+    read_buffer: Vec<u8>,
+    read_fds: Vec<OwnedFd>,
+}
+
+impl AsRawFd for ConnectionState {
+    fn as_raw_fd(&self) -> RawFd {
+        self.connection.as_raw_fd()
+    }
+}
 
 struct State {
     handle: calloop::LoopHandle<'static, Self>,
@@ -21,36 +34,61 @@ fn main() {
                 let handshake = connection.eis_handshake();
                 handshake.handshake_version(1);
 
-                let source =
-                    Generic::new(connection, calloop::Interest::READ, calloop::Mode::Level);
+                let connection_state = ConnectionState {
+                    connection,
+                    read_buffer: Vec::new(),
+                    read_fds: Vec::new(),
+                };
+                let source = Generic::new(
+                    connection_state,
+                    calloop::Interest::READ,
+                    calloop::Mode::Level,
+                );
                 state
                     .handle
-                    .insert_source(source, |event, connection, state| {
-                        let mut buf = [0; 16];
-                        let mut fds = Vec::new();
-                        let count = connection.recv(&mut buf, &mut fds).unwrap();
+                    .insert_source(source, |event, connection_state, state| {
+                        let mut buf = [0; 2048];
+                        let count = connection_state
+                            .connection
+                            .recv(&mut buf, &mut connection_state.read_fds)
+                            .unwrap();
                         if count == 0 {
+                            // TODO handle any messages first
                             return Ok(calloop::PostAction::Remove);
                         }
-                        assert_eq!(count, 16); // XXX bad
-                        let header = reis::Header::parse(&buf).unwrap();
+                        connection_state.read_buffer.extend_from_slice(&buf[0..count]);
 
-                        let mut buf = vec![0; header.length as usize - 16];
-                        let mut fds = Vec::new();
-                        let count = connection.recv(&mut buf, &mut fds).unwrap();
-                        assert_eq!(count, buf.len());
+
+                        if connection_state.read_buffer.len() < 16 {
+                            return Ok(calloop::PostAction::Continue);
+                        }
+
+                        let header = reis::Header::parse(&buf).unwrap();
+                        if connection_state.read_buffer.len() < header.length as usize {
+                            return Ok(calloop::PostAction::Continue);
+                        }
+
+                        // XXX protocol error
+                        if header.length < 16 {
+                            return Ok(calloop::PostAction::Remove);
+                        }
 
                         if header.object_id == 0 {
                             let mut bytes = reis::ByteStream {
-                                connection: &connection,
-                                bytes: &buf,
-                                fds: &mut fds,
+                                connection: &connection_state.connection,
+                                bytes: &connection_state.read_buffer[16..header.length as usize],
+                                fds: &mut connection_state.read_fds,
                             };
                             let request =
                                 eis::Request::parse("ei_handshake", header.opcode, &mut bytes);
                             println!("{:?}", request);
                         } else {
                             println!("Unknown {:?}", &header);
+                        }
+
+                        // XXX inefficient
+                        for i in 0..header.length as usize {
+                            connection_state.read_buffer.remove(0);
                         }
 
                         Ok(calloop::PostAction::Continue)

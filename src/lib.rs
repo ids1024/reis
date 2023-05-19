@@ -18,7 +18,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc, Mutex
+        Arc, Mutex,
     },
 };
 
@@ -108,10 +108,7 @@ impl Connection {
         Ok(Self(Arc::new(ConnectionInner {
             socket,
             client,
-            state: Mutex::new(ConnectionState {
-                next_id,
-                objects,
-            })
+            state: Mutex::new(ConnectionState { next_id, objects }),
         })))
     }
 
