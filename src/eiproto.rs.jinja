@@ -67,7 +67,7 @@ pub mod {{strip_prefix(interface.name)}} {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
-	}
+        }
     }
 
     impl {{strip_prefix(interface.name)|camel}} {
@@ -100,6 +100,9 @@ pub mod {{strip_prefix(interface.name)}} {
             ];
 
             self.0.request({{outgoing.opcode}}, args)?;
+            {% if outgoing.is_destructor %}
+                self.0.connection().remove_id(self.0.id());
+            {% endif %}
 
             Ok((
             {%- for arg in outgoing.arguments %}

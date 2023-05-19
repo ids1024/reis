@@ -15,6 +15,7 @@ struct ConnectionState {
     last_serial: u32,
     name: Option<String>,
     context_type: Option<eis::handshake::ContextType>,
+    seat: Option<eis::seat::Seat>,
 }
 
 impl ConnectionState {
@@ -77,6 +78,7 @@ fn main() {
                     last_serial: 0,
                     name: None,
                     context_type: None,
+                    seat: None,
                 };
                 let source = Generic::new(
                     connection_state,
@@ -150,12 +152,22 @@ fn main() {
                                     eis::handshake::Request::Finish => {
                                         // May prompt user here whether to allow this
                                         let serial = connection_state.next_serial();
-                                        connection_state.connection_obj = Some(
-                                            connection_state
+                                        let connection_obj = connection_state
                                                 .handshake
                                                 .connection(serial, 1)
-                                                .unwrap(),
-                                        );
+                                                .unwrap();
+                                        // XXX only if protocol version supported by client
+                                        let seat = connection_obj.seat(1).unwrap();
+                                        seat.name("default");
+                                        seat.capability(0x1, "ei_pointer");
+                                        seat.capability(0x2, "ei_pointer_absolute");
+                                        seat.capability(0x4, "ei_button");
+                                        seat.capability(0x8, "ei_scroll");
+                                        seat.capability(0x10, "ei_keyboard");
+                                        seat.capability(0x20, "ei_touchscreen");
+                                        seat.done();
+                                        connection_state.seat = Some(seat);
+                                        connection_state.connection_obj = Some(connection_obj);
                                     }
                                     _ => {}
                                 },
@@ -169,6 +181,14 @@ fn main() {
                                     }
                                     _ => {}
                                 },
+                                Some(eis::Request::Seat(request)) => match request {
+                                    eis::seat::Request::Release => {
+                                        // XXX
+                                        let serial = connection_state.next_serial();
+                                        connection_state.seat.as_ref().unwrap().destroyed(serial);
+                                    }
+                                    _ => {}
+                                }
                                 None => {
                                     return connection_state
                                         .protocol_error("failed to parse request");
@@ -176,7 +196,10 @@ fn main() {
                                 _ => {}
                             }
                         } else {
-                            return connection_state.protocol_error("unrecognized object id");
+                            if let Some(connection) = connection_state.connection_obj.as_ref() {
+                                // Only send if object ID is in range?
+                                connection.invalid_object(connection_state.last_serial, header.object_id);
+                            }
                         }
 
                         // XXX inefficient

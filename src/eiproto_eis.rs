@@ -117,6 +117,7 @@ pub mod handshake {
             ];
 
             self.0.request(2, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok((super::connection::Connection(crate::Object::new(
                 self.0.connection().clone(),
@@ -332,6 +333,7 @@ pub mod connection {
             ];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
@@ -554,6 +556,7 @@ pub mod callback {
             let args = &[crate::Arg::Uint64(callback_data.into())];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
@@ -671,6 +674,7 @@ pub mod seat {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
@@ -853,6 +857,7 @@ pub mod device {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
@@ -1293,6 +1298,7 @@ pub mod pointer {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
@@ -1397,6 +1403,7 @@ pub mod pointer_absolute {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
@@ -1503,6 +1510,7 @@ pub mod scroll {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
@@ -1702,6 +1710,7 @@ pub mod button {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
@@ -1838,6 +1847,7 @@ pub mod keyboard {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
@@ -2070,6 +2080,7 @@ pub mod touchscreen {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }

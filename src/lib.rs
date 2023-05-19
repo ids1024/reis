@@ -169,6 +169,10 @@ impl Connection {
         id
     }
 
+    fn remove_id(&self, id: u64) {
+        self.0.state.lock().unwrap().objects.remove(&id);
+    }
+
     pub fn object_interface(&self, id: u64) -> Option<&'static str> {
         self.0.state.lock().unwrap().objects.get(&id).copied()
     }
@@ -327,8 +331,8 @@ impl OwnedArg for String {
                                                    // XXX error?
         let string = String::from_utf8(bytes.to_owned()).ok()?;
         buf.read_n(1)?; // NUL
-                        // Padding
         while len % 4 != 0 {
+            // Padding
             len += 1;
             buf.read::<1>()?;
         }

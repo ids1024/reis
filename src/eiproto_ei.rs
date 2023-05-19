@@ -344,6 +344,7 @@ pub mod connection {
             let args = &[];
 
             self.0.request(1, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
@@ -610,6 +611,7 @@ pub mod pingpong {
             let args = &[crate::Arg::Uint64(callback_data.into())];
 
             self.0.request(0, args)?;
+            self.0.connection().remove_id(self.0.id());
 
             Ok(())
         }
