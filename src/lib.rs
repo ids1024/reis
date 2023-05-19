@@ -169,6 +169,10 @@ impl Connection {
         id
     }
 
+    pub fn object_interface(&self, id: u64) -> Option<&'static str> {
+        self.0.state.lock().unwrap().objects.get(&id).copied()
+    }
+
     fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
         // Leave space for header
         let mut buf = vec![0; 16];

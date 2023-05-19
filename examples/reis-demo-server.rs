@@ -1,11 +1,15 @@
 use calloop::generic::Generic;
 use reis::eis;
-use std::{collections::VecDeque, os::unix::io::{AsRawFd, OwnedFd, RawFd}};
+use std::{
+    collections::VecDeque,
+    os::unix::io::{AsRawFd, OwnedFd, RawFd},
+};
 
 struct ConnectionState {
     connection: reis::Connection,
     read_buffer: Vec<u8>,
     read_fds: Vec<OwnedFd>,
+    handshake: eis::handshake::Handshake,
 }
 
 impl AsRawFd for ConnectionState {
@@ -40,6 +44,7 @@ fn main() {
                     connection,
                     read_buffer: Vec::new(),
                     read_fds: Vec::new(),
+                    handshake,
                 };
                 let source = Generic::new(
                     connection_state,
@@ -58,8 +63,9 @@ fn main() {
                             // TODO handle any messages first
                             return Ok(calloop::PostAction::Remove);
                         }
-                        connection_state.read_buffer.extend_from_slice(&buf[0..count]);
-
+                        connection_state
+                            .read_buffer
+                            .extend_from_slice(&buf[0..count]);
 
                         if connection_state.read_buffer.len() < 16 {
                             return Ok(calloop::PostAction::Continue);
@@ -75,15 +81,38 @@ fn main() {
                             return Ok(calloop::PostAction::Remove);
                         }
 
-                        if header.object_id == 0 {
+                        if let Some(interface) = connection_state
+                            .connection
+                            .object_interface(header.object_id)
+                        {
                             let mut bytes = reis::ByteStream {
                                 connection: &connection_state.connection,
                                 bytes: &connection_state.read_buffer[16..header.length as usize],
                                 fds: &mut connection_state.read_fds,
                             };
-                            let request =
-                                eis::Request::parse("ei_handshake", header.opcode, &mut bytes);
+                            let request = eis::Request::parse(interface, header.opcode, &mut bytes);
                             println!("{:?}", request);
+                            match request {
+                                Some(eis::Request::Handshake(request)) => match request {
+                                    eis::handshake::Request::ContextType { context_type } => {}
+                                    eis::handshake::Request::Finish => {
+                                        // XXX serial
+                                        connection_state.handshake.connection(0, 1);
+                                    }
+                                    _ => {}
+                                },
+                                Some(eis::Request::Connection(request)) => match request {
+                                    eis::connection::Request::Disconnect => {
+                                        return Ok(calloop::PostAction::Remove);
+                                    }
+                                    _ => {}
+                                },
+                                None => {
+                                    // XXX protocol error
+                                    return Ok(calloop::PostAction::Remove);
+                                }
+                                _ => {}
+                            }
                         } else {
                             println!("Unknown {:?}", &header);
                         }
