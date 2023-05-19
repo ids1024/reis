@@ -26,22 +26,23 @@ pub mod ei {
 #[allow(unused_parens)]
 pub mod eis {
     pub struct Listener {
-        listener: super::UnixListener
+        listener: super::UnixListener,
     }
 
     impl Listener {
         pub fn bind(path: &super::Path) -> std::io::Result<Self> {
             Ok(Self {
-                listener: super::UnixListener::bind(path)?
+                listener: super::UnixListener::bind(path)?,
             })
         }
 
         pub fn incoming(&self) -> impl Iterator<Item = super::Connection> + '_ {
-            self.listener.incoming().filter_map(Result::ok).map(|socket| {
-                super::Connection {
-                    socket: super::Arc::new(socket)
-                }
-            })
+            self.listener
+                .incoming()
+                .filter_map(Result::ok)
+                .map(|socket| super::Connection {
+                    socket: super::Arc::new(socket),
+                })
         }
     }
 
@@ -203,32 +204,122 @@ struct Id(u64);
 
 struct NewId(u64);
 
-trait OwnedArgTrait {
-    fn parse(buf: &[u8], fds: &[OwnedFd]) -> Option<(usize, usize)>;
+trait OwnedArg: Sized {
+    // TODO fds?
+    fn parse(buf: &mut ByteStream) -> Option<Self>;
 }
 
-#[derive(Debug)]
-enum OwnedArg {
-    Uint32(u32),
-    Int32(i32),
-    Uint64(u64),
-    Int64(i64),
-    Float(f32),
-    Fd(OwnedFd),
-    String(String),
-    NewId(u64),
-    Id(u64),
+impl OwnedArg for u32 {
+    fn parse(buf: &mut ByteStream) -> Option<Self> {
+        Some(Self::from_ne_bytes(buf.read()?))
+    }
 }
 
-impl OwnedArg {
-    // TODO parse
-    // then use parse to generate parser for request, event; given an opcode
-    // - or, those enums need to be populated with actual value, not this enum
-    //   * Impl from/into? Well, that's failable in this direction.
+impl OwnedArg for i32 {
+    fn parse(buf: &mut ByteStream) -> Option<Self> {
+        Some(Self::from_ne_bytes(buf.read()?))
+    }
+}
+
+impl OwnedArg for u64 {
+    fn parse(buf: &mut ByteStream) -> Option<Self> {
+        Some(Self::from_ne_bytes(buf.read()?))
+    }
+}
+
+impl OwnedArg for i64 {
+    fn parse(buf: &mut ByteStream) -> Option<Self> {
+        Some(Self::from_ne_bytes(buf.read()?))
+    }
+}
+
+impl OwnedArg for f32 {
+    fn parse(buf: &mut ByteStream) -> Option<Self> {
+        Some(Self::from_ne_bytes(buf.read()?))
+    }
+}
+
+// XXX how are fds grouped in stream?
+impl OwnedArg for OwnedFd {
+    fn parse(buf: &mut ByteStream) -> Option<Self> {
+        // XXX error?
+        buf.read_fd()
+    }
+}
+
+impl OwnedArg for String {
+    fn parse(buf: &mut ByteStream) -> Option<Self> {
+        let mut len = u32::parse(buf)?;
+        let bytes = buf.read_n(len as usize - 1)?; // Exclude NUL
+                                                   // XXX error?
+        let string = String::from_utf8(bytes.to_owned()).ok()?;
+        // Padding
+        while len % 4 != 0 {
+            len += 1;
+            buf.read::<1>()?;
+        }
+        Some(string)
+    }
+}
+
+impl OwnedArg for NewId {
+    fn parse(buf: &mut ByteStream) -> Option<Self> {
+        u64::parse(buf).map(Self)
+    }
+}
+
+impl OwnedArg for Id {
+    fn parse(buf: &mut ByteStream) -> Option<Self> {
+        u64::parse(buf).map(Self)
+    }
 }
 
 trait Interface {
     const NAME: &'static str;
     const VERSION: u32;
     type Incoming;
+}
+
+struct ByteStream<'a> {
+    connection: &'a Connection,
+    bytes: &'a [u8],
+    fds: &'a mut Vec<OwnedFd>,
+}
+
+impl<'a> ByteStream<'a> {
+    fn connection(&self) -> &Connection {
+        &self.connection
+    }
+
+    fn read_n(&mut self, n: usize) -> Option<&[u8]> {
+        if self.bytes.len() >= n {
+            let value;
+            (value, self.bytes) = self.bytes.split_at(n);
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    fn read<const N: usize>(&mut self) -> Option<[u8; N]> {
+        if self.bytes.len() >= N {
+            let value;
+            (value, self.bytes) = self.bytes.split_at(N);
+            Some(value.try_into().unwrap())
+        } else {
+            None
+        }
+    }
+
+    fn read_fd(&mut self) -> Option<OwnedFd> {
+        if !self.fds.is_empty() {
+            Some(self.fds.remove(0))
+        } else {
+            None
+        }
+    }
+
+    fn read_arg<T: OwnedArg>(&mut self) -> Option<T> {
+        T::parse(self)
+    }
 }

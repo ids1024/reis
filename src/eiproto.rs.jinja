@@ -60,6 +60,17 @@ pub mod {{strip_prefix(interface.name)}} {
         type Incoming = {{incoming_enum(interface)}};
     }
 
+    {# TODO validate that ID is valid? #}
+    impl crate::OwnedArg for {{strip_prefix(interface.name)|camel}} {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
+    }
+
     impl {{strip_prefix(interface.name)|camel}} {
         {% for outgoing in interface.outgoing %}
         /** {{outgoing.description.text|ei_escape_names}} */
@@ -125,6 +136,12 @@ pub mod {{strip_prefix(interface.name)}} {
             value as u32
         }
     }
+
+    impl crate::OwnedArg for {{enum.camel_name}} {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
+        }
+    }
     {% endfor %}
 
     #[non_exhaustive]
@@ -143,8 +160,20 @@ pub mod {{strip_prefix(interface.name)}} {
     }
 
     impl {{incoming_enum(interface)}} {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        {# TODO fds; assume bytes read is total? #}
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+            {% for incoming in interface.incoming %}
+                {{incoming.opcode}} =>
+                Some(Self::{{ incoming.name|camel }}
+                {% if incoming.arguments %} {
+                {% for arg in incoming.arguments %}
+                    {{arg.name}}: bytes.read_arg()?,
+                {% endfor %} }
+                {% endif %} ),
+            {% endfor %}
+                _ => None
+            }
         }
     }
 }
@@ -157,6 +186,17 @@ pub mod {{strip_prefix(interface.name)}} {
 #[derive(Debug)]
 pub enum {{incoming_enum(interfaces[0])}} {
     {% for interface in interfaces %}
-        {{interface.name|camel}}({{strip_prefix(interface.name)}}::{{incoming_enum(interface)}}),
+        {{strip_prefix(interface.name)|camel}}({{strip_prefix(interface.name)}}::{{incoming_enum(interface)}}),
     {% endfor %}
+}
+
+impl {{incoming_enum(interfaces[0])}} {
+    fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        match interface {
+            {% for interface in interfaces %}
+            "{{interface.name}}" => Some(Self::{{strip_prefix(interface.name)|camel}}({{strip_prefix(interface.name)}}::{{incoming_enum(interface)}}::parse(operand, bytes)?)),
+            _=> None,
+            {% endfor %}
+        }
+    }
 }

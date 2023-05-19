@@ -34,6 +34,16 @@ pub mod handshake {
         type Incoming = Request;
     }
 
+    impl crate::OwnedArg for Handshake {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
+    }
+
     impl Handshake {
         /**
         This event is sent exactly once and immediately after connection
@@ -141,6 +151,12 @@ pub mod handshake {
         }
     }
 
+    impl crate::OwnedArg for ContextType {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
+        }
+    }
+
     #[non_exhaustive]
     #[derive(Debug)]
     pub enum Request {
@@ -235,8 +251,24 @@ pub mod handshake {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::HandshakeVersion {
+                    version: bytes.read_arg()?,
+                }),
+                1 => Some(Self::Finish),
+                2 => Some(Self::ContextType {
+                    context_type: bytes.read_arg()?,
+                }),
+                3 => Some(Self::Name {
+                    name: bytes.read_arg()?,
+                }),
+                4 => Some(Self::InterfaceVersion {
+                    name: bytes.read_arg()?,
+                    version: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -259,6 +291,16 @@ pub mod connection {
         const NAME: &'static str = "eis_connection";
         const VERSION: u32 = 1;
         type Incoming = Request;
+    }
+
+    impl crate::OwnedArg for Connection {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Connection {
@@ -423,6 +465,12 @@ pub mod connection {
         }
     }
 
+    impl crate::OwnedArg for DisconnectReason {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
+        }
+    }
+
     #[non_exhaustive]
     #[derive(Debug)]
     pub enum Request {
@@ -464,8 +512,14 @@ pub mod connection {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Sync {
+                    callback: bytes.read_arg()?,
+                }),
+                1 => Some(Self::Disconnect),
+                _ => None,
+            }
         }
     }
 }
@@ -491,6 +545,16 @@ pub mod callback {
         type Incoming = Request;
     }
 
+    impl crate::OwnedArg for Callback {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
+    }
+
     impl Callback {
         /**
         Notify the client when the related request is done. Immediately after this event
@@ -511,8 +575,10 @@ pub mod callback {
     pub enum Request {}
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                _ => None,
+            }
         }
     }
 }
@@ -538,6 +604,16 @@ pub mod pingpong {
         type Incoming = Request;
     }
 
+    impl crate::OwnedArg for Pingpong {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
+    }
+
     impl Pingpong {}
 
     #[non_exhaustive]
@@ -555,8 +631,13 @@ pub mod pingpong {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Done {
+                    callback_data: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -588,6 +669,16 @@ pub mod seat {
         const NAME: &'static str = "eis_seat";
         const VERSION: u32 = 1;
         type Incoming = Request;
+    }
+
+    impl crate::OwnedArg for Seat {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Seat {
@@ -732,8 +823,14 @@ pub mod seat {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Release),
+                1 => Some(Self::Bind {
+                    capabilities: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -763,6 +860,16 @@ pub mod device {
         const NAME: &'static str = "eis_device";
         const VERSION: u32 = 1;
         type Incoming = Request;
+    }
+
+    impl crate::OwnedArg for Device {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Device {
@@ -1064,6 +1171,12 @@ pub mod device {
         }
     }
 
+    impl crate::OwnedArg for DeviceType {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
+        }
+    }
+
     #[non_exhaustive]
     #[derive(Debug)]
     pub enum Request {
@@ -1146,8 +1259,22 @@ pub mod device {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Release),
+                1 => Some(Self::StartEmulating {
+                    last_serial: bytes.read_arg()?,
+                    sequence: bytes.read_arg()?,
+                }),
+                2 => Some(Self::StopEmulating {
+                    last_serial: bytes.read_arg()?,
+                }),
+                3 => Some(Self::Frame {
+                    last_serial: bytes.read_arg()?,
+                    timestamp: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1175,6 +1302,16 @@ pub mod pointer {
         const NAME: &'static str = "eis_pointer";
         const VERSION: u32 = 1;
         type Incoming = Request;
+    }
+
+    impl crate::OwnedArg for Pointer {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Pointer {
@@ -1239,8 +1376,15 @@ pub mod pointer {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Release),
+                1 => Some(Self::MotionRelative {
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1268,6 +1412,16 @@ pub mod pointer_absolute {
         const NAME: &'static str = "eis_pointer_absolute";
         const VERSION: u32 = 1;
         type Incoming = Request;
+    }
+
+    impl crate::OwnedArg for PointerAbsolute {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl PointerAbsolute {
@@ -1334,8 +1488,15 @@ pub mod pointer_absolute {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Release),
+                1 => Some(Self::MotionAbsolute {
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1363,6 +1524,16 @@ pub mod scroll {
         const NAME: &'static str = "eis_scroll";
         const VERSION: u32 = 1;
         type Incoming = Request;
+    }
+
+    impl crate::OwnedArg for Scroll {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Scroll {
@@ -1513,8 +1684,24 @@ pub mod scroll {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Release),
+                1 => Some(Self::Scroll {
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                2 => Some(Self::ScrollDiscrete {
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                3 => Some(Self::ScrollStop {
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                    is_cancel: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1542,6 +1729,16 @@ pub mod button {
         const NAME: &'static str = "eis_button";
         const VERSION: u32 = 1;
         type Incoming = Request;
+    }
+
+    impl crate::OwnedArg for Button {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Button {
@@ -1599,6 +1796,12 @@ pub mod button {
         }
     }
 
+    impl crate::OwnedArg for ButtonState {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
+        }
+    }
+
     #[non_exhaustive]
     #[derive(Debug)]
     pub enum Request {
@@ -1628,8 +1831,15 @@ pub mod button {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Release),
+                1 => Some(Self::Button {
+                    button: bytes.read_arg()?,
+                    state: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1657,6 +1867,16 @@ pub mod keyboard {
         const NAME: &'static str = "eis_keyboard";
         const VERSION: u32 = 1;
         type Incoming = Request;
+    }
+
+    impl crate::OwnedArg for Keyboard {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Keyboard {
@@ -1784,6 +2004,12 @@ pub mod keyboard {
             value as u32
         }
     }
+
+    impl crate::OwnedArg for KeyState {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
+        }
+    }
     /**
     The keymap type describes how the keymap in the ei_keyboard.keymap event
     should be parsed.
@@ -1797,6 +2023,12 @@ pub mod keyboard {
     impl From<KeymapType> for u32 {
         fn from(value: KeymapType) -> u32 {
             value as u32
+        }
+    }
+
+    impl crate::OwnedArg for KeymapType {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
         }
     }
 
@@ -1830,8 +2062,15 @@ pub mod keyboard {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Release),
+                1 => Some(Self::Key {
+                    key: bytes.read_arg()?,
+                    state: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1859,6 +2098,16 @@ pub mod touchscreen {
         const NAME: &'static str = "eis_touchscreen";
         const VERSION: u32 = 1;
         type Incoming = Request;
+    }
+
+    impl crate::OwnedArg for Touchscreen {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Touchscreen {
@@ -2002,8 +2251,24 @@ pub mod touchscreen {
     }
 
     impl Request {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Release),
+                1 => Some(Self::Down {
+                    touchid: bytes.read_arg()?,
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                2 => Some(Self::Motion {
+                    touchid: bytes.read_arg()?,
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                3 => Some(Self::Up {
+                    touchid: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -2013,16 +2278,53 @@ pub mod touchscreen {
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum Request {
-    EisHandshake(handshake::Request),
-    EisConnection(connection::Request),
-    EisCallback(callback::Request),
-    EisPingpong(pingpong::Request),
-    EisSeat(seat::Request),
-    EisDevice(device::Request),
-    EisPointer(pointer::Request),
-    EisPointerAbsolute(pointer_absolute::Request),
-    EisScroll(scroll::Request),
-    EisButton(button::Request),
-    EisKeyboard(keyboard::Request),
-    EisTouchscreen(touchscreen::Request),
+    Handshake(handshake::Request),
+    Connection(connection::Request),
+    Callback(callback::Request),
+    Pingpong(pingpong::Request),
+    Seat(seat::Request),
+    Device(device::Request),
+    Pointer(pointer::Request),
+    PointerAbsolute(pointer_absolute::Request),
+    Scroll(scroll::Request),
+    Button(button::Request),
+    Keyboard(keyboard::Request),
+    Touchscreen(touchscreen::Request),
+}
+
+impl Request {
+    fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        match interface {
+            "eis_handshake" => Some(Self::Handshake(handshake::Request::parse(operand, bytes)?)),
+            _ => None,
+            "eis_connection" => Some(Self::Connection(connection::Request::parse(
+                operand, bytes,
+            )?)),
+            _ => None,
+            "eis_callback" => Some(Self::Callback(callback::Request::parse(operand, bytes)?)),
+            _ => None,
+            "eis_pingpong" => Some(Self::Pingpong(pingpong::Request::parse(operand, bytes)?)),
+            _ => None,
+            "eis_seat" => Some(Self::Seat(seat::Request::parse(operand, bytes)?)),
+            _ => None,
+            "eis_device" => Some(Self::Device(device::Request::parse(operand, bytes)?)),
+            _ => None,
+            "eis_pointer" => Some(Self::Pointer(pointer::Request::parse(operand, bytes)?)),
+            _ => None,
+            "eis_pointer_absolute" => Some(Self::PointerAbsolute(
+                pointer_absolute::Request::parse(operand, bytes)?,
+            )),
+            _ => None,
+            "eis_scroll" => Some(Self::Scroll(scroll::Request::parse(operand, bytes)?)),
+            _ => None,
+            "eis_button" => Some(Self::Button(button::Request::parse(operand, bytes)?)),
+            _ => None,
+            "eis_keyboard" => Some(Self::Keyboard(keyboard::Request::parse(operand, bytes)?)),
+            _ => None,
+            "eis_touchscreen" => Some(Self::Touchscreen(touchscreen::Request::parse(
+                operand, bytes,
+            )?)),
+            _ => None,
+        }
+    }
 }

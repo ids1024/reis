@@ -34,6 +34,16 @@ pub mod handshake {
         type Incoming = Event;
     }
 
+    impl crate::OwnedArg for Handshake {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
+    }
+
     impl Handshake {
         /**
         Notifies the EIS implementation that this client supports the
@@ -169,6 +179,12 @@ pub mod handshake {
         }
     }
 
+    impl crate::OwnedArg for ContextType {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
+        }
+    }
+
     #[non_exhaustive]
     #[derive(Debug)]
     pub enum Event {
@@ -238,8 +254,22 @@ pub mod handshake {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::HandshakeVersion {
+                    version: bytes.read_arg()?,
+                }),
+                1 => Some(Self::InterfaceVersion {
+                    name: bytes.read_arg()?,
+                    version: bytes.read_arg()?,
+                }),
+                2 => Some(Self::Connection {
+                    serial: bytes.read_arg()?,
+                    connection: bytes.read_arg()?,
+                    version: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -262,6 +292,16 @@ pub mod connection {
         const NAME: &'static str = "ei_connection";
         const VERSION: u32 = 1;
         type Incoming = Event;
+    }
+
+    impl crate::OwnedArg for Connection {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Connection {
@@ -347,6 +387,12 @@ pub mod connection {
     impl From<DisconnectReason> for u32 {
         fn from(value: DisconnectReason) -> u32 {
             value as u32
+        }
+    }
+
+    impl crate::OwnedArg for DisconnectReason {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
         }
     }
 
@@ -450,8 +496,27 @@ pub mod connection {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Disconnected {
+                    last_serial: bytes.read_arg()?,
+                    reason: bytes.read_arg()?,
+                    explanation: bytes.read_arg()?,
+                }),
+                1 => Some(Self::Seat {
+                    seat: bytes.read_arg()?,
+                    version: bytes.read_arg()?,
+                }),
+                2 => Some(Self::InvalidObject {
+                    last_serial: bytes.read_arg()?,
+                    invalid_id: bytes.read_arg()?,
+                }),
+                3 => Some(Self::Ping {
+                    ping: bytes.read_arg()?,
+                    version: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -477,6 +542,16 @@ pub mod callback {
         type Incoming = Event;
     }
 
+    impl crate::OwnedArg for Callback {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
+    }
+
     impl Callback {}
 
     #[non_exhaustive]
@@ -494,8 +569,13 @@ pub mod callback {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Done {
+                    callback_data: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -521,6 +601,16 @@ pub mod pingpong {
         type Incoming = Event;
     }
 
+    impl crate::OwnedArg for Pingpong {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
+    }
+
     impl Pingpong {
         /**
         Notify the EIS implementation when the related event is done. Immediately after this request
@@ -541,8 +631,10 @@ pub mod pingpong {
     pub enum Event {}
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                _ => None,
+            }
         }
     }
 }
@@ -574,6 +666,16 @@ pub mod seat {
         const NAME: &'static str = "ei_seat";
         const VERSION: u32 = 1;
         type Incoming = Event;
+    }
+
+    impl crate::OwnedArg for Seat {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Seat {
@@ -700,8 +802,25 @@ pub mod seat {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Destroyed {
+                    serial: bytes.read_arg()?,
+                }),
+                1 => Some(Self::Name {
+                    name: bytes.read_arg()?,
+                }),
+                2 => Some(Self::Capability {
+                    mask: bytes.read_arg()?,
+                    interface: bytes.read_arg()?,
+                }),
+                3 => Some(Self::Done),
+                4 => Some(Self::Device {
+                    device: bytes.read_arg()?,
+                    version: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -731,6 +850,16 @@ pub mod device {
         const NAME: &'static str = "ei_device";
         const VERSION: u32 = 1;
         type Incoming = Event;
+    }
+
+    impl crate::OwnedArg for Device {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Device {
@@ -858,6 +987,12 @@ pub mod device {
     impl From<DeviceType> for u32 {
         fn from(value: DeviceType) -> u32 {
             value as u32
+        }
+    }
+
+    impl crate::OwnedArg for DeviceType {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
         }
     }
 
@@ -1075,8 +1210,53 @@ pub mod device {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Destroyed {
+                    serial: bytes.read_arg()?,
+                }),
+                1 => Some(Self::Name {
+                    name: bytes.read_arg()?,
+                }),
+                2 => Some(Self::DeviceType {
+                    device_type: bytes.read_arg()?,
+                }),
+                3 => Some(Self::Dimensions {
+                    width: bytes.read_arg()?,
+                    height: bytes.read_arg()?,
+                }),
+                4 => Some(Self::Region {
+                    offset_x: bytes.read_arg()?,
+                    offset_y: bytes.read_arg()?,
+                    width: bytes.read_arg()?,
+                    hight: bytes.read_arg()?,
+                    scale: bytes.read_arg()?,
+                }),
+                5 => Some(Self::Interface {
+                    object: bytes.read_arg()?,
+                    interface_name: bytes.read_arg()?,
+                    version: bytes.read_arg()?,
+                }),
+                6 => Some(Self::Done),
+                7 => Some(Self::Resumed {
+                    serial: bytes.read_arg()?,
+                }),
+                8 => Some(Self::Paused {
+                    serial: bytes.read_arg()?,
+                }),
+                9 => Some(Self::StartEmulating {
+                    serial: bytes.read_arg()?,
+                    sequence: bytes.read_arg()?,
+                }),
+                10 => Some(Self::StopEmulating {
+                    serial: bytes.read_arg()?,
+                }),
+                11 => Some(Self::Frame {
+                    serial: bytes.read_arg()?,
+                    timestamp: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1104,6 +1284,16 @@ pub mod pointer {
         const NAME: &'static str = "ei_pointer";
         const VERSION: u32 = 1;
         type Incoming = Event;
+    }
+
+    impl crate::OwnedArg for Pointer {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Pointer {
@@ -1171,8 +1361,17 @@ pub mod pointer {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Destroyed {
+                    serial: bytes.read_arg()?,
+                }),
+                1 => Some(Self::MotionRelative {
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1200,6 +1399,16 @@ pub mod pointer_absolute {
         const NAME: &'static str = "ei_pointer_absolute";
         const VERSION: u32 = 1;
         type Incoming = Event;
+    }
+
+    impl crate::OwnedArg for PointerAbsolute {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl PointerAbsolute {
@@ -1269,8 +1478,17 @@ pub mod pointer_absolute {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Destroyed {
+                    serial: bytes.read_arg()?,
+                }),
+                1 => Some(Self::MotionAbsolute {
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1298,6 +1516,16 @@ pub mod scroll {
         const NAME: &'static str = "ei_scroll";
         const VERSION: u32 = 1;
         type Incoming = Event;
+    }
+
+    impl crate::OwnedArg for Scroll {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Scroll {
@@ -1451,8 +1679,26 @@ pub mod scroll {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Destroyed {
+                    serial: bytes.read_arg()?,
+                }),
+                1 => Some(Self::Scroll {
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                2 => Some(Self::ScrollDiscrete {
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                3 => Some(Self::ScrollStop {
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                    is_cancel: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1480,6 +1726,16 @@ pub mod button {
         const NAME: &'static str = "ei_button";
         const VERSION: u32 = 1;
         type Incoming = Event;
+    }
+
+    impl crate::OwnedArg for Button {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Button {
@@ -1536,6 +1792,12 @@ pub mod button {
         }
     }
 
+    impl crate::OwnedArg for ButtonState {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
+        }
+    }
+
     #[non_exhaustive]
     #[derive(Debug)]
     pub enum Event {
@@ -1569,8 +1831,17 @@ pub mod button {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Destroyed {
+                    serial: bytes.read_arg()?,
+                }),
+                1 => Some(Self::Button {
+                    button: bytes.read_arg()?,
+                    state: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1598,6 +1869,16 @@ pub mod keyboard {
         const NAME: &'static str = "ei_keyboard";
         const VERSION: u32 = 1;
         type Incoming = Event;
+    }
+
+    impl crate::OwnedArg for Keyboard {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Keyboard {
@@ -1654,6 +1935,12 @@ pub mod keyboard {
             value as u32
         }
     }
+
+    impl crate::OwnedArg for KeyState {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
+        }
+    }
     /**
     The keymap type describes how the keymap in the `ei_keyboard.keymap` event
     should be parsed.
@@ -1667,6 +1954,12 @@ pub mod keyboard {
     impl From<KeymapType> for u32 {
         fn from(value: KeymapType) -> u32 {
             value as u32
+        }
+    }
+
+    impl crate::OwnedArg for KeymapType {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            todo!()
         }
     }
 
@@ -1756,8 +2049,29 @@ pub mod keyboard {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Destroyed {
+                    serial: bytes.read_arg()?,
+                }),
+                1 => Some(Self::Keymap {
+                    keymap_type: bytes.read_arg()?,
+                    size: bytes.read_arg()?,
+                    keymap: bytes.read_arg()?,
+                }),
+                2 => Some(Self::Key {
+                    key: bytes.read_arg()?,
+                    state: bytes.read_arg()?,
+                }),
+                3 => Some(Self::Modifiers {
+                    serial: bytes.read_arg()?,
+                    depressed: bytes.read_arg()?,
+                    locked: bytes.read_arg()?,
+                    latched: bytes.read_arg()?,
+                    group: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1785,6 +2099,16 @@ pub mod touchscreen {
         const NAME: &'static str = "ei_touchscreen";
         const VERSION: u32 = 1;
         type Incoming = Event;
+    }
+
+    impl crate::OwnedArg for Touchscreen {
+        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            let id = u64::parse(buf)?;
+            Some(Self {
+                connection: buf.connection().clone(),
+                id,
+            })
+        }
     }
 
     impl Touchscreen {
@@ -1931,8 +2255,26 @@ pub mod touchscreen {
     }
 
     impl Event {
-        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
-            todo!()
+        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+            match operand {
+                0 => Some(Self::Destroyed {
+                    serial: bytes.read_arg()?,
+                }),
+                1 => Some(Self::Down {
+                    touchid: bytes.read_arg()?,
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                2 => Some(Self::Motion {
+                    touchid: bytes.read_arg()?,
+                    x: bytes.read_arg()?,
+                    y: bytes.read_arg()?,
+                }),
+                3 => Some(Self::Up {
+                    touchid: bytes.read_arg()?,
+                }),
+                _ => None,
+            }
         }
     }
 }
@@ -1942,16 +2284,51 @@ pub mod touchscreen {
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum Event {
-    EiHandshake(handshake::Event),
-    EiConnection(connection::Event),
-    EiCallback(callback::Event),
-    EiPingpong(pingpong::Event),
-    EiSeat(seat::Event),
-    EiDevice(device::Event),
-    EiPointer(pointer::Event),
-    EiPointerAbsolute(pointer_absolute::Event),
-    EiScroll(scroll::Event),
-    EiButton(button::Event),
-    EiKeyboard(keyboard::Event),
-    EiTouchscreen(touchscreen::Event),
+    Handshake(handshake::Event),
+    Connection(connection::Event),
+    Callback(callback::Event),
+    Pingpong(pingpong::Event),
+    Seat(seat::Event),
+    Device(device::Event),
+    Pointer(pointer::Event),
+    PointerAbsolute(pointer_absolute::Event),
+    Scroll(scroll::Event),
+    Button(button::Event),
+    Keyboard(keyboard::Event),
+    Touchscreen(touchscreen::Event),
+}
+
+impl Event {
+    fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        match interface {
+            "ei_handshake" => Some(Self::Handshake(handshake::Event::parse(operand, bytes)?)),
+            _ => None,
+            "ei_connection" => Some(Self::Connection(connection::Event::parse(operand, bytes)?)),
+            _ => None,
+            "ei_callback" => Some(Self::Callback(callback::Event::parse(operand, bytes)?)),
+            _ => None,
+            "ei_pingpong" => Some(Self::Pingpong(pingpong::Event::parse(operand, bytes)?)),
+            _ => None,
+            "ei_seat" => Some(Self::Seat(seat::Event::parse(operand, bytes)?)),
+            _ => None,
+            "ei_device" => Some(Self::Device(device::Event::parse(operand, bytes)?)),
+            _ => None,
+            "ei_pointer" => Some(Self::Pointer(pointer::Event::parse(operand, bytes)?)),
+            _ => None,
+            "ei_pointer_absolute" => Some(Self::PointerAbsolute(pointer_absolute::Event::parse(
+                operand, bytes,
+            )?)),
+            _ => None,
+            "ei_scroll" => Some(Self::Scroll(scroll::Event::parse(operand, bytes)?)),
+            _ => None,
+            "ei_button" => Some(Self::Button(button::Event::parse(operand, bytes)?)),
+            _ => None,
+            "ei_keyboard" => Some(Self::Keyboard(keyboard::Event::parse(operand, bytes)?)),
+            _ => None,
+            "ei_touchscreen" => Some(Self::Touchscreen(touchscreen::Event::parse(
+                operand, bytes,
+            )?)),
+            _ => None,
+        }
+    }
 }
