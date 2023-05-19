@@ -5,7 +5,7 @@
 // Implement handshake
 
 use rustix::{
-    io::{IoSlice, IoSliceMut},
+    io::{retry_on_intr, IoSlice, IoSliceMut},
     net,
 };
 use std::{
@@ -99,16 +99,19 @@ impl Connection {
 
     // TODO EINTR
     // TODO send return value? send more?
+    // TODO buffer nonblocking output?
     fn send(&self, data: &[u8], fds: &[BorrowedFd]) -> rustix::io::Result<()> {
         let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(fds.len()))];
         let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
         cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(&fds));
-        net::sendmsg_noaddr(
-            &self.socket,
-            &[IoSlice::new(data)],
-            &mut cmsg_buffer,
-            net::SendFlags::empty(),
-        )?;
+        retry_on_intr(|| {
+            net::sendmsg_noaddr(
+                &self.socket,
+                &[IoSlice::new(data)],
+                &mut cmsg_buffer,
+                net::SendFlags::empty(),
+            )
+        })?;
         Ok(())
     }
 
@@ -118,12 +121,14 @@ impl Connection {
 
         let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(MAX_FDS))];
         let mut cmsg_buffer = net::RecvAncillaryBuffer::new(&mut cmsg_space);
-        let response = net::recvmsg(
-            &self.socket,
-            &mut [IoSliceMut::new(buf)],
-            &mut cmsg_buffer,
-            net::RecvFlags::empty(),
-        )?;
+        let response = retry_on_intr(|| {
+            net::recvmsg(
+                &self.socket,
+                &mut [IoSliceMut::new(buf)],
+                &mut cmsg_buffer,
+                net::RecvFlags::empty(),
+            )
+        })?;
         fds.extend(
             cmsg_buffer
                 .drain()
