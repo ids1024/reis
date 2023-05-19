@@ -27,7 +27,7 @@ pub mod handshake {
     pub struct Handshake(pub(crate) crate::Object);
 
     impl crate::Interface for Handshake {
-        const NAME: &'static str = "eis_handshake";
+        const NAME: &'static str = "ei_handshake";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -109,7 +109,7 @@ pub mod handshake {
             serial: u32,
             version: u32,
         ) -> rustix::io::Result<(super::connection::Connection)> {
-            let connection = self.0.connection().new_id();
+            let connection = self.0.connection().new_id("ei_connection");
             let args = &[
                 crate::Arg::Uint32(serial.into()),
                 crate::Arg::NewId(connection.into()),
@@ -284,7 +284,7 @@ pub mod connection {
     pub struct Connection(pub(crate) crate::Object);
 
     impl crate::Interface for Connection {
-        const NAME: &'static str = "eis_connection";
+        const NAME: &'static str = "ei_connection";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -348,7 +348,7 @@ pub mod connection {
         interface.
          */
         pub fn seat(&self, version: u32) -> rustix::io::Result<(super::seat::Seat)> {
-            let seat = self.0.connection().new_id();
+            let seat = self.0.connection().new_id("ei_seat");
             let args = &[
                 crate::Arg::NewId(seat.into()),
                 crate::Arg::Uint32(version.into()),
@@ -406,7 +406,7 @@ pub mod connection {
         "ei_pingpong" interface.
          */
         pub fn ping(&self, version: u32) -> rustix::io::Result<(super::pingpong::Pingpong)> {
-            let ping = self.0.connection().new_id();
+            let ping = self.0.connection().new_id("ei_pingpong");
             let args = &[
                 crate::Arg::NewId(ping.into()),
                 crate::Arg::Uint32(version.into()),
@@ -532,7 +532,7 @@ pub mod callback {
     pub struct Callback(pub(crate) crate::Object);
 
     impl crate::Interface for Callback {
-        const NAME: &'static str = "eis_callback";
+        const NAME: &'static str = "ei_callback";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -585,7 +585,7 @@ pub mod pingpong {
     pub struct Pingpong(pub(crate) crate::Object);
 
     impl crate::Interface for Pingpong {
-        const NAME: &'static str = "eis_pingpong";
+        const NAME: &'static str = "ei_pingpong";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -646,7 +646,7 @@ pub mod seat {
     pub struct Seat(pub(crate) crate::Object);
 
     impl crate::Interface for Seat {
-        const NAME: &'static str = "eis_seat";
+        const NAME: &'static str = "ei_seat";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -753,7 +753,7 @@ pub mod seat {
         interface.
          */
         pub fn device(&self, version: u32) -> rustix::io::Result<(super::device::Device)> {
-            let device = self.0.connection().new_id();
+            let device = self.0.connection().new_id("ei_device");
             let args = &[
                 crate::Arg::NewId(device.into()),
                 crate::Arg::Uint32(version.into()),
@@ -828,7 +828,7 @@ pub mod device {
     pub struct Device(pub(crate) crate::Object);
 
     impl crate::Interface for Device {
-        const NAME: &'static str = "eis_device";
+        const NAME: &'static str = "ei_device";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -983,7 +983,7 @@ pub mod device {
         It is a protocol violation to send this event after the ei_device.done event.
          */
         pub fn interface(&self, interface_name: &str, version: u32) -> rustix::io::Result<(u64)> {
-            let object = self.0.connection().new_id();
+            let object = self.0.connection().new_id("");
             let args = &[
                 crate::Arg::NewId(object.into()),
                 crate::Arg::String(interface_name.into()),
@@ -1268,7 +1268,7 @@ pub mod pointer {
     pub struct Pointer(pub(crate) crate::Object);
 
     impl crate::Interface for Pointer {
-        const NAME: &'static str = "eis_pointer";
+        const NAME: &'static str = "ei_pointer";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -1372,7 +1372,7 @@ pub mod pointer_absolute {
     pub struct PointerAbsolute(pub(crate) crate::Object);
 
     impl crate::Interface for PointerAbsolute {
-        const NAME: &'static str = "eis_pointer_absolute";
+        const NAME: &'static str = "ei_pointer_absolute";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -1478,7 +1478,7 @@ pub mod scroll {
     pub struct Scroll(pub(crate) crate::Object);
 
     impl crate::Interface for Scroll {
-        const NAME: &'static str = "eis_scroll";
+        const NAME: &'static str = "ei_scroll";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -1677,7 +1677,7 @@ pub mod button {
     pub struct Button(pub(crate) crate::Object);
 
     impl crate::Interface for Button {
-        const NAME: &'static str = "eis_button";
+        const NAME: &'static str = "ei_button";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -1813,7 +1813,7 @@ pub mod keyboard {
     pub struct Keyboard(pub(crate) crate::Object);
 
     impl crate::Interface for Keyboard {
-        const NAME: &'static str = "eis_keyboard";
+        const NAME: &'static str = "ei_keyboard";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -2045,7 +2045,7 @@ pub mod touchscreen {
     pub struct Touchscreen(pub(crate) crate::Object);
 
     impl crate::Interface for Touchscreen {
-        const NAME: &'static str = "eis_touchscreen";
+        const NAME: &'static str = "ei_touchscreen";
         const VERSION: u32 = 1;
         type Incoming = Request;
     }
@@ -2248,22 +2248,22 @@ impl Request {
         bytes: &mut crate::ByteStream,
     ) -> Option<Self> {
         match interface {
-            "eis_handshake" => Some(Self::Handshake(handshake::Request::parse(operand, bytes)?)),
-            "eis_connection" => Some(Self::Connection(connection::Request::parse(
+            "ei_handshake" => Some(Self::Handshake(handshake::Request::parse(operand, bytes)?)),
+            "ei_connection" => Some(Self::Connection(connection::Request::parse(
                 operand, bytes,
             )?)),
-            "eis_callback" => Some(Self::Callback(callback::Request::parse(operand, bytes)?)),
-            "eis_pingpong" => Some(Self::Pingpong(pingpong::Request::parse(operand, bytes)?)),
-            "eis_seat" => Some(Self::Seat(seat::Request::parse(operand, bytes)?)),
-            "eis_device" => Some(Self::Device(device::Request::parse(operand, bytes)?)),
-            "eis_pointer" => Some(Self::Pointer(pointer::Request::parse(operand, bytes)?)),
-            "eis_pointer_absolute" => Some(Self::PointerAbsolute(
-                pointer_absolute::Request::parse(operand, bytes)?,
-            )),
-            "eis_scroll" => Some(Self::Scroll(scroll::Request::parse(operand, bytes)?)),
-            "eis_button" => Some(Self::Button(button::Request::parse(operand, bytes)?)),
-            "eis_keyboard" => Some(Self::Keyboard(keyboard::Request::parse(operand, bytes)?)),
-            "eis_touchscreen" => Some(Self::Touchscreen(touchscreen::Request::parse(
+            "ei_callback" => Some(Self::Callback(callback::Request::parse(operand, bytes)?)),
+            "ei_pingpong" => Some(Self::Pingpong(pingpong::Request::parse(operand, bytes)?)),
+            "ei_seat" => Some(Self::Seat(seat::Request::parse(operand, bytes)?)),
+            "ei_device" => Some(Self::Device(device::Request::parse(operand, bytes)?)),
+            "ei_pointer" => Some(Self::Pointer(pointer::Request::parse(operand, bytes)?)),
+            "ei_pointer_absolute" => Some(Self::PointerAbsolute(pointer_absolute::Request::parse(
+                operand, bytes,
+            )?)),
+            "ei_scroll" => Some(Self::Scroll(scroll::Request::parse(operand, bytes)?)),
+            "ei_button" => Some(Self::Button(button::Request::parse(operand, bytes)?)),
+            "ei_keyboard" => Some(Self::Keyboard(keyboard::Request::parse(operand, bytes)?)),
+            "ei_touchscreen" => Some(Self::Touchscreen(touchscreen::Request::parse(
                 operand, bytes,
             )?)),
             _ => None,

@@ -12,6 +12,10 @@
     {{ name.removeprefix('eis_').removeprefix('ei_') }}
 {%- endmacro %}
 
+{% macro consistent_prefix(name) -%}
+    {{ name.replace('eis_', 'ei_') }}
+{%- endmacro %}
+
 {% macro interface_type(interface) -%}
     super::{{strip_prefix(interface.name)}}::{{strip_prefix(interface.name)|camel}}
 {%- endmacro %}
@@ -53,7 +57,7 @@ pub mod {{strip_prefix(interface.name)}} {
     pub struct {{strip_prefix(interface.name)|camel}}(pub(crate) crate::Object);
 
     impl crate::Interface for {{strip_prefix(interface.name)|camel}} {
-        const NAME: &'static str = "{{interface.name}}";
+        const NAME: &'static str = "{{consistent_prefix(interface.name)}}";
         const VERSION: u32 = {{interface.version}};
         type Incoming = {{incoming_enum(interface)}};
     }
@@ -85,7 +89,7 @@ pub mod {{strip_prefix(interface.name)}} {
             )>{
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
-            let {{arg.name}} = self.0.connection().new_id();
+            let {{arg.name}} = self.0.connection().new_id("{{consistent_prefix(arg.interface.name or '')}}");
             {% endif -%}
             {% endfor -%}
 
@@ -101,7 +105,7 @@ pub mod {{strip_prefix(interface.name)}} {
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
             {% if arg.interface %}
-		    {{arg_type(arg, true)}}(crate::Object::new(self.0.connection().clone(), {{arg.name}}))
+                {{arg_type(arg, true)}}(crate::Object::new(self.0.connection().clone(), {{arg.name}}))
             {% else -%}
             {{arg.name}} {# TODO how to handle type that's not statically known? #}
             {% endif -%}
@@ -193,7 +197,7 @@ impl {{incoming_enum(interfaces[0])}} {
     pub fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
         match interface {
             {% for interface in interfaces %}
-            "{{interface.name}}" => Some(Self::{{strip_prefix(interface.name)|camel}}({{strip_prefix(interface.name)}}::{{incoming_enum(interface)}}::parse(operand, bytes)?)),
+            "{{consistent_prefix(interface.name)}}" => Some(Self::{{strip_prefix(interface.name)|camel}}({{strip_prefix(interface.name)}}::{{incoming_enum(interface)}}::parse(operand, bytes)?)),
             {% endfor %}
             _=> None,
         }

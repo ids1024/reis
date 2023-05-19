@@ -318,7 +318,7 @@ pub mod connection {
         the client.
          */
         pub fn sync(&self) -> rustix::io::Result<(super::callback::Callback)> {
-            let callback = self.0.connection().new_id();
+            let callback = self.0.connection().new_id("ei_callback");
             let args = &[crate::Arg::NewId(callback.into())];
 
             self.0.request(0, args)?;

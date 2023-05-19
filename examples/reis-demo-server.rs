@@ -1,6 +1,5 @@
 use calloop::generic::Generic;
 use reis::eis;
-use std::thread;
 
 struct State {
     handle: calloop::LoopHandle<'static, Self>,
@@ -18,6 +17,10 @@ fn main() {
         .insert_source(listener_source, |event, listener, state: &mut State| {
             while let Some(connection) = listener.accept()? {
                 println!("New connection: {:?}", connection);
+
+                let handshake = connection.eis_handshake();
+                handshake.handshake_version(1);
+
                 let source =
                     Generic::new(connection, calloop::Interest::READ, calloop::Mode::Level);
                 state
@@ -44,7 +47,7 @@ fn main() {
                                 fds: &mut fds,
                             };
                             let request =
-                                eis::Request::parse("eis_handshake", header.opcode, &mut bytes);
+                                eis::Request::parse("ei_handshake", header.opcode, &mut bytes);
                             println!("{:?}", request);
                         } else {
                             println!("Unknown {:?}", &header);
@@ -60,39 +63,4 @@ fn main() {
 
     let mut state = State { handle };
     event_loop.run(None, &mut state, |_| {}).unwrap();
-
-    /*
-    for connection in listener.incoming() {
-        thread::spawn(move || {
-            println!("New connection: {:?}", connection);
-            loop {
-                let mut buf = [0; 16];
-                let mut fds = Vec::new();
-                let count = connection.recv(&mut buf, &mut fds).unwrap();
-                if count == 0 {
-                    break;
-                }
-                assert_eq!(count, 16); // XXX bad
-                let header = reis::Header::parse(&buf).unwrap();
-
-                let mut buf = vec![0; header.length as usize - 16];
-                let mut fds = Vec::new();
-                let count = connection.recv(&mut buf, &mut fds).unwrap();
-                assert_eq!(count, buf.len());
-
-                if header.object_id == 0 {
-                    let mut bytes = reis::ByteStream {
-                        connection: &connection,
-                        bytes: &buf,
-                        fds: &mut fds,
-                    };
-                    let request = eis::Request::parse("eis_handshake", header.opcode, &mut bytes);
-                    println!("{:?}", request);
-                } else {
-                    println!("Unknown {:?}", &header);
-                }
-            }
-        });
-    }
-    */
 }

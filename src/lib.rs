@@ -9,6 +9,7 @@ use rustix::{
     net,
 };
 use std::{
+    collections::HashMap,
     env, io,
     os::unix::{
         io::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
@@ -17,7 +18,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
-        Arc,
+        Arc, Mutex
     },
 };
 
@@ -70,10 +71,17 @@ pub mod eis {
 // TODO versioning?
 
 #[derive(Debug)]
+struct ConnectionState {
+    next_id: u64,
+    objects: HashMap<u64, &'static str>,
+}
+
+#[derive(Debug)]
 struct ConnectionInner {
     socket: UnixStream,
-    next_id: AtomicU64,
+    // TODO distinguish at type level?
     client: bool,
+    state: Mutex<ConnectionState>,
 }
 
 #[derive(Clone, Debug)]
@@ -95,11 +103,21 @@ impl Connection {
     fn new(socket: UnixStream, client: bool) -> io::Result<Self> {
         socket.set_nonblocking(true)?;
         let next_id = if client { 1 } else { 0xff00000000000000 };
+        let mut objects = HashMap::new();
+        objects.insert(0, "ei_handshake");
         Ok(Self(Arc::new(ConnectionInner {
             socket,
-            next_id: AtomicU64::new(next_id),
             client,
+            state: Mutex::new(ConnectionState {
+                next_id,
+                objects,
+            })
         })))
+    }
+
+    // XXX distinguish ei/eis connection types
+    pub fn eis_handshake(&self) -> eis::handshake::Handshake {
+        eis::handshake::Handshake(Object::new(self.clone(), 0))
     }
 
     // TODO send return value? send more?
@@ -146,8 +164,12 @@ impl Connection {
         Ok(response.bytes)
     }
 
-    fn new_id(&self) -> u64 {
-        self.0.next_id.fetch_add(1, Ordering::SeqCst)
+    fn new_id(&self, interface: &'static str) -> u64 {
+        let mut state = self.0.state.lock().unwrap();
+        let id = state.next_id;
+        state.next_id += 1;
+        state.objects.insert(id, interface);
+        id
     }
 
     fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
