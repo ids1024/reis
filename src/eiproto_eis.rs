@@ -2329,31 +2329,20 @@ impl Request {
     ) -> Option<Self> {
         match interface {
             "eis_handshake" => Some(Self::Handshake(handshake::Request::parse(operand, bytes)?)),
-            _ => None,
             "eis_connection" => Some(Self::Connection(connection::Request::parse(
                 operand, bytes,
             )?)),
-            _ => None,
             "eis_callback" => Some(Self::Callback(callback::Request::parse(operand, bytes)?)),
-            _ => None,
             "eis_pingpong" => Some(Self::Pingpong(pingpong::Request::parse(operand, bytes)?)),
-            _ => None,
             "eis_seat" => Some(Self::Seat(seat::Request::parse(operand, bytes)?)),
-            _ => None,
             "eis_device" => Some(Self::Device(device::Request::parse(operand, bytes)?)),
-            _ => None,
             "eis_pointer" => Some(Self::Pointer(pointer::Request::parse(operand, bytes)?)),
-            _ => None,
             "eis_pointer_absolute" => Some(Self::PointerAbsolute(
                 pointer_absolute::Request::parse(operand, bytes)?,
             )),
-            _ => None,
             "eis_scroll" => Some(Self::Scroll(scroll::Request::parse(operand, bytes)?)),
-            _ => None,
             "eis_button" => Some(Self::Button(button::Request::parse(operand, bytes)?)),
-            _ => None,
             "eis_keyboard" => Some(Self::Keyboard(keyboard::Request::parse(operand, bytes)?)),
-            _ => None,
             "eis_touchscreen" => Some(Self::Touchscreen(touchscreen::Request::parse(
                 operand, bytes,
             )?)),

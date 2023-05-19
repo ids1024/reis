@@ -202,8 +202,8 @@ impl {{incoming_enum(interfaces[0])}} {
         match interface {
             {% for interface in interfaces %}
             "{{interface.name}}" => Some(Self::{{strip_prefix(interface.name)|camel}}({{strip_prefix(interface.name)}}::{{incoming_enum(interface)}}::parse(operand, bytes)?)),
-            _=> None,
             {% endfor %}
+            _=> None,
         }
     }
 }
