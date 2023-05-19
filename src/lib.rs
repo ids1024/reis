@@ -1,5 +1,9 @@
 #![forbid(unsafe_code)]
 
+// TODO error type?
+// TODO split up
+// Implement handshake
+
 use rustix::{
     io::{IoSlice, IoSliceMut},
     net,
@@ -48,7 +52,7 @@ pub mod eis {
 // TODO versioning?
 
 #[derive(Clone, Debug)]
-struct Connection {
+pub struct Connection {
     socket: Arc<UnixStream>,
 }
 
@@ -68,7 +72,8 @@ impl Connection {
         Ok(())
     }
 
-    fn recv(&self, buf: &mut [u8], fds: &mut Vec<OwnedFd>) -> rustix::io::Result<usize> {
+    // XXX pub
+    pub fn recv(&self, buf: &mut [u8], fds: &mut Vec<OwnedFd>) -> rustix::io::Result<usize> {
         const MAX_FDS: usize = 32;
 
         let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(MAX_FDS))];
@@ -113,23 +118,26 @@ impl Connection {
     }
 }
 
+// XXX
 // Want to fallback to higher number if exists, on server?
 // create on server, not client.
-fn socket_path() -> Option<PathBuf> {
+pub fn default_socket_path() -> Option<PathBuf> {
     let mut path = PathBuf::from(env::var_os("XDG_RUNTIME_DIR")?);
     path.push("eis-0");
     Some(path)
 }
 
+// XXX pub
 #[derive(Debug)]
-struct Header {
+pub struct Header {
     object_id: u64,
-    length: u32,
+    pub length: u32,
     opcode: u32,
 }
 
 impl Header {
-    fn parse(bytes: &[u8]) -> Option<Self> {
+    // XXX pub
+    pub fn parse(bytes: &[u8]) -> Option<Self> {
         Some(Self {
             object_id: u64::from_ne_bytes(bytes[0..8].try_into().ok()?),
             length: u32::from_ne_bytes(bytes[8..12].try_into().ok()?),
@@ -191,6 +199,14 @@ impl<'a> Arg<'a> {
     }
 }
 
+struct Id(u64);
+
+struct NewId(u64);
+
+trait OwnedArgTrait {
+    fn parse(buf: &[u8], fds: &[OwnedFd]) -> Option<(usize, usize)>;
+}
+
 #[derive(Debug)]
 enum OwnedArg {
     Uint32(u32),
@@ -202,4 +218,17 @@ enum OwnedArg {
     String(String),
     NewId(u64),
     Id(u64),
+}
+
+impl OwnedArg {
+    // TODO parse
+    // then use parse to generate parser for request, event; given an opcode
+    // - or, those enums need to be populated with actual value, not this enum
+    //   * Impl from/into? Well, that's failable in this direction.
+}
+
+trait Interface {
+    const NAME: &'static str;
+    const VERSION: u32;
+    type Incoming;
 }

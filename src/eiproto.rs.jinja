@@ -54,6 +54,12 @@ pub mod {{strip_prefix(interface.name)}} {
         pub(crate) id: u64,
     }
 
+    impl crate::Interface for {{strip_prefix(interface.name)|camel}} {
+        const NAME: &'static str = "{{interface.name}}";
+        const VERSION: u32 = {{interface.version}};
+        type Incoming = {{incoming_enum(interface)}};
+    }
+
     impl {{strip_prefix(interface.name)|camel}} {
         {% for outgoing in interface.outgoing %}
         /** {{outgoing.description.text|ei_escape_names}} */
@@ -84,8 +90,8 @@ pub mod {{strip_prefix(interface.name)}} {
             ];
 
             self.connection.request(self.id, {{outgoing.opcode}}, args)?;
-	    
-	    Ok((
+
+            Ok((
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
             {% if arg.interface %}
@@ -98,7 +104,7 @@ pub mod {{strip_prefix(interface.name)}} {
             {% endif -%}
             {% endif -%}
             {% endfor -%}
-	    ))
+            ))
         }
 
         {% endfor %}
@@ -134,6 +140,12 @@ pub mod {{strip_prefix(interface.name)}} {
                 {% endfor %} }
                 {% endif %},
         {% endfor %}
+    }
+
+    impl {{incoming_enum(interface)}} {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
     }
 }
 

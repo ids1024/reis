@@ -28,6 +28,12 @@ pub mod handshake {
         pub(crate) id: u64,
     }
 
+    impl crate::Interface for Handshake {
+        const NAME: &'static str = "ei_handshake";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
+    }
+
     impl Handshake {
         /**
         Notifies the EIS implementation that this client supports the
@@ -230,6 +236,12 @@ pub mod handshake {
             version: u32,
         },
     }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 }
 
 /**
@@ -244,6 +256,12 @@ pub mod connection {
     pub struct Connection {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
+    }
+
+    impl crate::Interface for Connection {
+        const NAME: &'static str = "ei_connection";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
     }
 
     impl Connection {
@@ -430,6 +448,12 @@ pub mod connection {
             version: u32,
         },
     }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 }
 
 /**
@@ -447,6 +471,12 @@ pub mod callback {
         pub(crate) id: u64,
     }
 
+    impl crate::Interface for Callback {
+        const NAME: &'static str = "ei_callback";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
+    }
+
     impl Callback {}
 
     #[non_exhaustive]
@@ -461,6 +491,12 @@ pub mod callback {
             /** request-specific data for the callback */
             callback_data: u64,
         },
+    }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
     }
 }
 
@@ -477,6 +513,12 @@ pub mod pingpong {
     pub struct Pingpong {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
+    }
+
+    impl crate::Interface for Pingpong {
+        const NAME: &'static str = "ei_pingpong";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
     }
 
     impl Pingpong {
@@ -497,6 +539,12 @@ pub mod pingpong {
     #[non_exhaustive]
     #[derive(Debug)]
     pub enum Event {}
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 }
 
 /**
@@ -520,6 +568,12 @@ pub mod seat {
     pub struct Seat {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
+    }
+
+    impl crate::Interface for Seat {
+        const NAME: &'static str = "ei_seat";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
     }
 
     impl Seat {
@@ -644,6 +698,12 @@ pub mod seat {
             version: u32,
         },
     }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 }
 
 /**
@@ -665,6 +725,12 @@ pub mod device {
     pub struct Device {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
+    }
+
+    impl crate::Interface for Device {
+        const NAME: &'static str = "ei_device";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
     }
 
     impl Device {
@@ -1007,6 +1073,12 @@ pub mod device {
             timestamp: u64,
         },
     }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 }
 
 /**
@@ -1026,6 +1098,12 @@ pub mod pointer {
     pub struct Pointer {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
+    }
+
+    impl crate::Interface for Pointer {
+        const NAME: &'static str = "ei_pointer";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
     }
 
     impl Pointer {
@@ -1091,6 +1169,12 @@ pub mod pointer {
             y: f32,
         },
     }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 }
 
 /**
@@ -1110,6 +1194,12 @@ pub mod pointer_absolute {
     pub struct PointerAbsolute {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
+    }
+
+    impl crate::Interface for PointerAbsolute {
+        const NAME: &'static str = "ei_pointer_absolute";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
     }
 
     impl PointerAbsolute {
@@ -1177,6 +1267,12 @@ pub mod pointer_absolute {
             y: f32,
         },
     }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 }
 
 /**
@@ -1196,6 +1292,12 @@ pub mod scroll {
     pub struct Scroll {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
+    }
+
+    impl crate::Interface for Scroll {
+        const NAME: &'static str = "ei_scroll";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
     }
 
     impl Scroll {
@@ -1347,6 +1449,12 @@ pub mod scroll {
             is_cancel: u32,
         },
     }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 }
 
 /**
@@ -1366,6 +1474,12 @@ pub mod button {
     pub struct Button {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
+    }
+
+    impl crate::Interface for Button {
+        const NAME: &'static str = "ei_button";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
     }
 
     impl Button {
@@ -1453,6 +1567,12 @@ pub mod button {
             state: ButtonState,
         },
     }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 }
 
 /**
@@ -1472,6 +1592,12 @@ pub mod keyboard {
     pub struct Keyboard {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
+    }
+
+    impl crate::Interface for Keyboard {
+        const NAME: &'static str = "ei_keyboard";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
     }
 
     impl Keyboard {
@@ -1628,6 +1754,12 @@ pub mod keyboard {
             group: u32,
         },
     }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
+    }
 }
 
 /**
@@ -1647,6 +1779,12 @@ pub mod touchscreen {
     pub struct Touchscreen {
         pub(crate) connection: crate::Connection,
         pub(crate) id: u64,
+    }
+
+    impl crate::Interface for Touchscreen {
+        const NAME: &'static str = "ei_touchscreen";
+        const VERSION: u32 = 1;
+        type Incoming = Event;
     }
 
     impl Touchscreen {
@@ -1790,6 +1928,12 @@ pub mod touchscreen {
             /**  */
             touchid: u32,
         },
+    }
+
+    impl Event {
+        fn parse(operand: u32, bytes: &[u8]) -> Option<Self> {
+            todo!()
+        }
     }
 }
 
