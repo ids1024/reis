@@ -153,7 +153,11 @@ pub mod handshake {
 
     impl crate::OwnedArg for ContextType {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            todo!()
+            match u32::parse(buf)? {
+                1 => Some(Self::Receiver),
+                2 => Some(Self::Sender),
+                _ => None,
+            }
         }
     }
 
@@ -467,7 +471,15 @@ pub mod connection {
 
     impl crate::OwnedArg for DisconnectReason {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            todo!()
+            match u32::parse(buf)? {
+                0 => Some(Self::Disconnected),
+                1 => Some(Self::Error),
+                2 => Some(Self::Mode),
+                3 => Some(Self::Protocol),
+                4 => Some(Self::Value),
+                5 => Some(Self::Transport),
+                _ => None,
+            }
         }
     }
 
@@ -1173,7 +1185,11 @@ pub mod device {
 
     impl crate::OwnedArg for DeviceType {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            todo!()
+            match u32::parse(buf)? {
+                1 => Some(Self::Virtual),
+                2 => Some(Self::Physical),
+                _ => None,
+            }
         }
     }
 
@@ -1798,7 +1814,11 @@ pub mod button {
 
     impl crate::OwnedArg for ButtonState {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            todo!()
+            match u32::parse(buf)? {
+                0 => Some(Self::Released),
+                1 => Some(Self::Press),
+                _ => None,
+            }
         }
     }
 
@@ -2007,7 +2027,11 @@ pub mod keyboard {
 
     impl crate::OwnedArg for KeyState {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            todo!()
+            match u32::parse(buf)? {
+                0 => Some(Self::Released),
+                1 => Some(Self::Press),
+                _ => None,
+            }
         }
     }
     /**
@@ -2028,7 +2052,10 @@ pub mod keyboard {
 
     impl crate::OwnedArg for KeymapType {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            todo!()
+            match u32::parse(buf)? {
+                1 => Some(Self::Xkb),
+                _ => None,
+            }
         }
     }
 

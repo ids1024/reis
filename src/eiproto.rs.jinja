@@ -139,7 +139,12 @@ pub mod {{strip_prefix(interface.name)}} {
 
     impl crate::OwnedArg for {{enum.camel_name}} {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            todo!()
+            match u32::parse(buf)? {
+            {% for entry in enum.entries %}
+                {{entry.value}} => Some(Self::{{entry.name|camel}}),
+            {% endfor %}
+                _ => None
+            }
         }
     }
     {% endfor %}
