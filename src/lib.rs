@@ -326,7 +326,8 @@ impl OwnedArg for String {
         let bytes = buf.read_n(len as usize - 1)?; // Exclude NUL
                                                    // XXX error?
         let string = String::from_utf8(bytes.to_owned()).ok()?;
-        // Padding
+        buf.read_n(1)?; // NUL
+                        // Padding
         while len % 4 != 0 {
             len += 1;
             buf.read::<1>()?;

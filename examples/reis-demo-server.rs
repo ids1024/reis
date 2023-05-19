@@ -121,6 +121,12 @@ fn main() {
                                 fds: &mut connection_state.read_fds,
                             };
                             let request = eis::Request::parse(interface, header.opcode, &mut bytes);
+
+                            if bytes.bytes.len() != 0 {
+                                return connection_state
+                                    .protocol_error("message length doesn't match header");
+                            }
+
                             println!("{:?}", request);
                             match request {
                                 Some(eis::Request::Handshake(request)) => match request {
@@ -138,6 +144,8 @@ fn main() {
                                                 .protocol_error("name can only be sent once");
                                         }
                                         connection_state.name = Some(name);
+                                    }
+                                    eis::handshake::Request::InterfaceVersion { name, version } => {
                                     }
                                     eis::handshake::Request::Finish => {
                                         // May prompt user here whether to allow this
@@ -168,7 +176,7 @@ fn main() {
                                 _ => {}
                             }
                         } else {
-                            println!("Unknown {:?}", &header);
+                            return connection_state.protocol_error("unrecognized object id");
                         }
 
                         // XXX inefficient
