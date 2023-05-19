@@ -16,7 +16,7 @@ use std::{
     },
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
 };
@@ -370,5 +370,37 @@ impl<'a> ByteStream<'a> {
 
     fn read_arg<T: OwnedArg>(&mut self) -> Option<T> {
         T::parse(self)
+    }
+}
+
+#[derive(Debug)]
+struct ObjectInner {
+    connection: Connection,
+    id: u64,
+    destroyed: AtomicBool,
+}
+
+#[derive(Clone, Debug)]
+struct Object(Arc<ObjectInner>);
+
+impl Object {
+    fn new(connection: Connection, id: u64) -> Self {
+        Self(Arc::new(ObjectInner {
+            connection,
+            id,
+            destroyed: AtomicBool::new(false),
+        }))
+    }
+
+    fn connection(&self) -> &Connection {
+        &self.0.connection
+    }
+
+    fn id(&self) -> u64 {
+        self.0.id
+    }
+
+    fn request(&self, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
+        self.connection().request(self.id(), opcode, args)
     }
 }

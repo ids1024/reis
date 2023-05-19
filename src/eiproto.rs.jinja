@@ -50,10 +50,7 @@
 /** {{interface.description.text|ei_escape_names}} */
 pub mod {{strip_prefix(interface.name)}} {
     #[derive(Clone, Debug)]
-    pub struct {{strip_prefix(interface.name)|camel}} {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct {{strip_prefix(interface.name)|camel}}(pub(crate) crate::Object);
 
     impl crate::Interface for {{strip_prefix(interface.name)|camel}} {
         const NAME: &'static str = "{{interface.name}}";
@@ -65,11 +62,8 @@ pub mod {{strip_prefix(interface.name)}} {
     impl crate::OwnedArg for {{strip_prefix(interface.name)|camel}} {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
-        }
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
+	}
     }
 
     impl {{strip_prefix(interface.name)|camel}} {
@@ -91,7 +85,7 @@ pub mod {{strip_prefix(interface.name)}} {
             )>{
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
-            let {{arg.name}} = self.connection.new_id();
+            let {{arg.name}} = self.0.connection().new_id();
             {% endif -%}
             {% endfor -%}
 
@@ -101,16 +95,13 @@ pub mod {{strip_prefix(interface.name)}} {
             {% endfor -%}
             ];
 
-            self.connection.request(self.id, {{outgoing.opcode}}, args)?;
+            self.0.request({{outgoing.opcode}}, args)?;
 
             Ok((
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
             {% if arg.interface %}
-            {{arg_type(arg, true)}} {
-                connection: self.connection.clone(),
-                id: {{arg.name}}
-            }
+		    {{arg_type(arg, true)}}(crate::Object::new(self.0.connection().clone(), {{arg.name}}))
             {% else -%}
             {{arg.name}} {# TODO how to handle type that's not statically known? #}
             {% endif -%}
@@ -198,6 +189,7 @@ pub enum {{incoming_enum(interfaces[0])}} {
 
 impl {{incoming_enum(interfaces[0])}} {
     // TODO pub
+    // TODO: pass object along with event?
     pub fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
         match interface {
             {% for interface in interfaces %}

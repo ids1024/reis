@@ -24,10 +24,7 @@ is destroyed by the EIS implementation.
  */
 pub mod handshake {
     #[derive(Clone, Debug)]
-    pub struct Handshake {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Handshake(pub(crate) crate::Object);
 
     impl crate::Interface for Handshake {
         const NAME: &'static str = "eis_handshake";
@@ -38,10 +35,7 @@ pub mod handshake {
     impl crate::OwnedArg for Handshake {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -57,7 +51,7 @@ pub mod handshake {
         pub fn handshake_version(&self, version: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(version.into())];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -85,7 +79,7 @@ pub mod handshake {
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.connection.request(self.id, 1, args)?;
+            self.0.request(1, args)?;
 
             Ok(())
         }
@@ -115,19 +109,19 @@ pub mod handshake {
             serial: u32,
             version: u32,
         ) -> rustix::io::Result<(super::connection::Connection)> {
-            let connection = self.connection.new_id();
+            let connection = self.0.connection().new_id();
             let args = &[
                 crate::Arg::Uint32(serial.into()),
                 crate::Arg::NewId(connection.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.connection.request(self.id, 2, args)?;
+            self.0.request(2, args)?;
 
-            Ok((super::connection::Connection {
-                connection: self.connection.clone(),
-                id: connection,
-            }))
+            Ok((super::connection::Connection(crate::Object::new(
+                self.0.connection().clone(),
+                connection,
+            ))))
         }
     }
 
@@ -287,10 +281,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod connection {
     #[derive(Clone, Debug)]
-    pub struct Connection {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Connection(pub(crate) crate::Object);
 
     impl crate::Interface for Connection {
         const NAME: &'static str = "eis_connection";
@@ -301,10 +292,7 @@ pub mod connection {
     impl crate::OwnedArg for Connection {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -343,7 +331,7 @@ pub mod connection {
                 crate::Arg::String(explanation.into()),
             ];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -360,18 +348,15 @@ pub mod connection {
         interface.
          */
         pub fn seat(&self, version: u32) -> rustix::io::Result<(super::seat::Seat)> {
-            let seat = self.connection.new_id();
+            let seat = self.0.connection().new_id();
             let args = &[
                 crate::Arg::NewId(seat.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.connection.request(self.id, 1, args)?;
+            self.0.request(1, args)?;
 
-            Ok((super::seat::Seat {
-                connection: self.connection.clone(),
-                id: seat,
-            }))
+            Ok((super::seat::Seat(crate::Object::new(self.0.connection().clone(), seat))))
         }
 
         /**
@@ -396,7 +381,7 @@ pub mod connection {
                 crate::Arg::Uint64(invalid_id.into()),
             ];
 
-            self.connection.request(self.id, 2, args)?;
+            self.0.request(2, args)?;
 
             Ok(())
         }
@@ -421,18 +406,15 @@ pub mod connection {
         "ei_pingpong" interface.
          */
         pub fn ping(&self, version: u32) -> rustix::io::Result<(super::pingpong::Pingpong)> {
-            let ping = self.connection.new_id();
+            let ping = self.0.connection().new_id();
             let args = &[
                 crate::Arg::NewId(ping.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.connection.request(self.id, 3, args)?;
+            self.0.request(3, args)?;
 
-            Ok((super::pingpong::Pingpong {
-                connection: self.connection.clone(),
-                id: ping,
-            }))
+            Ok((super::pingpong::Pingpong(crate::Object::new(self.0.connection().clone(), ping))))
         }
     }
 
@@ -547,10 +529,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod callback {
     #[derive(Clone, Debug)]
-    pub struct Callback {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Callback(pub(crate) crate::Object);
 
     impl crate::Interface for Callback {
         const NAME: &'static str = "eis_callback";
@@ -561,10 +540,7 @@ pub mod callback {
     impl crate::OwnedArg for Callback {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -577,7 +553,7 @@ pub mod callback {
         pub fn done(&self, callback_data: u64) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint64(callback_data.into())];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -606,10 +582,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod pingpong {
     #[derive(Clone, Debug)]
-    pub struct Pingpong {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Pingpong(pub(crate) crate::Object);
 
     impl crate::Interface for Pingpong {
         const NAME: &'static str = "eis_pingpong";
@@ -620,10 +593,7 @@ pub mod pingpong {
     impl crate::OwnedArg for Pingpong {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -673,10 +643,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod seat {
     #[derive(Clone, Debug)]
-    pub struct Seat {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Seat(pub(crate) crate::Object);
 
     impl crate::Interface for Seat {
         const NAME: &'static str = "eis_seat";
@@ -687,10 +654,7 @@ pub mod seat {
     impl crate::OwnedArg for Seat {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -706,7 +670,7 @@ pub mod seat {
         pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -720,7 +684,7 @@ pub mod seat {
         pub fn name(&self, name: &str) -> rustix::io::Result<()> {
             let args = &[crate::Arg::String(name.into())];
 
-            self.connection.request(self.id, 1, args)?;
+            self.0.request(1, args)?;
 
             Ok(())
         }
@@ -760,7 +724,7 @@ pub mod seat {
                 crate::Arg::String(interface.into()),
             ];
 
-            self.connection.request(self.id, 2, args)?;
+            self.0.request(2, args)?;
 
             Ok(())
         }
@@ -774,7 +738,7 @@ pub mod seat {
         pub fn done(&self) -> rustix::io::Result<()> {
             let args = &[];
 
-            self.connection.request(self.id, 3, args)?;
+            self.0.request(3, args)?;
 
             Ok(())
         }
@@ -789,18 +753,15 @@ pub mod seat {
         interface.
          */
         pub fn device(&self, version: u32) -> rustix::io::Result<(super::device::Device)> {
-            let device = self.connection.new_id();
+            let device = self.0.connection().new_id();
             let args = &[
                 crate::Arg::NewId(device.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.connection.request(self.id, 4, args)?;
+            self.0.request(4, args)?;
 
-            Ok((super::device::Device {
-                connection: self.connection.clone(),
-                id: device,
-            }))
+            Ok((super::device::Device(crate::Object::new(self.0.connection().clone(), device))))
         }
     }
 
@@ -864,10 +825,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod device {
     #[derive(Clone, Debug)]
-    pub struct Device {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Device(pub(crate) crate::Object);
 
     impl crate::Interface for Device {
         const NAME: &'static str = "eis_device";
@@ -878,10 +836,7 @@ pub mod device {
     impl crate::OwnedArg for Device {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -897,7 +852,7 @@ pub mod device {
         pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -911,7 +866,7 @@ pub mod device {
         pub fn name(&self, name: &str) -> rustix::io::Result<()> {
             let args = &[crate::Arg::String(name.into())];
 
-            self.connection.request(self.id, 1, args)?;
+            self.0.request(1, args)?;
 
             Ok(())
         }
@@ -928,7 +883,7 @@ pub mod device {
         pub fn device_type(&self, device_type: DeviceType) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(device_type.into())];
 
-            self.connection.request(self.id, 2, args)?;
+            self.0.request(2, args)?;
 
             Ok(())
         }
@@ -947,7 +902,7 @@ pub mod device {
                 crate::Arg::Uint32(height.into()),
             ];
 
-            self.connection.request(self.id, 3, args)?;
+            self.0.request(3, args)?;
 
             Ok(())
         }
@@ -999,7 +954,7 @@ pub mod device {
                 crate::Arg::Float(scale.into()),
             ];
 
-            self.connection.request(self.id, 4, args)?;
+            self.0.request(4, args)?;
 
             Ok(())
         }
@@ -1028,14 +983,14 @@ pub mod device {
         It is a protocol violation to send this event after the ei_device.done event.
          */
         pub fn interface(&self, interface_name: &str, version: u32) -> rustix::io::Result<(u64)> {
-            let object = self.connection.new_id();
+            let object = self.0.connection().new_id();
             let args = &[
                 crate::Arg::NewId(object.into()),
                 crate::Arg::String(interface_name.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.connection.request(self.id, 5, args)?;
+            self.0.request(5, args)?;
 
             Ok((object))
         }
@@ -1049,7 +1004,7 @@ pub mod device {
         pub fn done(&self) -> rustix::io::Result<()> {
             let args = &[];
 
-            self.connection.request(self.id, 6, args)?;
+            self.0.request(6, args)?;
 
             Ok(())
         }
@@ -1068,7 +1023,7 @@ pub mod device {
         pub fn resumed(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 7, args)?;
+            self.0.request(7, args)?;
 
             Ok(())
         }
@@ -1101,7 +1056,7 @@ pub mod device {
         pub fn paused(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 8, args)?;
+            self.0.request(8, args)?;
 
             Ok(())
         }
@@ -1118,7 +1073,7 @@ pub mod device {
                 crate::Arg::Uint32(sequence.into()),
             ];
 
-            self.connection.request(self.id, 9, args)?;
+            self.0.request(9, args)?;
 
             Ok(())
         }
@@ -1132,7 +1087,7 @@ pub mod device {
         pub fn stop_emulating(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 10, args)?;
+            self.0.request(10, args)?;
 
             Ok(())
         }
@@ -1149,7 +1104,7 @@ pub mod device {
                 crate::Arg::Uint64(timestamp.into()),
             ];
 
-            self.connection.request(self.id, 11, args)?;
+            self.0.request(11, args)?;
 
             Ok(())
         }
@@ -1310,10 +1265,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod pointer {
     #[derive(Clone, Debug)]
-    pub struct Pointer {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Pointer(pub(crate) crate::Object);
 
     impl crate::Interface for Pointer {
         const NAME: &'static str = "eis_pointer";
@@ -1324,10 +1276,7 @@ pub mod pointer {
     impl crate::OwnedArg for Pointer {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -1343,7 +1292,7 @@ pub mod pointer {
         pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -1357,7 +1306,7 @@ pub mod pointer {
         pub fn motion_relative(&self, x: f32, y: f32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
 
-            self.connection.request(self.id, 1, args)?;
+            self.0.request(1, args)?;
 
             Ok(())
         }
@@ -1420,10 +1369,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod pointer_absolute {
     #[derive(Clone, Debug)]
-    pub struct PointerAbsolute {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct PointerAbsolute(pub(crate) crate::Object);
 
     impl crate::Interface for PointerAbsolute {
         const NAME: &'static str = "eis_pointer_absolute";
@@ -1434,10 +1380,7 @@ pub mod pointer_absolute {
     impl crate::OwnedArg for PointerAbsolute {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -1453,7 +1396,7 @@ pub mod pointer_absolute {
         pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -1467,7 +1410,7 @@ pub mod pointer_absolute {
         pub fn motion_absolute(&self, x: f32, y: f32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
 
-            self.connection.request(self.id, 1, args)?;
+            self.0.request(1, args)?;
 
             Ok(())
         }
@@ -1532,10 +1475,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod scroll {
     #[derive(Clone, Debug)]
-    pub struct Scroll {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Scroll(pub(crate) crate::Object);
 
     impl crate::Interface for Scroll {
         const NAME: &'static str = "eis_scroll";
@@ -1546,10 +1486,7 @@ pub mod scroll {
     impl crate::OwnedArg for Scroll {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -1565,7 +1502,7 @@ pub mod scroll {
         pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -1579,7 +1516,7 @@ pub mod scroll {
         pub fn scroll(&self, x: f32, y: f32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
 
-            self.connection.request(self.id, 1, args)?;
+            self.0.request(1, args)?;
 
             Ok(())
         }
@@ -1593,7 +1530,7 @@ pub mod scroll {
         pub fn scroll_discrete(&self, x: i32, y: i32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Int32(x.into()), crate::Arg::Int32(y.into())];
 
-            self.connection.request(self.id, 2, args)?;
+            self.0.request(2, args)?;
 
             Ok(())
         }
@@ -1611,7 +1548,7 @@ pub mod scroll {
                 crate::Arg::Uint32(is_cancel.into()),
             ];
 
-            self.connection.request(self.id, 3, args)?;
+            self.0.request(3, args)?;
 
             Ok(())
         }
@@ -1737,10 +1674,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod button {
     #[derive(Clone, Debug)]
-    pub struct Button {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Button(pub(crate) crate::Object);
 
     impl crate::Interface for Button {
         const NAME: &'static str = "eis_button";
@@ -1751,10 +1685,7 @@ pub mod button {
     impl crate::OwnedArg for Button {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -1770,7 +1701,7 @@ pub mod button {
         pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -1790,7 +1721,7 @@ pub mod button {
                 crate::Arg::Uint32(state.into()),
             ];
 
-            self.connection.request(self.id, 1, args)?;
+            self.0.request(1, args)?;
 
             Ok(())
         }
@@ -1879,10 +1810,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod keyboard {
     #[derive(Clone, Debug)]
-    pub struct Keyboard {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Keyboard(pub(crate) crate::Object);
 
     impl crate::Interface for Keyboard {
         const NAME: &'static str = "eis_keyboard";
@@ -1893,10 +1821,7 @@ pub mod keyboard {
     impl crate::OwnedArg for Keyboard {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -1912,7 +1837,7 @@ pub mod keyboard {
         pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -1947,7 +1872,7 @@ pub mod keyboard {
                 crate::Arg::Fd(keymap.into()),
             ];
 
-            self.connection.request(self.id, 1, args)?;
+            self.0.request(1, args)?;
 
             Ok(())
         }
@@ -1967,7 +1892,7 @@ pub mod keyboard {
                 crate::Arg::Uint32(state.into()),
             ];
 
-            self.connection.request(self.id, 2, args)?;
+            self.0.request(2, args)?;
 
             Ok(())
         }
@@ -2003,7 +1928,7 @@ pub mod keyboard {
                 crate::Arg::Uint32(group.into()),
             ];
 
-            self.connection.request(self.id, 3, args)?;
+            self.0.request(3, args)?;
 
             Ok(())
         }
@@ -2117,10 +2042,7 @@ support for this interface in ei_handshake.interface_version.
  */
 pub mod touchscreen {
     #[derive(Clone, Debug)]
-    pub struct Touchscreen {
-        pub(crate) connection: crate::Connection,
-        pub(crate) id: u64,
-    }
+    pub struct Touchscreen(pub(crate) crate::Object);
 
     impl crate::Interface for Touchscreen {
         const NAME: &'static str = "eis_touchscreen";
@@ -2131,10 +2053,7 @@ pub mod touchscreen {
     impl crate::OwnedArg for Touchscreen {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             let id = u64::parse(buf)?;
-            Some(Self {
-                connection: buf.connection().clone(),
-                id,
-            })
+            Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
 
@@ -2150,7 +2069,7 @@ pub mod touchscreen {
         pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.connection.request(self.id, 0, args)?;
+            self.0.request(0, args)?;
 
             Ok(())
         }
@@ -2171,7 +2090,7 @@ pub mod touchscreen {
                 crate::Arg::Float(y.into()),
             ];
 
-            self.connection.request(self.id, 1, args)?;
+            self.0.request(1, args)?;
 
             Ok(())
         }
@@ -2192,7 +2111,7 @@ pub mod touchscreen {
                 crate::Arg::Float(y.into()),
             ];
 
-            self.connection.request(self.id, 2, args)?;
+            self.0.request(2, args)?;
 
             Ok(())
         }
@@ -2209,7 +2128,7 @@ pub mod touchscreen {
         pub fn up(&self, touchid: u32) -> rustix::io::Result<()> {
             let args = &[crate::Arg::Uint32(touchid.into())];
 
-            self.connection.request(self.id, 3, args)?;
+            self.0.request(3, args)?;
 
             Ok(())
         }
@@ -2322,6 +2241,7 @@ pub enum Request {
 
 impl Request {
     // TODO pub
+    // TODO: pass object along with event?
     pub fn parse(
         interface: &'static str,
         operand: u32,
