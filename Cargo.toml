@@ -10,6 +10,3 @@ rustix = { version = "0.37.19", features = ["net"] }
 
 [dev-dependencies]
 calloop = { version = "0.10.5" }
-
-[patch.crates-io]
-rustix = { path = "/home/ian/src/rustix" }
