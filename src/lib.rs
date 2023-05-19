@@ -15,7 +15,10 @@ use std::{
         net::{UnixListener, UnixStream},
     },
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
 };
 
 #[allow(unused_parens)]
@@ -41,7 +44,7 @@ pub mod eis {
 
         pub fn accept(&self) -> std::io::Result<Option<super::Connection>> {
             match self.listener.accept() {
-                Ok((socket, _)) => Ok(Some(super::Connection::new(socket)?)),
+                Ok((socket, _)) => Ok(Some(super::Connection::new(socket, false)?)),
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
                 Err(e) => Err(e),
             }
@@ -66,47 +69,49 @@ pub mod eis {
 // TODO Listener?
 // TODO versioning?
 
+#[derive(Debug)]
 struct ConnectionInner {
     socket: UnixStream,
-    last_id: u64,
+    next_id: AtomicU64,
     client: bool,
 }
 
 #[derive(Clone, Debug)]
-pub struct Connection {
-    socket: Arc<UnixStream>,
-}
+pub struct Connection(Arc<ConnectionInner>);
 
 impl AsFd for Connection {
     fn as_fd(&self) -> BorrowedFd {
-        self.socket.as_fd()
+        self.0.socket.as_fd()
     }
 }
 
 impl AsRawFd for Connection {
     fn as_raw_fd(&self) -> RawFd {
-        self.socket.as_raw_fd()
+        self.0.socket.as_raw_fd()
     }
 }
 
 impl Connection {
-    fn new(socket: UnixStream) -> io::Result<Self> {
+    fn new(socket: UnixStream, client: bool) -> io::Result<Self> {
         socket.set_nonblocking(true)?;
-        Ok(Self {
-            socket: Arc::new(socket),
-        })
+        let next_id = if client { 1 } else { 0xff00000000000000 };
+        Ok(Self(Arc::new(ConnectionInner {
+            socket,
+            next_id: AtomicU64::new(next_id),
+            client,
+        })))
     }
 
-    // TODO EINTR
     // TODO send return value? send more?
     // TODO buffer nonblocking output?
+    // XXX don't allow write from multiple threads without lock
     fn send(&self, data: &[u8], fds: &[BorrowedFd]) -> rustix::io::Result<()> {
         let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(fds.len()))];
         let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
         cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(&fds));
         retry_on_intr(|| {
             net::sendmsg_noaddr(
-                &self.socket,
+                &self.0.socket,
                 &[IoSlice::new(data)],
                 &mut cmsg_buffer,
                 net::SendFlags::empty(),
@@ -123,7 +128,7 @@ impl Connection {
         let mut cmsg_buffer = net::RecvAncillaryBuffer::new(&mut cmsg_space);
         let response = retry_on_intr(|| {
             net::recvmsg(
-                &self.socket,
+                &self.0.socket,
                 &mut [IoSliceMut::new(buf)],
                 &mut cmsg_buffer,
                 net::RecvFlags::empty(),
@@ -142,8 +147,7 @@ impl Connection {
     }
 
     fn new_id(&self) -> u64 {
-        // TODO
-        42
+        self.0.next_id.fetch_add(1, Ordering::SeqCst)
     }
 
     fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
