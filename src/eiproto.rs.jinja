@@ -4,6 +4,7 @@
 
 // Define module for each interface?
 // TODO Cleaner/safer way to strip out Ei/Eis prefix?
+// TODO Something like WEnum? Or assume unfamiliar variant won't exist in known version?
 
 {# TODO handle destructor #}
 
@@ -196,7 +197,8 @@ pub enum {{incoming_enum(interfaces[0])}} {
 }
 
 impl {{incoming_enum(interfaces[0])}} {
-    fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+    // TODO pub
+    pub fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
         match interface {
             {% for interface in interfaces %}
             "{{interface.name}}" => Some(Self::{{strip_prefix(interface.name)|camel}}({{strip_prefix(interface.name)}}::{{incoming_enum(interface)}}::parse(operand, bytes)?)),

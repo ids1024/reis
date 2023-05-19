@@ -131,9 +131,9 @@ pub fn default_socket_path() -> Option<PathBuf> {
 // XXX pub
 #[derive(Debug)]
 pub struct Header {
-    object_id: u64,
+    pub object_id: u64,
     pub length: u32,
-    opcode: u32,
+    pub opcode: u32,
 }
 
 impl Header {
@@ -280,10 +280,11 @@ trait Interface {
     type Incoming;
 }
 
-struct ByteStream<'a> {
-    connection: &'a Connection,
-    bytes: &'a [u8],
-    fds: &'a mut Vec<OwnedFd>,
+// XXX pub
+pub struct ByteStream<'a> {
+    pub connection: &'a Connection,
+    pub bytes: &'a [u8],
+    pub fds: &'a mut Vec<OwnedFd>,
 }
 
 impl<'a> ByteStream<'a> {

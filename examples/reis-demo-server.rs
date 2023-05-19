@@ -18,12 +18,22 @@ fn main() {
                 assert_eq!(count, 16); // XXX bad
                 let header = reis::Header::parse(&buf).unwrap();
 
-                println!("{:?}", header);
-
                 let mut buf = vec![0; header.length as usize - 16];
                 let mut fds = Vec::new();
                 let count = connection.recv(&mut buf, &mut fds).unwrap();
                 assert_eq!(count, buf.len());
+
+                if header.object_id == 0 {
+                    let mut bytes = reis::ByteStream {
+                        connection: &connection,
+                        bytes: &buf,
+                        fds: &mut fds,
+                    };
+                    let request = eis::Request::parse("eis_handshake", header.opcode, &mut bytes);
+                    println!("{:?}", request);
+                } else {
+                    println!("Unknown {:?}", &header);
+                }
             }
         });
     }

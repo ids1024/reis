@@ -2,6 +2,7 @@
 
 // Define module for each interface?
 // TODO Cleaner/safer way to strip out Ei/Eis prefix?
+// TODO Something like WEnum? Or assume unfamiliar variant won't exist in known version?
 
 /**
 This is a special interface to setup the client as seen by the EIS
@@ -2320,7 +2321,12 @@ pub enum Request {
 }
 
 impl Request {
-    fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+    // TODO pub
+    pub fn parse(
+        interface: &'static str,
+        operand: u32,
+        bytes: &mut crate::ByteStream,
+    ) -> Option<Self> {
         match interface {
             "eis_handshake" => Some(Self::Handshake(handshake::Request::parse(operand, bytes)?)),
             _ => None,
