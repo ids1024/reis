@@ -153,9 +153,9 @@ fn main() {
                                         // May prompt user here whether to allow this
                                         let serial = connection_state.next_serial();
                                         let connection_obj = connection_state
-                                                .handshake
-                                                .connection(serial, 1)
-                                                .unwrap();
+                                            .handshake
+                                            .connection(serial, 1)
+                                            .unwrap();
                                         // XXX only if protocol version supported by client
                                         let seat = connection_obj.seat(1).unwrap();
                                         seat.name("default");
@@ -188,7 +188,7 @@ fn main() {
                                         connection_state.seat.as_ref().unwrap().destroyed(serial);
                                     }
                                     _ => {}
-                                }
+                                },
                                 None => {
                                     return connection_state
                                         .protocol_error("failed to parse request");
@@ -198,7 +198,8 @@ fn main() {
                         } else {
                             if let Some(connection) = connection_state.connection_obj.as_ref() {
                                 // Only send if object ID is in range?
-                                connection.invalid_object(connection_state.last_serial, header.object_id);
+                                connection
+                                    .invalid_object(connection_state.last_serial, header.object_id);
                             }
                         }
 
