@@ -33,6 +33,8 @@ fn main() {
 
                 let handshake = connection.eis_handshake();
                 handshake.handshake_version(1);
+                handshake.interface_version("ei_callback", 1);
+                handshake.interface_version("ei_connection", 1);
 
                 let connection_state = ConnectionState {
                     connection,

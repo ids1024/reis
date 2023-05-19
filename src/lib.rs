@@ -259,7 +259,9 @@ impl<'a> Arg<'a> {
                 // Add NUL terminator
                 buf.push(b'\0');
                 // Pad to multiple of 32 bits
-                buf.extend((0..(len - len % 4)).map(|_| b'\0'));
+                if len % 4 != 0 {
+                    buf.extend((0..4 - (len % 4)).map(|_| b'\0'));
+                }
             }
             Arg::NewId(value) => buf.extend(value.to_ne_bytes()),
             Arg::Id(value) => buf.extend(value.to_ne_bytes()),
@@ -422,4 +424,9 @@ impl Object {
     fn request(&self, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
         self.connection().request(self.id(), opcode, args)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    // TODO add serialization/deserialization tests
 }
