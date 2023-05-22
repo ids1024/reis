@@ -151,18 +151,9 @@ impl Connection {
         }
     }
 
-    // TODO: can't have iterator over messages without knowing what fds belong to what message...
-
     // XXX distinguish ei/eis connection types
     pub fn eis_handshake(&self) -> crate::eis::handshake::Handshake {
         eis::handshake::Handshake(Object::new(self.clone(), 0))
-    }
-
-    // TODO send return value? send more?
-    // TODO buffer nonblocking output?
-    // XXX don't allow write from multiple threads without lock
-    fn send(&self, data: &[u8], fds: &[BorrowedFd]) -> rustix::io::Result<()> {
-        util::send_with_fds(&self.0.socket, data, fds)
     }
 
     pub(crate) fn new_id(&self, interface: &'static str) -> u64 {
@@ -181,6 +172,9 @@ impl Connection {
         self.0.state.lock().unwrap().objects.get(&id).copied()
     }
 
+    // TODO send return value? send more?
+    // TODO buffer nonblocking output?
+    // XXX don't allow write from multiple threads without lock
     pub(crate) fn request(
         &self,
         object_id: u64,
@@ -199,6 +193,6 @@ impl Connection {
             opcode,
         };
         header.write_at(&mut buf);
-        self.send(&buf, &fds)
+        util::send_with_fds(&self.0.socket, &buf, &fds)
     }
 }
