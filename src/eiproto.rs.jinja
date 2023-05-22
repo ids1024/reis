@@ -156,7 +156,6 @@ pub mod {{interface.plainname}} {
     }
 
     impl {{incoming_enum(interface)}} {
-        {# TODO fds; assume bytes read is total? #}
         pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
             {% for incoming in interface.incoming %}
@@ -175,8 +174,6 @@ pub mod {{interface.plainname}} {
 }
 
 {% endfor %}
-
-// map opcodes
 
 #[non_exhaustive]
 #[derive(Debug)]
