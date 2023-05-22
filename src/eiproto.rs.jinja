@@ -8,10 +8,6 @@
 
 {# TODO handle destructor #}
 
-{% macro consistent_prefix(name) -%}
-    {{ name.replace('eis_', 'ei_') }}
-{%- endmacro %}
-
 {% macro interface_type(interface) -%}
     super::{{interface.plainname}}::{{interface.plainname|camel}}
 {%- endmacro %}
@@ -53,7 +49,7 @@ pub mod {{interface.plainname}} {
     pub struct {{interface.plainname|camel}}(pub(crate) crate::Object);
 
     impl crate::Interface for {{interface.plainname|camel}} {
-        const NAME: &'static str = "{{consistent_prefix(interface.name)}}";
+        const NAME: &'static str = "{{interface.protocol_name}}";
         const VERSION: u32 = {{interface.version}};
         type Incoming = {{incoming_enum(interface)}};
     }
@@ -85,7 +81,7 @@ pub mod {{interface.plainname}} {
             )>{
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
-            let {{arg.name}} = self.0.connection().new_id("{{consistent_prefix(arg.interface.name or '')}}");
+            let {{arg.name}} = self.0.connection().new_id("{{arg.interface.protocol_name or ''}}");
             {% endif -%}
             {% endfor -%}
 
@@ -196,7 +192,7 @@ impl {{incoming_enum(interfaces[0])}} {
     pub fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
         match interface {
             {% for interface in interfaces %}
-            "{{consistent_prefix(interface.name)}}" => Some(Self::{{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum(interface)}}::parse(operand, bytes)?)),
+            "{{interface.protocol_name}}" => Some(Self::{{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum(interface)}}::parse(operand, bytes)?)),
             {% endfor %}
             _=> None,
         }
