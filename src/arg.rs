@@ -47,8 +47,7 @@ struct Id(u64);
 
 struct NewId(u64);
 
-pub trait OwnedArg: Sized {
-    // TODO fds?
+pub(crate) trait OwnedArg: Sized {
     fn parse(buf: &mut ByteStream) -> Option<Self>;
 }
 

@@ -1,5 +1,5 @@
 use rustix::{
-    io::{retry_on_intr, IoSlice, IoSliceMut},
+    io::{retry_on_intr, Errno, IoSlice, IoSliceMut},
     net,
 };
 use std::{
@@ -12,7 +12,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{Arg, Header, Object};
+use crate::{eis, Arg, ByteStream, Header, Object};
+
+#[derive(Debug)]
+struct Buffer {
+    buf: Vec<u8>,
+    fds: Vec<OwnedFd>,
+}
 
 #[derive(Debug)]
 struct ConnectionState {
@@ -26,6 +32,7 @@ struct ConnectionInner {
     // TODO distinguish at type level?
     client: bool,
     state: Mutex<ConnectionState>,
+    read: Mutex<Buffer>,
 }
 
 #[derive(Clone, Debug)]
@@ -43,6 +50,23 @@ impl AsRawFd for Connection {
     }
 }
 
+pub enum ConnectionReadResult {
+    Read(usize),
+    EOF,
+}
+
+pub enum PendingRequestResult {
+    Request(eis::Request),
+    ProtocolError(&'static str),
+    InvalidObject(u64),
+}
+
+impl ConnectionReadResult {
+    pub fn is_eof(&self) -> bool {
+        matches!(self, Self::EOF)
+    }
+}
+
 impl Connection {
     pub(crate) fn new(socket: UnixStream, client: bool) -> io::Result<Self> {
         socket.set_nonblocking(true)?;
@@ -53,12 +77,88 @@ impl Connection {
             socket,
             client,
             state: Mutex::new(ConnectionState { next_id, objects }),
+            read: Mutex::new(Buffer {
+                buf: Vec::new(),
+                fds: Vec::new(),
+            }),
         })))
     }
 
+    /// Read any pending data on socket into buffer
+    pub fn read(&self) -> io::Result<ConnectionReadResult> {
+        let mut read = self.0.read.lock().unwrap();
+
+        let mut buf = [0; 2048];
+        let mut total_count = 0;
+        loop {
+            match self.recv(&mut buf, &mut read.fds) {
+                Ok(0) if total_count == 0 => {
+                    return Ok(ConnectionReadResult::EOF);
+                }
+                Ok(count) => {
+                    read.buf.extend_from_slice(&buf[0..count]);
+                    total_count += count;
+                }
+                #[allow(unreachable_patterns)] // `WOULDBLOCK` and `AGAIN` typically equal
+                Err(Errno::WOULDBLOCK | Errno::AGAIN) => {
+                    return Ok(ConnectionReadResult::Read(total_count));
+                }
+                Err(err) => return Err(err.into()),
+            };
+        }
+    }
+
+    // XXX seperate type for ei
+    // XXX iterator
+    pub fn eis_pending_request(&self) -> Option<PendingRequestResult> {
+        let mut read = self.0.read.lock().unwrap();
+        if read.buf.len() >= 16 {
+            let header = Header::parse(&read.buf).unwrap();
+            if read.buf.len() < header.length as usize {
+                return None;
+            }
+            if header.length < 16 {
+                return Some(PendingRequestResult::ProtocolError("header length < 16"));
+            }
+            if let Some(interface) = self.object_interface(header.object_id) {
+                let read = &mut *read;
+                let mut bytes = ByteStream {
+                    connection: self,
+                    bytes: &read.buf[16..header.length as usize],
+                    fds: &mut read.fds,
+                };
+                let request = eis::Request::parse(interface, header.opcode, &mut bytes);
+                if bytes.bytes.len() != 0 {
+                    return Some(PendingRequestResult::ProtocolError(
+                        "message length doesn't match header",
+                    ));
+                }
+
+                // XXX inefficient
+                for i in 0..header.length as usize {
+                    read.buf.remove(0);
+                }
+
+                if let Some(request) = request {
+                    Some(PendingRequestResult::Request(request))
+                } else {
+                    Some(PendingRequestResult::ProtocolError(
+                        "failed to parse request",
+                    ))
+                }
+            } else {
+                Some(PendingRequestResult::InvalidObject(header.object_id))
+            }
+        } else {
+            None
+        }
+    }
+
+    // TODO: can't have iterator over messages without knowing what fds belong to what message...
+
     // XXX distinguish ei/eis connection types
     pub fn eis_handshake(&self) -> crate::eis::handshake::Handshake {
-        crate::eis::handshake::Handshake(Object::new(self.clone(), 0))
+        eis::handshake::Handshake(Object::new(self.clone(), 0))
     }
 
     // TODO send return value? send more?
@@ -73,14 +173,13 @@ impl Connection {
                 &self.0.socket,
                 &[IoSlice::new(data)],
                 &mut cmsg_buffer,
-                net::SendFlags::empty(),
+                net::SendFlags::NOSIGNAL,
             )
         })?;
         Ok(())
     }
 
-    // XXX pub
-    pub fn recv(&self, buf: &mut [u8], fds: &mut Vec<OwnedFd>) -> rustix::io::Result<usize> {
+    fn recv(&self, buf: &mut [u8], fds: &mut Vec<OwnedFd>) -> rustix::io::Result<usize> {
         const MAX_FDS: usize = 32;
 
         let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(MAX_FDS))];
@@ -90,18 +189,20 @@ impl Connection {
                 &self.0.socket,
                 &mut [IoSliceMut::new(buf)],
                 &mut cmsg_buffer,
-                net::RecvFlags::empty(),
+                net::RecvFlags::CMSG_CLOEXEC,
             )
         })?;
-        fds.extend(
-            cmsg_buffer
-                .drain()
-                .filter_map(|msg| match msg {
-                    net::RecvAncillaryMessage::ScmRights(fds) => Some(fds),
-                    _ => None,
-                })
-                .flatten(),
-        );
+        if response.bytes != 0 {
+            fds.extend(
+                cmsg_buffer
+                    .drain()
+                    .filter_map(|msg| match msg {
+                        net::RecvAncillaryMessage::ScmRights(fds) => Some(fds),
+                        _ => None,
+                    })
+                    .flatten(),
+            );
+        }
         Ok(response.bytes)
     }
 

@@ -8,5 +8,10 @@ edition = "2021"
 # calloop = { version = "0.10.5", optional = true } # TODO calloop source
 rustix = { version = "0.37.19", features = ["net"] }
 
+
 [dev-dependencies]
 calloop = { version = "0.10.5" }
+
+[patch.crates-io]
+# TODO remove when merged
+rustix = { git = "https://github.com/ids1024/rustix", branch = "fix-panic" }

@@ -9,7 +9,7 @@ use std::{env, os::unix::io::OwnedFd, path::PathBuf};
 mod arg;
 use arg::{Arg, OwnedArg};
 mod connection;
-pub use connection::Connection;
+pub use connection::{Connection, ConnectionReadResult, PendingRequestResult};
 pub mod ei;
 #[allow(unused_parens)]
 mod eiproto_ei;
@@ -30,17 +30,15 @@ pub fn default_socket_path() -> Option<PathBuf> {
     Some(path)
 }
 
-// XXX pub
 #[derive(Debug)]
-pub struct Header {
-    pub object_id: u64,
-    pub length: u32,
-    pub opcode: u32,
+struct Header {
+    object_id: u64,
+    length: u32,
+    opcode: u32,
 }
 
 impl Header {
-    // XXX pub
-    pub fn parse(bytes: &[u8]) -> Option<Self> {
+    fn parse(bytes: &[u8]) -> Option<Self> {
         Some(Self {
             object_id: u64::from_ne_bytes(bytes[0..8].try_into().ok()?),
             length: u32::from_ne_bytes(bytes[8..12].try_into().ok()?),
@@ -69,11 +67,10 @@ trait Interface {
     type Incoming;
 }
 
-// XXX pub
-pub struct ByteStream<'a> {
-    pub connection: &'a Connection,
-    pub bytes: &'a [u8],
-    pub fds: &'a mut Vec<OwnedFd>,
+struct ByteStream<'a> {
+    connection: &'a Connection,
+    bytes: &'a [u8],
+    fds: &'a mut Vec<OwnedFd>,
 }
 
 impl<'a> ByteStream<'a> {

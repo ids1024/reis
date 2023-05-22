@@ -2,10 +2,6 @@
 
 // GENERATED FILE
 
-// Define module for each interface?
-// TODO Cleaner/safer way to strip out Ei/Eis prefix?
-// TODO Something like WEnum? Or assume unfamiliar variant won't exist in known version?
-
 {# TODO handle destructor #}
 
 {% macro interface_type(interface) -%}
@@ -184,9 +180,8 @@ pub enum {{incoming_enum(interfaces[0])}} {
 }
 
 impl {{incoming_enum(interfaces[0])}} {
-    // TODO pub
     // TODO: pass object along with event?
-    pub fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+    pub(crate) fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
         match interface {
             {% for interface in interfaces %}
             "{{interface.protocol_name}}" => Some(Self::{{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum(interface)}}::parse(operand, bytes)?)),

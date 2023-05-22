@@ -1,9 +1,5 @@
 // GENERATED FILE
 
-// Define module for each interface?
-// TODO Cleaner/safer way to strip out Ei/Eis prefix?
-// TODO Something like WEnum? Or assume unfamiliar variant won't exist in known version?
-
 /**
 This is a special interface to setup the client as seen by the EIS
 implementation. The object for this interface has the fixed object
@@ -2231,8 +2227,6 @@ pub mod touchscreen {
     }
 }
 
-// map opcodes
-
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum Request {
@@ -2251,9 +2245,8 @@ pub enum Request {
 }
 
 impl Request {
-    // TODO pub
     // TODO: pass object along with event?
-    pub fn parse(
+    pub(crate) fn parse(
         interface: &'static str,
         operand: u32,
         bytes: &mut crate::ByteStream,
