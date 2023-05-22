@@ -3,13 +3,13 @@ use std::{
     collections::HashMap,
     io,
     os::unix::{
-        io::{AsFd, AsRawFd, BorrowedFd, OwnedFd, RawFd},
+        io::{AsFd, BorrowedFd, OwnedFd},
         net::UnixStream,
     },
     sync::{Arc, Mutex},
 };
 
-use crate::{eis, util, Arg, ByteStream, Header, Object};
+use crate::{util, Arg, ByteStream, Header};
 
 #[derive(Debug)]
 struct Buffer {
@@ -23,27 +23,18 @@ struct ConnectionState {
     objects: HashMap<u64, &'static str>,
 }
 
+// Ref-counted; shared for both ei and eis
 #[derive(Debug)]
-struct ConnectionInner {
+pub struct ConnectionInner {
     socket: UnixStream,
-    // TODO distinguish at type level?
     client: bool,
     state: Mutex<ConnectionState>,
     read: Mutex<Buffer>,
 }
 
-#[derive(Clone, Debug)]
-pub struct Connection(Arc<ConnectionInner>);
-
-impl AsFd for Connection {
+impl AsFd for ConnectionInner {
     fn as_fd(&self) -> BorrowedFd {
-        self.0.socket.as_fd()
-    }
-}
-
-impl AsRawFd for Connection {
-    fn as_raw_fd(&self) -> RawFd {
-        self.0.socket.as_raw_fd()
+        self.socket.as_fd()
     }
 }
 
@@ -52,8 +43,8 @@ pub enum ConnectionReadResult {
     EOF,
 }
 
-pub enum PendingRequestResult {
-    Request(eis::Request),
+pub enum PendingRequestResult<T> {
+    Request(T),
     ProtocolError(&'static str),
     InvalidObject(u64),
 }
@@ -64,13 +55,13 @@ impl ConnectionReadResult {
     }
 }
 
-impl Connection {
-    pub(crate) fn new(socket: UnixStream, client: bool) -> io::Result<Self> {
+impl ConnectionInner {
+    pub fn new(socket: UnixStream, client: bool) -> io::Result<Self> {
         socket.set_nonblocking(true)?;
         let next_id = if client { 1 } else { 0xff00000000000000 };
         let mut objects = HashMap::new();
         objects.insert(0, "ei_handshake");
-        Ok(Self(Arc::new(ConnectionInner {
+        Ok(Self {
             socket,
             client,
             state: Mutex::new(ConnectionState { next_id, objects }),
@@ -78,17 +69,17 @@ impl Connection {
                 buf: Vec::new(),
                 fds: Vec::new(),
             }),
-        })))
+        })
     }
 
     /// Read any pending data on socket into buffer
     pub fn read(&self) -> io::Result<ConnectionReadResult> {
-        let mut read = self.0.read.lock().unwrap();
+        let mut read = self.read.lock().unwrap();
 
         let mut buf = [0; 2048];
         let mut total_count = 0;
         loop {
-            match util::recv_with_fds(&self.0.socket, &mut buf, &mut read.fds) {
+            match util::recv_with_fds(&self.socket, &mut buf, &mut read.fds) {
                 Ok(0) if total_count == 0 => {
                     return Ok(ConnectionReadResult::EOF);
                 }
@@ -105,10 +96,11 @@ impl Connection {
         }
     }
 
-    // XXX seperate type for ei
-    // XXX iterator
-    pub fn eis_pending_request(&self) -> Option<PendingRequestResult> {
-        let mut read = self.0.read.lock().unwrap();
+    pub(crate) fn pending<T>(
+        self: &Arc<Self>,
+        parse: fn(&'static str, u32, &mut crate::ByteStream) -> Option<T>,
+    ) -> Option<PendingRequestResult<T>> {
+        let mut read = self.read.lock().unwrap();
         if read.buf.len() >= 16 {
             let header = Header::parse(&read.buf).unwrap();
             if read.buf.len() < header.length as usize {
@@ -124,7 +116,7 @@ impl Connection {
                     bytes: &read.buf[16..header.length as usize],
                     fds: &mut read.fds,
                 };
-                let request = eis::Request::parse(interface, header.opcode, &mut bytes);
+                let request = parse(interface, header.opcode, &mut bytes);
                 if bytes.bytes.len() != 0 {
                     return Some(PendingRequestResult::ProtocolError(
                         "message length doesn't match header",
@@ -149,36 +141,26 @@ impl Connection {
         }
     }
 
-    // XXX distinguish ei/eis connection types
-    pub fn eis_handshake(&self) -> crate::eis::handshake::Handshake {
-        eis::handshake::Handshake(Object::new(self.clone(), 0))
-    }
-
-    pub(crate) fn new_id(&self, interface: &'static str) -> u64 {
-        let mut state = self.0.state.lock().unwrap();
+    pub fn new_id(&self, interface: &'static str) -> u64 {
+        let mut state = self.state.lock().unwrap();
         let id = state.next_id;
         state.next_id += 1;
         state.objects.insert(id, interface);
         id
     }
 
-    pub(crate) fn remove_id(&self, id: u64) {
-        self.0.state.lock().unwrap().objects.remove(&id);
+    pub fn remove_id(&self, id: u64) {
+        self.state.lock().unwrap().objects.remove(&id);
     }
 
     pub fn object_interface(&self, id: u64) -> Option<&'static str> {
-        self.0.state.lock().unwrap().objects.get(&id).copied()
+        self.state.lock().unwrap().objects.get(&id).copied()
     }
 
     // TODO send return value? send more?
     // TODO buffer nonblocking output?
     // XXX don't allow write from multiple threads without lock
-    pub(crate) fn request(
-        &self,
-        object_id: u64,
-        opcode: u32,
-        args: &[Arg],
-    ) -> rustix::io::Result<()> {
+    pub fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
         // Leave space for header
         let mut buf = vec![0; 16];
         let mut fds = vec![];
@@ -191,6 +173,6 @@ impl Connection {
             opcode,
         };
         header.write_at(&mut buf);
-        util::send_with_fds(&self.0.socket, &buf, &fds)
+        util::send_with_fds(&self.socket, &buf, &fds)
     }
 }

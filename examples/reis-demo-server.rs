@@ -6,7 +6,7 @@ use std::{
 };
 
 struct ConnectionState {
-    connection: reis::Connection,
+    connection: eis::Connection,
     handshake: eis::handshake::Handshake,
     connection_obj: Option<eis::connection::Connection>,
     last_serial: u32,
@@ -55,7 +55,7 @@ impl State {
         while let Some(connection) = listener.accept()? {
             println!("New connection: {:?}", connection);
 
-            let handshake = connection.eis_handshake();
+            let handshake = connection.handshake();
             handshake.handshake_version(1);
             handshake.interface_version("ei_callback", 1);
             handshake.interface_version("ei_connection", 1);
@@ -93,7 +93,7 @@ impl State {
             return Ok(calloop::PostAction::Remove);
         }
 
-        while let Some(result) = connection_state.connection.eis_pending_request() {
+        while let Some(result) = connection_state.connection.pending_request() {
             let request = match result {
                 PendingRequestResult::Request(request) => request,
                 PendingRequestResult::ProtocolError(msg) => {

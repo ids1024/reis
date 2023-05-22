@@ -1,10 +1,10 @@
 use std::sync::{atomic::AtomicBool, Arc};
 
-use crate::{Arg, Connection};
+use crate::{Arg, ConnectionInner};
 
 #[derive(Debug)]
 struct ObjectInner {
-    connection: Connection,
+    connection: Arc<ConnectionInner>,
     id: u64,
     destroyed: AtomicBool,
 }
@@ -13,7 +13,7 @@ struct ObjectInner {
 pub struct Object(Arc<ObjectInner>);
 
 impl Object {
-    pub fn new(connection: Connection, id: u64) -> Self {
+    pub fn new(connection: Arc<ConnectionInner>, id: u64) -> Self {
         Self(Arc::new(ObjectInner {
             connection,
             id,
@@ -21,7 +21,7 @@ impl Object {
         }))
     }
 
-    pub fn connection(&self) -> &Connection {
+    pub fn connection(&self) -> &Arc<ConnectionInner> {
         &self.0.connection
     }
 

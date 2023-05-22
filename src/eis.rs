@@ -2,12 +2,13 @@ use std::{
     io,
     os::unix::{
         io::{AsFd, AsRawFd, BorrowedFd, RawFd},
-        net::UnixListener,
+        net::{UnixListener, UnixStream},
     },
     path::Path,
+    sync::Arc,
 };
 
-use crate::Connection;
+use crate::{ConnectionInner, ConnectionReadResult, Object, PendingRequestResult};
 
 // Re-export generate bindings
 pub use crate::eiproto_eis::*;
@@ -24,9 +25,9 @@ impl Listener {
         Ok(Self { listener })
     }
 
-    pub fn accept(&self) -> io::Result<Option<super::Connection>> {
+    pub fn accept(&self) -> io::Result<Option<Connection>> {
         match self.listener.accept() {
-            Ok((socket, _)) => Ok(Some(Connection::new(socket, false)?)),
+            Ok((socket, _)) => Ok(Some(Connection::new(socket)?)),
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => Ok(None),
             Err(e) => Err(e),
         }
@@ -42,5 +43,44 @@ impl AsFd for Listener {
 impl AsRawFd for Listener {
     fn as_raw_fd(&self) -> RawFd {
         self.listener.as_raw_fd()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Connection(pub(crate) Arc<ConnectionInner>);
+
+impl AsFd for Connection {
+    fn as_fd(&self) -> BorrowedFd {
+        self.0.as_fd()
+    }
+}
+
+impl AsRawFd for Connection {
+    fn as_raw_fd(&self) -> RawFd {
+        self.0.as_fd().as_raw_fd()
+    }
+}
+
+impl Connection {
+    pub(crate) fn new(socket: UnixStream) -> io::Result<Self> {
+        Ok(Self(Arc::new(ConnectionInner::new(socket, false)?)))
+    }
+
+    /// Read any pending data on socket into buffer
+    pub fn read(&self) -> io::Result<ConnectionReadResult> {
+        self.0.read()
+    }
+
+    // XXX iterator
+    pub fn pending_request(&self) -> Option<PendingRequestResult<Request>> {
+        self.0.pending(Request::parse)
+    }
+
+    pub fn handshake(&self) -> handshake::Handshake {
+        handshake::Handshake(Object::new(self.0.clone(), 0))
+    }
+
+    pub fn object_interface(&self, id: u64) -> Option<&'static str> {
+        self.0.object_interface(id)
     }
 }

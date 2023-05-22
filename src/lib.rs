@@ -4,12 +4,13 @@
 // TODO split up
 // Implement handshake
 
-use std::{env, os::unix::io::OwnedFd, path::PathBuf};
+use std::{env, os::unix::io::OwnedFd, path::PathBuf, sync::Arc};
 
 mod arg;
 use arg::{Arg, OwnedArg};
 mod connection;
-pub use connection::{Connection, ConnectionReadResult, PendingRequestResult};
+use connection::ConnectionInner;
+pub use connection::{ConnectionReadResult, PendingRequestResult};
 pub mod ei;
 #[allow(unused_parens)]
 mod eiproto_ei;
@@ -69,14 +70,14 @@ trait Interface {
 }
 
 struct ByteStream<'a> {
-    connection: &'a Connection,
+    connection: &'a Arc<ConnectionInner>,
     bytes: &'a [u8],
     fds: &'a mut Vec<OwnedFd>,
 }
 
 impl<'a> ByteStream<'a> {
-    fn connection(&self) -> &Connection {
-        &self.connection
+    fn connection(&self) -> &Arc<ConnectionInner> {
+        self.connection
     }
 
     fn read_n(&mut self, n: usize) -> Option<&[u8]> {
