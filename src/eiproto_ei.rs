@@ -1854,7 +1854,7 @@ pub mod keyboard {
 
         /**
         Generate a key event on this keyboard. If the device has an
-        `ei_device.keymap`, the key code corresponds to that keymap.
+        `ei_keyboard.keymap`, the key code corresponds to that keymap.
 
         The key codes must match the defines in linux/input-event-codes.h.
 
@@ -1996,7 +1996,7 @@ pub mod keyboard {
         This event does not reqire an `ei_device.frame` and should
         be processed immediately by the client.
 
-        This event is only sent for devices with an `ei_device.keymap.`
+        This event is only sent for devices with an `ei_keyboard.keymap.`
          */
         Modifiers {
             /** this event's serial number */
