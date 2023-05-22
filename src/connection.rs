@@ -132,9 +132,7 @@ impl Connection {
                 }
 
                 // XXX inefficient
-                for i in 0..header.length as usize {
-                    read.buf.remove(0);
-                }
+                read.buf.drain(0..header.length as usize);
 
                 if let Some(request) = request {
                     Some(PendingRequestResult::Request(request))
