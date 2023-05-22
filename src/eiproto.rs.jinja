@@ -1,4 +1,5 @@
 {# ei-scanner jinja template, for `` #}
+#![allow(unused_parens, clippy::useless_conversion, clippy::double_parens, clippy::match_single_binding)]
 
 // GENERATED FILE
 
@@ -152,14 +153,14 @@ pub mod {{interface.plainname}} {
     }
 
     impl {{incoming_enum(interface)}} {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
             {% for incoming in interface.incoming %}
                 {{incoming.opcode}} =>
                 Some(Self::{{ incoming.name|camel }}
                 {% if incoming.arguments %} {
                 {% for arg in incoming.arguments %}
-                    {{arg.name}}: bytes.read_arg()?,
+                    {{arg.name}}: _bytes.read_arg()?,
                 {% endfor %} }
                 {% endif %} ),
             {% endfor %}

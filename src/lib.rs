@@ -12,9 +12,7 @@ mod connection;
 use connection::ConnectionInner;
 pub use connection::{ConnectionReadResult, PendingRequestResult};
 pub mod ei;
-#[allow(unused_parens)]
 mod eiproto_ei;
-#[allow(unused_parens)]
 mod eiproto_eis;
 pub mod eis;
 mod object;
@@ -54,13 +52,6 @@ impl Header {
         buf[8..12].copy_from_slice(&self.length.to_ne_bytes());
         buf[12..16].copy_from_slice(&self.opcode.to_ne_bytes());
     }
-}
-
-#[derive(Debug)]
-struct Message {
-    header: Header,
-    contents: Vec<u8>,
-    // TODO fds?
 }
 
 trait Interface {

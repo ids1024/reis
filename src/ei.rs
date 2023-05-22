@@ -28,7 +28,8 @@ impl AsRawFd for Connection {
 }
 
 impl Connection {
-    pub(crate) fn new(socket: UnixStream) -> io::Result<Self> {
+    // TODO way to connect
+    pub fn new(socket: UnixStream) -> io::Result<Self> {
         Ok(Self(Arc::new(ConnectionInner::new(socket, false)?)))
     }
 

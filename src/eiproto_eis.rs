@@ -1,3 +1,10 @@
+#![allow(
+    unused_parens,
+    clippy::useless_conversion,
+    clippy::double_parens,
+    clippy::match_single_binding
+)]
+
 // GENERATED FILE
 
 /**
@@ -247,21 +254,21 @@ pub mod handshake {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::HandshakeVersion {
-                    version: bytes.read_arg()?,
+                    version: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::Finish),
                 2 => Some(Self::ContextType {
-                    context_type: bytes.read_arg()?,
+                    context_type: _bytes.read_arg()?,
                 }),
                 3 => Some(Self::Name {
-                    name: bytes.read_arg()?,
+                    name: _bytes.read_arg()?,
                 }),
                 4 => Some(Self::InterfaceVersion {
-                    name: bytes.read_arg()?,
-                    version: bytes.read_arg()?,
+                    name: _bytes.read_arg()?,
+                    version: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -505,10 +512,10 @@ pub mod connection {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Sync {
-                    callback: bytes.read_arg()?,
+                    callback: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::Disconnect),
                 _ => None,
@@ -563,7 +570,7 @@ pub mod callback {
     pub enum Request {}
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 _ => None,
             }
@@ -613,10 +620,10 @@ pub mod pingpong {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Done {
-                    callback_data: bytes.read_arg()?,
+                    callback_data: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -797,11 +804,11 @@ pub mod seat {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Release),
                 1 => Some(Self::Bind {
-                    capabilities: bytes.read_arg()?,
+                    capabilities: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -1232,19 +1239,19 @@ pub mod device {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Release),
                 1 => Some(Self::StartEmulating {
-                    last_serial: bytes.read_arg()?,
-                    sequence: bytes.read_arg()?,
+                    last_serial: _bytes.read_arg()?,
+                    sequence: _bytes.read_arg()?,
                 }),
                 2 => Some(Self::StopEmulating {
-                    last_serial: bytes.read_arg()?,
+                    last_serial: _bytes.read_arg()?,
                 }),
                 3 => Some(Self::Frame {
-                    last_serial: bytes.read_arg()?,
-                    timestamp: bytes.read_arg()?,
+                    last_serial: _bytes.read_arg()?,
+                    timestamp: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -1344,12 +1351,12 @@ pub mod pointer {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Release),
                 1 => Some(Self::MotionRelative {
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -1451,12 +1458,12 @@ pub mod pointer_absolute {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Release),
                 1 => Some(Self::MotionAbsolute {
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -1642,21 +1649,21 @@ pub mod scroll {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Release),
                 1 => Some(Self::Scroll {
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 2 => Some(Self::ScrollDiscrete {
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 3 => Some(Self::ScrollStop {
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
-                    is_cancel: bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
+                    is_cancel: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -1788,12 +1795,12 @@ pub mod button {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Release),
                 1 => Some(Self::Button {
-                    button: bytes.read_arg()?,
-                    state: bytes.read_arg()?,
+                    button: _bytes.read_arg()?,
+                    state: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -2021,12 +2028,12 @@ pub mod keyboard {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Release),
                 1 => Some(Self::Key {
-                    key: bytes.read_arg()?,
-                    state: bytes.read_arg()?,
+                    key: _bytes.read_arg()?,
+                    state: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -2205,21 +2212,21 @@ pub mod touchscreen {
     }
 
     impl Request {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Release),
                 1 => Some(Self::Down {
-                    touchid: bytes.read_arg()?,
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    touchid: _bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 2 => Some(Self::Motion {
-                    touchid: bytes.read_arg()?,
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    touchid: _bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 3 => Some(Self::Up {
-                    touchid: bytes.read_arg()?,
+                    touchid: _bytes.read_arg()?,
                 }),
                 _ => None,
             }

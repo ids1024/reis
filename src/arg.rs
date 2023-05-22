@@ -2,6 +2,7 @@ use std::os::unix::io::{BorrowedFd, OwnedFd};
 
 use crate::ByteStream;
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum Arg<'a> {
     Uint32(u32),

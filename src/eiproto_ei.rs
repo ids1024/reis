@@ -1,3 +1,10 @@
+#![allow(
+    unused_parens,
+    clippy::useless_conversion,
+    clippy::double_parens,
+    clippy::match_single_binding
+)]
+
 // GENERATED FILE
 
 /**
@@ -249,19 +256,19 @@ pub mod handshake {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::HandshakeVersion {
-                    version: bytes.read_arg()?,
+                    version: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::InterfaceVersion {
-                    name: bytes.read_arg()?,
-                    version: bytes.read_arg()?,
+                    name: _bytes.read_arg()?,
+                    version: _bytes.read_arg()?,
                 }),
                 2 => Some(Self::Connection {
-                    serial: bytes.read_arg()?,
-                    connection: bytes.read_arg()?,
-                    version: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
+                    connection: _bytes.read_arg()?,
+                    version: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -494,24 +501,24 @@ pub mod connection {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Disconnected {
-                    last_serial: bytes.read_arg()?,
-                    reason: bytes.read_arg()?,
-                    explanation: bytes.read_arg()?,
+                    last_serial: _bytes.read_arg()?,
+                    reason: _bytes.read_arg()?,
+                    explanation: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::Seat {
-                    seat: bytes.read_arg()?,
-                    version: bytes.read_arg()?,
+                    seat: _bytes.read_arg()?,
+                    version: _bytes.read_arg()?,
                 }),
                 2 => Some(Self::InvalidObject {
-                    last_serial: bytes.read_arg()?,
-                    invalid_id: bytes.read_arg()?,
+                    last_serial: _bytes.read_arg()?,
+                    invalid_id: _bytes.read_arg()?,
                 }),
                 3 => Some(Self::Ping {
-                    ping: bytes.read_arg()?,
-                    version: bytes.read_arg()?,
+                    ping: _bytes.read_arg()?,
+                    version: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -561,10 +568,10 @@ pub mod callback {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Done {
-                    callback_data: bytes.read_arg()?,
+                    callback_data: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -618,7 +625,7 @@ pub mod pingpong {
     pub enum Event {}
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 _ => None,
             }
@@ -783,22 +790,22 @@ pub mod seat {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Destroyed {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::Name {
-                    name: bytes.read_arg()?,
+                    name: _bytes.read_arg()?,
                 }),
                 2 => Some(Self::Capability {
-                    mask: bytes.read_arg()?,
-                    interface: bytes.read_arg()?,
+                    mask: _bytes.read_arg()?,
+                    interface: _bytes.read_arg()?,
                 }),
                 3 => Some(Self::Done),
                 4 => Some(Self::Device {
-                    device: bytes.read_arg()?,
-                    version: bytes.read_arg()?,
+                    device: _bytes.read_arg()?,
+                    version: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -1189,50 +1196,50 @@ pub mod device {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Destroyed {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::Name {
-                    name: bytes.read_arg()?,
+                    name: _bytes.read_arg()?,
                 }),
                 2 => Some(Self::DeviceType {
-                    device_type: bytes.read_arg()?,
+                    device_type: _bytes.read_arg()?,
                 }),
                 3 => Some(Self::Dimensions {
-                    width: bytes.read_arg()?,
-                    height: bytes.read_arg()?,
+                    width: _bytes.read_arg()?,
+                    height: _bytes.read_arg()?,
                 }),
                 4 => Some(Self::Region {
-                    offset_x: bytes.read_arg()?,
-                    offset_y: bytes.read_arg()?,
-                    width: bytes.read_arg()?,
-                    hight: bytes.read_arg()?,
-                    scale: bytes.read_arg()?,
+                    offset_x: _bytes.read_arg()?,
+                    offset_y: _bytes.read_arg()?,
+                    width: _bytes.read_arg()?,
+                    hight: _bytes.read_arg()?,
+                    scale: _bytes.read_arg()?,
                 }),
                 5 => Some(Self::Interface {
-                    object: bytes.read_arg()?,
-                    interface_name: bytes.read_arg()?,
-                    version: bytes.read_arg()?,
+                    object: _bytes.read_arg()?,
+                    interface_name: _bytes.read_arg()?,
+                    version: _bytes.read_arg()?,
                 }),
                 6 => Some(Self::Done),
                 7 => Some(Self::Resumed {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 8 => Some(Self::Paused {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 9 => Some(Self::StartEmulating {
-                    serial: bytes.read_arg()?,
-                    sequence: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
+                    sequence: _bytes.read_arg()?,
                 }),
                 10 => Some(Self::StopEmulating {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 11 => Some(Self::Frame {
-                    serial: bytes.read_arg()?,
-                    timestamp: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
+                    timestamp: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -1334,14 +1341,14 @@ pub mod pointer {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Destroyed {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::MotionRelative {
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -1445,14 +1452,14 @@ pub mod pointer_absolute {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Destroyed {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::MotionAbsolute {
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -1640,23 +1647,23 @@ pub mod scroll {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Destroyed {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::Scroll {
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 2 => Some(Self::ScrollDiscrete {
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 3 => Some(Self::ScrollStop {
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
-                    is_cancel: bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
+                    is_cancel: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -1790,14 +1797,14 @@ pub mod button {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Destroyed {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::Button {
-                    button: bytes.read_arg()?,
-                    state: bytes.read_arg()?,
+                    button: _bytes.read_arg()?,
+                    state: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -2009,26 +2016,26 @@ pub mod keyboard {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Destroyed {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::Keymap {
-                    keymap_type: bytes.read_arg()?,
-                    size: bytes.read_arg()?,
-                    keymap: bytes.read_arg()?,
+                    keymap_type: _bytes.read_arg()?,
+                    size: _bytes.read_arg()?,
+                    keymap: _bytes.read_arg()?,
                 }),
                 2 => Some(Self::Key {
-                    key: bytes.read_arg()?,
-                    state: bytes.read_arg()?,
+                    key: _bytes.read_arg()?,
+                    state: _bytes.read_arg()?,
                 }),
                 3 => Some(Self::Modifiers {
-                    serial: bytes.read_arg()?,
-                    depressed: bytes.read_arg()?,
-                    locked: bytes.read_arg()?,
-                    latched: bytes.read_arg()?,
-                    group: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
+                    depressed: _bytes.read_arg()?,
+                    locked: _bytes.read_arg()?,
+                    latched: _bytes.read_arg()?,
+                    group: _bytes.read_arg()?,
                 }),
                 _ => None,
             }
@@ -2209,23 +2216,23 @@ pub mod touchscreen {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
                 0 => Some(Self::Destroyed {
-                    serial: bytes.read_arg()?,
+                    serial: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::Down {
-                    touchid: bytes.read_arg()?,
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    touchid: _bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 2 => Some(Self::Motion {
-                    touchid: bytes.read_arg()?,
-                    x: bytes.read_arg()?,
-                    y: bytes.read_arg()?,
+                    touchid: _bytes.read_arg()?,
+                    x: _bytes.read_arg()?,
+                    y: _bytes.read_arg()?,
                 }),
                 3 => Some(Self::Up {
-                    touchid: bytes.read_arg()?,
+                    touchid: _bytes.read_arg()?,
                 }),
                 _ => None,
             }

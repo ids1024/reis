@@ -117,7 +117,7 @@ impl ConnectionInner {
                     fds: &mut read.fds,
                 };
                 let request = parse(interface, header.opcode, &mut bytes);
-                if bytes.bytes.len() != 0 {
+                if !bytes.bytes.is_empty() {
                     return Some(PendingRequestResult::ProtocolError(
                         "message length doesn't match header",
                     ));

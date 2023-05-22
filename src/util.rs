@@ -14,10 +14,10 @@ pub fn send_with_fds(
 ) -> rustix::io::Result<()> {
     let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(fds.len()))];
     let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
-    cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(&fds));
+    cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(fds));
     retry_on_intr(|| {
         net::sendmsg_noaddr(
-            &socket,
+            socket,
             &[IoSlice::new(buf)],
             &mut cmsg_buffer,
             net::SendFlags::NOSIGNAL,
@@ -37,7 +37,7 @@ pub fn recv_with_fds(
     let mut cmsg_buffer = net::RecvAncillaryBuffer::new(&mut cmsg_space);
     let response = retry_on_intr(|| {
         net::recvmsg(
-            &socket,
+            socket,
             &mut [IoSliceMut::new(buf)],
             &mut cmsg_buffer,
             net::RecvFlags::CMSG_CLOEXEC,
