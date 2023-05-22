@@ -18,6 +18,7 @@ mod eiproto_eis;
 pub mod eis;
 mod object;
 use object::Object;
+mod util;
 
 // TODO versioning?
 

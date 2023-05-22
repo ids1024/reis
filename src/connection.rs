@@ -1,7 +1,4 @@
-use rustix::{
-    io::{retry_on_intr, Errno, IoSlice, IoSliceMut},
-    net,
-};
+use rustix::io::Errno;
 use std::{
     collections::HashMap,
     io,
@@ -12,7 +9,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{eis, Arg, ByteStream, Header, Object};
+use crate::{eis, util, Arg, ByteStream, Header, Object};
 
 #[derive(Debug)]
 struct Buffer {
@@ -91,7 +88,7 @@ impl Connection {
         let mut buf = [0; 2048];
         let mut total_count = 0;
         loop {
-            match self.recv(&mut buf, &mut read.fds) {
+            match util::recv_with_fds(&self.0.socket, &mut buf, &mut read.fds) {
                 Ok(0) if total_count == 0 => {
                     return Ok(ConnectionReadResult::EOF);
                 }
@@ -165,45 +162,7 @@ impl Connection {
     // TODO buffer nonblocking output?
     // XXX don't allow write from multiple threads without lock
     fn send(&self, data: &[u8], fds: &[BorrowedFd]) -> rustix::io::Result<()> {
-        let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(fds.len()))];
-        let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
-        cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(&fds));
-        retry_on_intr(|| {
-            net::sendmsg_noaddr(
-                &self.0.socket,
-                &[IoSlice::new(data)],
-                &mut cmsg_buffer,
-                net::SendFlags::NOSIGNAL,
-            )
-        })?;
-        Ok(())
-    }
-
-    fn recv(&self, buf: &mut [u8], fds: &mut Vec<OwnedFd>) -> rustix::io::Result<usize> {
-        const MAX_FDS: usize = 32;
-
-        let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(MAX_FDS))];
-        let mut cmsg_buffer = net::RecvAncillaryBuffer::new(&mut cmsg_space);
-        let response = retry_on_intr(|| {
-            net::recvmsg(
-                &self.0.socket,
-                &mut [IoSliceMut::new(buf)],
-                &mut cmsg_buffer,
-                net::RecvFlags::CMSG_CLOEXEC,
-            )
-        })?;
-        if response.bytes != 0 {
-            fds.extend(
-                cmsg_buffer
-                    .drain()
-                    .filter_map(|msg| match msg {
-                        net::RecvAncillaryMessage::ScmRights(fds) => Some(fds),
-                        _ => None,
-                    })
-                    .flatten(),
-            );
-        }
-        Ok(response.bytes)
+        util::send_with_fds(&self.0.socket, data, fds)
     }
 
     pub(crate) fn new_id(&self, interface: &'static str) -> u64 {
