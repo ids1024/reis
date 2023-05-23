@@ -83,6 +83,9 @@ impl ConnectionInner {
                 Ok(0) if total_count == 0 => {
                     return Ok(ConnectionReadResult::EOF);
                 }
+                Ok(0) => {
+                    return Ok(ConnectionReadResult::Read(total_count));
+                }
                 Ok(count) => {
                     read.buf.extend_from_slice(&buf[0..count]);
                     total_count += count;
@@ -134,6 +137,7 @@ impl ConnectionInner {
                     ))
                 }
             } else {
+                read.buf.drain(0..header.length as usize);
                 Some(PendingRequestResult::InvalidObject(header.object_id))
             }
         } else {
@@ -161,6 +165,11 @@ impl ConnectionInner {
     // TODO buffer nonblocking output?
     // XXX don't allow write from multiple threads without lock
     pub fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
+        let interface = self.object_interface(object_id);
+        println!(
+            "Request {:?} {} {}: {:?}",
+            interface, object_id, opcode, args
+        );
         // Leave space for header
         let mut buf = vec![0; 16];
         let mut fds = vec![];

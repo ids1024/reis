@@ -1,9 +1,24 @@
 use calloop::generic::Generic;
+use once_cell::sync::Lazy;
 use reis::{eis, PendingRequestResult};
 use std::{
+    collections::HashMap,
     io,
     os::unix::io::{AsRawFd, RawFd},
 };
+
+// TODO oncecell interfaces
+
+static SERVER_INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
+    let mut m = HashMap::new();
+    m.insert("ei_callback", 1);
+    m.insert("ei_connection", 1);
+    m.insert("ei_seat", 1);
+    m.insert("ei_device", 1);
+    m.insert("ei_callback", 1);
+    m.insert("ei_pingpong", 1);
+    m
+});
 
 struct ConnectionState {
     connection: eis::Connection,
@@ -13,6 +28,7 @@ struct ConnectionState {
     name: Option<String>,
     context_type: Option<eis::handshake::ContextType>,
     seat: Option<eis::seat::Seat>,
+    negotiated_interfaces: HashMap<&'static str, u32>,
 }
 
 impl ConnectionState {
@@ -25,15 +41,20 @@ impl ConnectionState {
         &self,
         reason: eis::connection::DisconnectReason,
         explaination: &str,
-    ) -> io::Result<calloop::PostAction> {
+    ) -> calloop::PostAction {
         if let Some(connection) = self.connection_obj.as_ref() {
             connection.disconnected(self.last_serial, reason, explaination);
         }
-        Ok(calloop::PostAction::Remove)
+        calloop::PostAction::Remove
     }
 
-    fn protocol_error(&self, explanation: &str) -> io::Result<calloop::PostAction> {
+    fn protocol_error(&self, explanation: &str) -> calloop::PostAction {
         self.disconnected(eis::connection::DisconnectReason::Protocol, explanation)
+    }
+
+    // Use type instead of string?
+    fn has_interface(&self, interface: &str) -> bool {
+        self.negotiated_interfaces.contains_key(interface)
     }
 }
 
@@ -57,9 +78,9 @@ impl State {
 
             let handshake = connection.handshake();
             handshake.handshake_version(1);
-            handshake.interface_version("ei_callback", 1);
-            handshake.interface_version("ei_connection", 1);
-            handshake.interface_version("ei_seat", 1);
+            for (interface, version) in SERVER_INTERFACES.iter() {
+                handshake.interface_version(interface, *version);
+            }
 
             let connection_state = ConnectionState {
                 connection,
@@ -69,6 +90,7 @@ impl State {
                 name: None,
                 context_type: None,
                 seat: None,
+                negotiated_interfaces: HashMap::new(),
             };
             let source = Generic::new(
                 connection_state,
@@ -77,7 +99,7 @@ impl State {
             );
             self.handle
                 .insert_source(source, |_event, connection_state, state| {
-                    state.handle_connection_readable(connection_state)
+                    Ok(state.handle_connection_readable(connection_state))
                 })
                 .unwrap();
         }
@@ -88,9 +110,15 @@ impl State {
     fn handle_connection_readable(
         &mut self,
         connection_state: &mut ConnectionState,
-    ) -> io::Result<calloop::PostAction> {
-        if connection_state.connection.read()?.is_eof() {
-            return Ok(calloop::PostAction::Remove);
+    ) -> calloop::PostAction {
+        match connection_state.connection.read() {
+            Ok(res) if res.is_eof() => {
+                return calloop::PostAction::Remove;
+            }
+            Err(_) => {
+                return calloop::PostAction::Remove;
+            }
+            _ => {}
         }
 
         while let Some(result) = connection_state.connection.pending_request() {
@@ -123,21 +151,45 @@ impl State {
                         }
                         connection_state.name = Some(name);
                     }
-                    eis::handshake::Request::InterfaceVersion { name, version } => {}
+                    eis::handshake::Request::InterfaceVersion { name, version } => {
+                        if let Some((interface, server_version)) =
+                            SERVER_INTERFACES.get_key_value(name.as_str())
+                        {
+                            connection_state
+                                .negotiated_interfaces
+                                .insert(interface, version.min(*server_version));
+                        }
+                    }
                     eis::handshake::Request::Finish => {
                         // May prompt user here whether to allow this
+
+                        if !connection_state.has_interface("ei_connection")
+                            || !connection_state.has_interface("ei_pingpong")
+                            || !connection_state.has_interface("ei_callback")
+                        {
+                            return calloop::PostAction::Remove;
+                        }
+
                         let serial = connection_state.next_serial();
                         let connection_obj =
                             connection_state.handshake.connection(serial, 1).unwrap();
-                        // XXX only if protocol version supported by client
+                        connection_state.connection_obj = Some(connection_obj.clone());
+                        if !connection_state.has_interface("ei_seat")
+                            || !connection_state.has_interface("ei_device")
+                            || !connection_state.has_interface("ei_callback")
+                        {
+                            return connection_state
+                                .disconnected(eis::connection::DisconnectReason::Disconnected, "");
+                            // XXX reason
+                        }
                         let seat = connection_obj.seat(1).unwrap();
                         seat.name("default");
-                        seat.capability(0x1, "ei_pointer");
-                        seat.capability(0x2, "ei_pointer_absolute");
-                        seat.capability(0x4, "ei_button");
-                        seat.capability(0x8, "ei_scroll");
-                        seat.capability(0x10, "ei_keyboard");
-                        seat.capability(0x20, "ei_touchscreen");
+                        seat.capability(0x2, "ei_pointer");
+                        seat.capability(0x4, "ei_pointer_absolute");
+                        seat.capability(0x8, "ei_button");
+                        seat.capability(0x10, "ei_scroll");
+                        seat.capability(0x20, "ei_keyboard");
+                        seat.capability(0x40, "ei_touchscreen");
                         seat.done();
                         connection_state.seat = Some(seat);
                         connection_state.connection_obj = Some(connection_obj);
@@ -147,7 +199,7 @@ impl State {
                 eis::Request::Connection(request) => match request {
                     eis::connection::Request::Disconnect => {
                         // Do not send `disconnected` in response
-                        return Ok(calloop::PostAction::Remove);
+                        return calloop::PostAction::Remove;
                     }
                     eis::connection::Request::Sync { callback } => {
                         callback.done(0);
@@ -155,6 +207,16 @@ impl State {
                     _ => {}
                 },
                 eis::Request::Seat(request) => match request {
+                    eis::seat::Request::Bind { capabilities } => {
+                        if capabilities & 0x7e != capabilities {
+                            let serial = connection_state.next_serial();
+                            connection_state.seat.as_ref().unwrap().destroyed(serial);
+                            return connection_state.disconnected(
+                                eis::connection::DisconnectReason::Value,
+                                "Invalid capabilities",
+                            );
+                        }
+                    }
                     eis::seat::Request::Release => {
                         // XXX
                         let serial = connection_state.next_serial();
@@ -166,7 +228,7 @@ impl State {
             }
         }
 
-        Ok(calloop::PostAction::Continue)
+        calloop::PostAction::Continue
     }
 }
 
