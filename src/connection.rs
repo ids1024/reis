@@ -20,6 +20,7 @@ struct Buffer {
 #[derive(Debug)]
 struct ConnectionState {
     next_id: u64,
+    next_peer_id: u64,
     objects: HashMap<u64, &'static str>,
 }
 
@@ -59,12 +60,17 @@ impl ConnectionInner {
     pub fn new(socket: UnixStream, client: bool) -> io::Result<Self> {
         socket.set_nonblocking(true)?;
         let next_id = if client { 1 } else { 0xff00000000000000 };
+        let next_peer_id = if client { 0xff00000000000000 } else { 1 };
         let mut objects = HashMap::new();
         objects.insert(0, "ei_handshake");
         Ok(Self {
             socket,
             client,
-            state: Mutex::new(ConnectionState { next_id, objects }),
+            state: Mutex::new(ConnectionState {
+                next_id,
+                next_peer_id,
+                objects,
+            }),
             read: Mutex::new(Buffer {
                 buf: Vec::new(),
                 fds: Vec::new(),
@@ -151,6 +157,18 @@ impl ConnectionInner {
         state.next_id += 1;
         state.objects.insert(id, interface);
         id
+    }
+
+    // XXX return type?
+    pub fn new_peer_id(&self, id: u64, interface: &'static str) -> Result<(), ()> {
+        let mut state = self.state.lock().unwrap();
+        if id < state.next_peer_id || (!self.client && id >= 0xff00000000000000) {
+            return Err(());
+        }
+        state.next_peer_id = id + 1;
+        println!("NEW OBJECT!!!!! {} {}", id, interface);
+        state.objects.insert(id, interface);
+        Ok(())
     }
 
     pub fn remove_id(&self, id: u64) {

@@ -37,7 +37,11 @@ pub mod handshake {
 
     impl crate::OwnedArg for Handshake {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -295,7 +299,11 @@ pub mod connection {
 
     impl crate::OwnedArg for Connection {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -544,7 +552,11 @@ pub mod callback {
 
     impl crate::OwnedArg for Callback {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -598,7 +610,11 @@ pub mod pingpong {
 
     impl crate::OwnedArg for Pingpong {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -659,7 +675,11 @@ pub mod seat {
 
     impl crate::OwnedArg for Seat {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -842,7 +862,11 @@ pub mod device {
 
     impl crate::OwnedArg for Device {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -1283,7 +1307,11 @@ pub mod pointer {
 
     impl crate::OwnedArg for Pointer {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -1388,7 +1416,11 @@ pub mod pointer_absolute {
 
     impl crate::OwnedArg for PointerAbsolute {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -1495,7 +1527,11 @@ pub mod scroll {
 
     impl crate::OwnedArg for Scroll {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -1695,7 +1731,11 @@ pub mod button {
 
     impl crate::OwnedArg for Button {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -1832,7 +1872,11 @@ pub mod keyboard {
 
     impl crate::OwnedArg for Keyboard {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
@@ -2065,7 +2109,11 @@ pub mod touchscreen {
 
     impl crate::OwnedArg for Touchscreen {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }

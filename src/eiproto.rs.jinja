@@ -54,7 +54,11 @@ pub mod {{interface.plainname}} {
     {# TODO validate that ID is valid? #}
     impl crate::OwnedArg for {{interface.plainname|camel}} {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+            use crate::Interface;
             let id = u64::parse(buf)?;
+            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
+                return None; // XXX better error
+            }
             Some(Self(crate::Object::new(buf.connection().clone(), id)))
         }
     }
