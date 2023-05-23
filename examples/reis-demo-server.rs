@@ -210,12 +210,22 @@ impl State {
                     eis::seat::Request::Bind { capabilities } => {
                         if capabilities & 0x7e != capabilities {
                             let serial = connection_state.next_serial();
-                            connection_state.seat.as_ref().unwrap().destroyed(serial);
+                            let seat = connection_state.seat.as_ref().unwrap(); // XXX
+                            seat.destroyed(serial);
                             return connection_state.disconnected(
                                 eis::connection::DisconnectReason::Value,
                                 "Invalid capabilities",
                             );
                         }
+                        let seat = connection_state.seat.as_ref().unwrap(); // XXX
+                        let device = seat.device(1).unwrap();
+                        device.name("keyboard");
+                        device.device_type(eis::device::DeviceType::Virtual);
+                        // XXX how to indicate type as return
+                        // - first argument could be populated using a type generic
+                        device.interface("ei_keyboard", 1);
+                        device.done();
+                        // TODO create devices; compare against current bitflag
                     }
                     eis::seat::Request::Release => {
                         // XXX
