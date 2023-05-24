@@ -49,6 +49,10 @@ pub mod {{interface.plainname}} {
         const NAME: &'static str = "{{interface.protocol_name}}";
         const VERSION: u32 = {{interface.version}};
         type Incoming = {{incoming_enum(interface)}};
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     {# TODO validate that ID is valid? #}

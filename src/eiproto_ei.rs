@@ -33,6 +33,10 @@ pub mod handshake {
         const NAME: &'static str = "ei_handshake";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Handshake {
@@ -295,6 +299,10 @@ pub mod connection {
         const NAME: &'static str = "ei_connection";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Connection {
@@ -550,6 +558,10 @@ pub mod callback {
         const NAME: &'static str = "ei_callback";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Callback {
@@ -607,6 +619,10 @@ pub mod pingpong {
         const NAME: &'static str = "ei_pingpong";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Pingpong {
@@ -673,6 +689,10 @@ pub mod seat {
         const NAME: &'static str = "ei_seat";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Seat {
@@ -855,6 +875,10 @@ pub mod device {
         const NAME: &'static str = "ei_device";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Device {
@@ -1291,6 +1315,10 @@ pub mod pointer {
         const NAME: &'static str = "ei_pointer";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Pointer {
@@ -1404,6 +1432,10 @@ pub mod pointer_absolute {
         const NAME: &'static str = "ei_pointer_absolute";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for PointerAbsolute {
@@ -1519,6 +1551,10 @@ pub mod scroll {
         const NAME: &'static str = "ei_scroll";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Scroll {
@@ -1727,6 +1763,10 @@ pub mod button {
         const NAME: &'static str = "ei_button";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Button {
@@ -1872,6 +1912,10 @@ pub mod keyboard {
         const NAME: &'static str = "ei_keyboard";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Keyboard {
@@ -2107,6 +2151,10 @@ pub mod touchscreen {
         const NAME: &'static str = "ei_touchscreen";
         const VERSION: u32 = 1;
         type Incoming = Event;
+
+        fn downcast_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
     }
 
     impl crate::OwnedArg for Touchscreen {

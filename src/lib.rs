@@ -54,10 +54,15 @@ impl Header {
     }
 }
 
-trait Interface {
+// XXX Seal trait?
+// XXX distinguish EI/EIS interface
+#[doc(hidden)]
+pub trait Interface {
     const NAME: &'static str;
     const VERSION: u32;
     type Incoming;
+
+    fn downcast_unchecked(object: Object) -> Self;
 }
 
 struct ByteStream<'a> {

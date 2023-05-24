@@ -1,6 +1,6 @@
 use std::sync::{atomic::AtomicBool, Arc};
 
-use crate::{Arg, ConnectionInner};
+use crate::{Arg, ConnectionInner, Interface};
 
 #[derive(Debug)]
 struct ObjectInner {
@@ -31,5 +31,13 @@ impl Object {
 
     pub fn request(&self, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
         self.connection().request(self.id(), opcode, args)
+    }
+
+    pub fn downcast<T: Interface>(self) -> Option<T> {
+        if self.connection().object_interface(self.id()) == Some(T::NAME) {
+            Some(T::downcast_unchecked(self))
+        } else {
+            None
+        }
     }
 }
