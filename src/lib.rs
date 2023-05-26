@@ -8,9 +8,9 @@ use std::{env, os::unix::io::OwnedFd, path::PathBuf, string::FromUtf8Error, sync
 
 mod arg;
 use arg::{Arg, OwnedArg};
-mod connection;
-use connection::ConnectionInner;
-pub use connection::{ConnectionReadResult, PendingRequestResult};
+mod backend;
+use backend::Backend;
+pub use backend::{ConnectionReadResult, PendingRequestResult}; // XXX types? names?
 pub mod ei;
 mod eiproto_ei;
 mod eiproto_eis;
@@ -68,13 +68,13 @@ pub trait Interface: private::Sealed {
 }
 
 struct ByteStream<'a> {
-    connection: &'a Arc<ConnectionInner>,
+    connection: &'a Arc<Backend>,
     bytes: &'a [u8],
     fds: &'a mut Vec<OwnedFd>,
 }
 
 impl<'a> ByteStream<'a> {
-    fn connection(&self) -> &Arc<ConnectionInner> {
+    fn connection(&self) -> &Arc<Backend> {
         self.connection
     }
 

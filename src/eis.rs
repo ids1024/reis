@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{ConnectionInner, ConnectionReadResult, Object, PendingRequestResult};
+use crate::{Backend, ConnectionReadResult, Object, PendingRequestResult};
 
 // Re-export generate bindings
 pub use crate::eiproto_eis::*;
@@ -47,7 +47,7 @@ impl AsRawFd for Listener {
 }
 
 #[derive(Clone, Debug)]
-pub struct Connection(pub(crate) Arc<ConnectionInner>);
+pub struct Connection(pub(crate) Arc<Backend>);
 
 impl AsFd for Connection {
     fn as_fd(&self) -> BorrowedFd {
@@ -63,7 +63,7 @@ impl AsRawFd for Connection {
 
 impl Connection {
     pub(crate) fn new(socket: UnixStream) -> io::Result<Self> {
-        Ok(Self(Arc::new(ConnectionInner::new(socket, false)?)))
+        Ok(Self(Arc::new(Backend::new(socket, false)?)))
     }
 
     /// Read any pending data on socket into buffer

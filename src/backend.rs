@@ -26,14 +26,14 @@ struct ConnectionState {
 
 // Ref-counted; shared for both ei and eis
 #[derive(Debug)]
-pub struct ConnectionInner {
+pub struct Backend {
     socket: UnixStream,
     client: bool,
     state: Mutex<ConnectionState>,
     read: Mutex<Buffer>,
 }
 
-impl AsFd for ConnectionInner {
+impl AsFd for Backend {
     fn as_fd(&self) -> BorrowedFd {
         self.socket.as_fd()
     }
@@ -56,7 +56,7 @@ impl ConnectionReadResult {
     }
 }
 
-impl ConnectionInner {
+impl Backend {
     pub fn new(socket: UnixStream, client: bool) -> io::Result<Self> {
         socket.set_nonblocking(true)?;
         let next_id = if client { 1 } else { 0xff00000000000000 };

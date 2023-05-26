@@ -1,11 +1,11 @@
 use std::{fmt, sync::Arc};
 
-use crate::{Arg, ConnectionInner, Interface};
+use crate::{Arg, Backend, Interface};
 
 #[derive(Clone)]
 pub struct Object {
     // TODO use weak, like wayland-rs?
-    connection: Arc<ConnectionInner>,
+    connection: Arc<Backend>,
     id: u64,
 }
 
@@ -16,11 +16,11 @@ impl fmt::Debug for Object {
 }
 
 impl Object {
-    pub(crate) fn new(connection: Arc<ConnectionInner>, id: u64) -> Self {
+    pub(crate) fn new(connection: Arc<Backend>, id: u64) -> Self {
         Self { connection, id }
     }
 
-    pub fn connection(&self) -> &Arc<ConnectionInner> {
+    pub fn connection(&self) -> &Arc<Backend> {
         &self.connection
     }
 
