@@ -64,7 +64,7 @@ pub trait Interface: private::Sealed {
     const VERSION: u32;
     type Incoming;
 
-    fn downcast_unchecked(object: Object) -> Self;
+    fn new_unchecked(object: Object) -> Self;
 }
 
 struct ByteStream<'a> {

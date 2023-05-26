@@ -190,11 +190,9 @@ impl ConnectionInner {
         id: u64,
         version: u32,
     ) -> Result<T, crate::ParseError> {
-        Ok(T::downcast_unchecked(self.new_peer_object(
-            id,
-            T::NAME.to_string(),
-            version,
-        )?))
+        Ok(self
+            .new_peer_object(id, T::NAME.to_string(), version)?
+            .downcast_unchecked())
     }
 
     pub fn remove_id(&self, id: u64) {

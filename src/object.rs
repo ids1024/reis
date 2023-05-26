@@ -33,14 +33,14 @@ impl Object {
     }
 
     pub(crate) fn downcast_unchecked<T: Interface>(self) -> T {
-        T::downcast_unchecked(self)
+        T::new_unchecked(self)
     }
 
     // XXX test ei vs ei
     pub fn downcast<T: Interface>(self) -> Option<T> {
         let (interface, _version) = self.connection.object_interface(self.id)?;
         if &interface == T::NAME {
-            Some(T::downcast_unchecked(self))
+            Some(self.downcast_unchecked())
         } else {
             None
         }

@@ -36,7 +36,7 @@ pub mod handshake {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -307,7 +307,7 @@ pub mod connection {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -583,7 +583,7 @@ pub mod callback {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -642,7 +642,7 @@ pub mod pingpong {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -708,7 +708,7 @@ pub mod seat {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -898,7 +898,7 @@ pub mod device {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -1364,7 +1364,7 @@ pub mod pointer {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -1481,7 +1481,7 @@ pub mod pointer_absolute {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -1600,7 +1600,7 @@ pub mod scroll {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -1816,7 +1816,7 @@ pub mod button {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -1965,7 +1965,7 @@ pub mod keyboard {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -2218,7 +2218,7 @@ pub mod touchscreen {
         const VERSION: u32 = 1;
         type Incoming = Event;
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }

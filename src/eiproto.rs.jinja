@@ -61,7 +61,7 @@ pub mod {{interface.plainname}} {
         const VERSION: u32 = {{interface.version}};
         type Incoming = {{incoming_enum()}};
 
-        fn downcast_unchecked(object: crate::Object) -> Self {
+        fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
     }
@@ -120,7 +120,7 @@ pub mod {{interface.plainname}} {
             {% if arg.interface %}
                 {{arg_type(arg, true, false)}}(crate::Object::new(self.0.connection().clone(), {{arg.name}}))
             {% elif arg.interface_arg %}
-                {{arg.interface_arg.name|camel}}::downcast_unchecked(crate::Object::new(self.0.connection().clone(), {{arg.name}}))
+                crate::Object::new(self.0.connection().clone(), {{arg.name}}).downcast_unchecked()
             {% else -%}
                 unreachable
             {% endif -%}
