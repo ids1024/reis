@@ -4,6 +4,7 @@
 // GENERATED FILE
 
 {# TODO handle destructor #}
+{# TODO handle context_type #}
 
 {% macro interface_type(interface) -%}
     super::{{interface.plainname}}::{{interface.plainname|camel}}
@@ -85,11 +86,11 @@ pub mod {{interface.plainname}} {
             {% endif %}
             {% endfor -%}
             ) -> rustix::io::Result<(
-            {%- for arg in outgoing.arguments %}
-            {% if arg.protocol_type == 'new_id' %}
-            {{arg_type(arg, true, true)}}
-            {% endif %}
-            {% endfor -%}
+                {%- for arg in outgoing.arguments %}
+                {% if arg.protocol_type == 'new_id' %}
+                {{arg_type(arg, true, true)}}
+                {% endif %}
+                {% endfor -%}
             )>{
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' and arg.interface_arg %}
