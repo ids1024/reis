@@ -29,6 +29,8 @@ pub mod handshake {
     #[derive(Clone, Debug)]
     pub struct Handshake(pub(crate) crate::Object);
 
+    impl crate::private::Sealed for Handshake {}
+
     impl crate::Interface for Handshake {
         const NAME: &'static str = "ei_handshake";
         const VERSION: u32 = 1;
@@ -295,6 +297,8 @@ pub mod connection {
     #[derive(Clone, Debug)]
     pub struct Connection(pub(crate) crate::Object);
 
+    impl crate::private::Sealed for Connection {}
+
     impl crate::Interface for Connection {
         const NAME: &'static str = "ei_connection";
         const VERSION: u32 = 1;
@@ -555,6 +559,8 @@ pub mod callback {
     #[derive(Clone, Debug)]
     pub struct Callback(pub(crate) crate::Object);
 
+    impl crate::private::Sealed for Callback {}
+
     impl crate::Interface for Callback {
         const NAME: &'static str = "ei_callback";
         const VERSION: u32 = 1;
@@ -616,6 +622,8 @@ support for this interface in ei_handshake.interface_version.
 pub mod pingpong {
     #[derive(Clone, Debug)]
     pub struct Pingpong(pub(crate) crate::Object);
+
+    impl crate::private::Sealed for Pingpong {}
 
     impl crate::Interface for Pingpong {
         const NAME: &'static str = "ei_pingpong";
@@ -685,6 +693,8 @@ support for this interface in ei_handshake.interface_version.
 pub mod seat {
     #[derive(Clone, Debug)]
     pub struct Seat(pub(crate) crate::Object);
+
+    impl crate::private::Sealed for Seat {}
 
     impl crate::Interface for Seat {
         const NAME: &'static str = "ei_seat";
@@ -876,6 +886,8 @@ support for this interface in ei_handshake.interface_version.
 pub mod device {
     #[derive(Clone, Debug)]
     pub struct Device(pub(crate) crate::Object);
+
+    impl crate::private::Sealed for Device {}
 
     impl crate::Interface for Device {
         const NAME: &'static str = "ei_device";
@@ -1332,6 +1344,8 @@ pub mod pointer {
     #[derive(Clone, Debug)]
     pub struct Pointer(pub(crate) crate::Object);
 
+    impl crate::private::Sealed for Pointer {}
+
     impl crate::Interface for Pointer {
         const NAME: &'static str = "ei_pointer";
         const VERSION: u32 = 1;
@@ -1444,6 +1458,8 @@ support for this interface in ei_handshake.interface_version.
 pub mod pointer_absolute {
     #[derive(Clone, Debug)]
     pub struct PointerAbsolute(pub(crate) crate::Object);
+
+    impl crate::private::Sealed for PointerAbsolute {}
 
     impl crate::Interface for PointerAbsolute {
         const NAME: &'static str = "ei_pointer_absolute";
@@ -1559,6 +1575,8 @@ support for this interface in ei_handshake.interface_version.
 pub mod scroll {
     #[derive(Clone, Debug)]
     pub struct Scroll(pub(crate) crate::Object);
+
+    impl crate::private::Sealed for Scroll {}
 
     impl crate::Interface for Scroll {
         const NAME: &'static str = "ei_scroll";
@@ -1768,6 +1786,8 @@ pub mod button {
     #[derive(Clone, Debug)]
     pub struct Button(pub(crate) crate::Object);
 
+    impl crate::private::Sealed for Button {}
+
     impl crate::Interface for Button {
         const NAME: &'static str = "ei_button";
         const VERSION: u32 = 1;
@@ -1912,6 +1932,8 @@ support for this interface in ei_handshake.interface_version.
 pub mod keyboard {
     #[derive(Clone, Debug)]
     pub struct Keyboard(pub(crate) crate::Object);
+
+    impl crate::private::Sealed for Keyboard {}
 
     impl crate::Interface for Keyboard {
         const NAME: &'static str = "ei_keyboard";
@@ -2153,6 +2175,8 @@ support for this interface in ei_handshake.interface_version.
 pub mod touchscreen {
     #[derive(Clone, Debug)]
     pub struct Touchscreen(pub(crate) crate::Object);
+
+    impl crate::private::Sealed for Touchscreen {}
 
     impl crate::Interface for Touchscreen {
         const NAME: &'static str = "ei_touchscreen";

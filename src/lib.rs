@@ -19,6 +19,10 @@ mod object;
 use object::Object;
 mod util;
 
+mod private {
+    pub trait Sealed {}
+}
+
 // TODO versioning?
 
 // XXX
@@ -56,8 +60,9 @@ impl Header {
 
 // XXX Seal trait?
 // XXX distinguish EI/EIS interface
+// - marker subtrait
 #[doc(hidden)]
-pub trait Interface {
+pub trait Interface: private::Sealed {
     const NAME: &'static str;
     const VERSION: u32;
     type Incoming;

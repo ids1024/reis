@@ -32,8 +32,8 @@
 {% macro return_type(arguments) -%}
 {%- endmacro %}
 
-{% macro incoming_enum(interface) -%}
-    {% if interface.name.startswith('eis_') %}
+{% macro incoming_enum() -%}
+    {% if extra.eis %}
     Request
     {% else %}
     Event
@@ -46,10 +46,12 @@ pub mod {{interface.plainname}} {
     #[derive(Clone, Debug)]
     pub struct {{interface.plainname|camel}}(pub(crate) crate::Object);
 
+    impl crate::private::Sealed for {{interface.plainname|camel}} {}
+
     impl crate::Interface for {{interface.plainname|camel}} {
         const NAME: &'static str = "{{interface.protocol_name}}";
         const VERSION: u32 = {{interface.version}};
-        type Incoming = {{incoming_enum(interface)}};
+        type Incoming = {{incoming_enum()}};
 
         fn downcast_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -161,7 +163,7 @@ pub mod {{interface.plainname}} {
 
     #[non_exhaustive]
     #[derive(Debug)]
-    pub enum {{incoming_enum(interface)}} {
+    pub enum {{incoming_enum()}} {
         {% for incoming in interface.incoming %}
             /** {{incoming.description.text|ei_escape_names}} */
             {{ incoming.name|camel }}
@@ -174,7 +176,7 @@ pub mod {{interface.plainname}} {
         {% endfor %}
     }
 
-    impl {{incoming_enum(interface)}} {
+    impl {{incoming_enum()}} {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
             {% for incoming in interface.incoming %}
@@ -196,18 +198,18 @@ pub mod {{interface.plainname}} {
 
 #[non_exhaustive]
 #[derive(Debug)]
-pub enum {{incoming_enum(interfaces[0])}} {
+pub enum {{incoming_enum()}} {
     {% for interface in interfaces %}
-        {{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum(interface)}}),
+        {{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum()}}),
     {% endfor %}
 }
 
-impl {{incoming_enum(interfaces[0])}} {
+impl {{incoming_enum()}} {
     // TODO: pass object along with event?
     pub(crate) fn parse(interface: &'static str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
         match interface {
             {% for interface in interfaces %}
-            "{{interface.protocol_name}}" => Some(Self::{{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum(interface)}}::parse(operand, bytes)?)),
+            "{{interface.protocol_name}}" => Some(Self::{{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)),
             {% endfor %}
             _=> None,
         }
