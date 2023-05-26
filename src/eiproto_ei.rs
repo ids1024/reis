@@ -179,11 +179,11 @@ pub mod handshake {
     }
 
     impl crate::OwnedArg for ContextType {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
             match u32::parse(buf)? {
-                1 => Some(Self::Receiver),
-                2 => Some(Self::Sender),
-                _ => None,
+                1 => Ok(Self::Receiver),
+                2 => Ok(Self::Sender),
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -255,33 +255,35 @@ pub mod handshake {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let version = _bytes.read_arg()?;
 
-                    Some(Self::HandshakeVersion { version })
+                    Ok(Self::HandshakeVersion { version })
                 }
                 1 => {
                     let name = _bytes.read_arg()?;
                     let version = _bytes.read_arg()?;
 
-                    Some(Self::InterfaceVersion { name, version })
+                    Ok(Self::InterfaceVersion { name, version })
                 }
                 2 => {
                     let serial = _bytes.read_arg()?;
                     let connection = _bytes.read_arg()?;
                     let version = _bytes.read_arg()?;
 
-                    Some(Self::Connection {
+                    Ok(Self::Connection {
                         serial,
                         connection: _bytes
                             .connection()
-                            .new_peer_interface(connection, version)
-                            .ok()?,
+                            .new_peer_interface(connection, version)?,
                     })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -406,15 +408,15 @@ pub mod connection {
     }
 
     impl crate::OwnedArg for DisconnectReason {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
             match u32::parse(buf)? {
-                0 => Some(Self::Disconnected),
-                1 => Some(Self::Error),
-                2 => Some(Self::Mode),
-                3 => Some(Self::Protocol),
-                4 => Some(Self::Value),
-                5 => Some(Self::Transport),
-                _ => None,
+                0 => Ok(Self::Disconnected),
+                1 => Ok(Self::Error),
+                2 => Ok(Self::Mode),
+                3 => Ok(Self::Protocol),
+                4 => Ok(Self::Value),
+                5 => Ok(Self::Transport),
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -515,14 +517,17 @@ pub mod connection {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let last_serial = _bytes.read_arg()?;
                     let reason = _bytes.read_arg()?;
                     let explanation = _bytes.read_arg()?;
 
-                    Some(Self::Disconnected {
+                    Ok(Self::Disconnected {
                         last_serial,
                         reason,
                         explanation,
@@ -532,15 +537,15 @@ pub mod connection {
                     let seat = _bytes.read_arg()?;
                     let version = _bytes.read_arg()?;
 
-                    Some(Self::Seat {
-                        seat: _bytes.connection().new_peer_interface(seat, version).ok()?,
+                    Ok(Self::Seat {
+                        seat: _bytes.connection().new_peer_interface(seat, version)?,
                     })
                 }
                 2 => {
                     let last_serial = _bytes.read_arg()?;
                     let invalid_id = _bytes.read_arg()?;
 
-                    Some(Self::InvalidObject {
+                    Ok(Self::InvalidObject {
                         last_serial,
                         invalid_id,
                     })
@@ -549,11 +554,11 @@ pub mod connection {
                     let ping = _bytes.read_arg()?;
                     let version = _bytes.read_arg()?;
 
-                    Some(Self::Ping {
-                        ping: _bytes.connection().new_peer_interface(ping, version).ok()?,
+                    Ok(Self::Ping {
+                        ping: _bytes.connection().new_peer_interface(ping, version)?,
                     })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -602,14 +607,17 @@ pub mod callback {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let callback_data = _bytes.read_arg()?;
 
-                    Some(Self::Done { callback_data })
+                    Ok(Self::Done { callback_data })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -662,9 +670,12 @@ pub mod pingpong {
     pub enum Event {}
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -826,37 +837,37 @@ pub mod seat {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::Destroyed { serial })
+                    Ok(Self::Destroyed { serial })
                 }
                 1 => {
                     let name = _bytes.read_arg()?;
 
-                    Some(Self::Name { name })
+                    Ok(Self::Name { name })
                 }
                 2 => {
                     let mask = _bytes.read_arg()?;
                     let interface = _bytes.read_arg()?;
 
-                    Some(Self::Capability { mask, interface })
+                    Ok(Self::Capability { mask, interface })
                 }
-                3 => Some(Self::Done),
+                3 => Ok(Self::Done),
                 4 => {
                     let device = _bytes.read_arg()?;
                     let version = _bytes.read_arg()?;
 
-                    Some(Self::Device {
-                        device: _bytes
-                            .connection()
-                            .new_peer_interface(device, version)
-                            .ok()?,
+                    Ok(Self::Device {
+                        device: _bytes.connection().new_peer_interface(device, version)?,
                     })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -1023,11 +1034,11 @@ pub mod device {
     }
 
     impl crate::OwnedArg for DeviceType {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
             match u32::parse(buf)? {
-                1 => Some(Self::Virtual),
-                2 => Some(Self::Physical),
-                _ => None,
+                1 => Ok(Self::Virtual),
+                2 => Ok(Self::Physical),
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -1242,28 +1253,31 @@ pub mod device {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::Destroyed { serial })
+                    Ok(Self::Destroyed { serial })
                 }
                 1 => {
                     let name = _bytes.read_arg()?;
 
-                    Some(Self::Name { name })
+                    Ok(Self::Name { name })
                 }
                 2 => {
                     let device_type = _bytes.read_arg()?;
 
-                    Some(Self::DeviceType { device_type })
+                    Ok(Self::DeviceType { device_type })
                 }
                 3 => {
                     let width = _bytes.read_arg()?;
                     let height = _bytes.read_arg()?;
 
-                    Some(Self::Dimensions { width, height })
+                    Ok(Self::Dimensions { width, height })
                 }
                 4 => {
                     let offset_x = _bytes.read_arg()?;
@@ -1272,7 +1286,7 @@ pub mod device {
                     let hight = _bytes.read_arg()?;
                     let scale = _bytes.read_arg()?;
 
-                    Some(Self::Region {
+                    Ok(Self::Region {
                         offset_x,
                         offset_y,
                         width,
@@ -1285,42 +1299,43 @@ pub mod device {
                     let interface_name = _bytes.read_arg()?;
                     let version = _bytes.read_arg()?;
 
-                    Some(Self::Interface {
-                        object: _bytes
-                            .connection()
-                            .new_peer_object(object, interface_name, version)
-                            .ok()?,
+                    Ok(Self::Interface {
+                        object: _bytes.connection().new_peer_object(
+                            object,
+                            interface_name,
+                            version,
+                        )?,
                     })
                 }
-                6 => Some(Self::Done),
+                6 => Ok(Self::Done),
                 7 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::Resumed { serial })
+                    Ok(Self::Resumed { serial })
                 }
                 8 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::Paused { serial })
+                    Ok(Self::Paused { serial })
                 }
                 9 => {
                     let serial = _bytes.read_arg()?;
                     let sequence = _bytes.read_arg()?;
 
-                    Some(Self::StartEmulating { serial, sequence })
+                    Ok(Self::StartEmulating { serial, sequence })
                 }
                 10 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::StopEmulating { serial })
+                    Ok(Self::StopEmulating { serial })
                 }
                 11 => {
                     let serial = _bytes.read_arg()?;
                     let timestamp = _bytes.read_arg()?;
 
-                    Some(Self::Frame { serial, timestamp })
+                    Ok(Self::Frame { serial, timestamp })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -1421,20 +1436,23 @@ pub mod pointer {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::Destroyed { serial })
+                    Ok(Self::Destroyed { serial })
                 }
                 1 => {
                     let x = _bytes.read_arg()?;
                     let y = _bytes.read_arg()?;
 
-                    Some(Self::MotionRelative { x, y })
+                    Ok(Self::MotionRelative { x, y })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -1537,20 +1555,23 @@ pub mod pointer_absolute {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::Destroyed { serial })
+                    Ok(Self::Destroyed { serial })
                 }
                 1 => {
                     let x = _bytes.read_arg()?;
                     let y = _bytes.read_arg()?;
 
-                    Some(Self::MotionAbsolute { x, y })
+                    Ok(Self::MotionAbsolute { x, y })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -1737,33 +1758,36 @@ pub mod scroll {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::Destroyed { serial })
+                    Ok(Self::Destroyed { serial })
                 }
                 1 => {
                     let x = _bytes.read_arg()?;
                     let y = _bytes.read_arg()?;
 
-                    Some(Self::Scroll { x, y })
+                    Ok(Self::Scroll { x, y })
                 }
                 2 => {
                     let x = _bytes.read_arg()?;
                     let y = _bytes.read_arg()?;
 
-                    Some(Self::ScrollDiscrete { x, y })
+                    Ok(Self::ScrollDiscrete { x, y })
                 }
                 3 => {
                     let x = _bytes.read_arg()?;
                     let y = _bytes.read_arg()?;
                     let is_cancel = _bytes.read_arg()?;
 
-                    Some(Self::ScrollStop { x, y, is_cancel })
+                    Ok(Self::ScrollStop { x, y, is_cancel })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -1854,11 +1878,11 @@ pub mod button {
     }
 
     impl crate::OwnedArg for ButtonState {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
             match u32::parse(buf)? {
-                0 => Some(Self::Released),
-                1 => Some(Self::Press),
-                _ => None,
+                0 => Ok(Self::Released),
+                1 => Ok(Self::Press),
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -1896,20 +1920,23 @@ pub mod button {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::Destroyed { serial })
+                    Ok(Self::Destroyed { serial })
                 }
                 1 => {
                     let button = _bytes.read_arg()?;
                     let state = _bytes.read_arg()?;
 
-                    Some(Self::Button { button, state })
+                    Ok(Self::Button { button, state })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -2001,11 +2028,11 @@ pub mod keyboard {
     }
 
     impl crate::OwnedArg for KeyState {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
             match u32::parse(buf)? {
-                0 => Some(Self::Released),
-                1 => Some(Self::Press),
-                _ => None,
+                0 => Ok(Self::Released),
+                1 => Ok(Self::Press),
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -2026,10 +2053,10 @@ pub mod keyboard {
     }
 
     impl crate::OwnedArg for KeymapType {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
             match u32::parse(buf)? {
-                1 => Some(Self::Xkb),
-                _ => None,
+                1 => Ok(Self::Xkb),
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -2120,19 +2147,22 @@ pub mod keyboard {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::Destroyed { serial })
+                    Ok(Self::Destroyed { serial })
                 }
                 1 => {
                     let keymap_type = _bytes.read_arg()?;
                     let size = _bytes.read_arg()?;
                     let keymap = _bytes.read_arg()?;
 
-                    Some(Self::Keymap {
+                    Ok(Self::Keymap {
                         keymap_type,
                         size,
                         keymap,
@@ -2142,7 +2172,7 @@ pub mod keyboard {
                     let key = _bytes.read_arg()?;
                     let state = _bytes.read_arg()?;
 
-                    Some(Self::Key { key, state })
+                    Ok(Self::Key { key, state })
                 }
                 3 => {
                     let serial = _bytes.read_arg()?;
@@ -2151,7 +2181,7 @@ pub mod keyboard {
                     let latched = _bytes.read_arg()?;
                     let group = _bytes.read_arg()?;
 
-                    Some(Self::Modifiers {
+                    Ok(Self::Modifiers {
                         serial,
                         depressed,
                         locked,
@@ -2159,7 +2189,7 @@ pub mod keyboard {
                         group,
                     })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -2339,33 +2369,36 @@ pub mod touchscreen {
     }
 
     impl Event {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut crate::ByteStream,
+        ) -> Result<Self, crate::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
 
-                    Some(Self::Destroyed { serial })
+                    Ok(Self::Destroyed { serial })
                 }
                 1 => {
                     let touchid = _bytes.read_arg()?;
                     let x = _bytes.read_arg()?;
                     let y = _bytes.read_arg()?;
 
-                    Some(Self::Down { touchid, x, y })
+                    Ok(Self::Down { touchid, x, y })
                 }
                 2 => {
                     let touchid = _bytes.read_arg()?;
                     let x = _bytes.read_arg()?;
                     let y = _bytes.read_arg()?;
 
-                    Some(Self::Motion { touchid, x, y })
+                    Ok(Self::Motion { touchid, x, y })
                 }
                 3 => {
                     let touchid = _bytes.read_arg()?;
 
-                    Some(Self::Up { touchid })
+                    Ok(Self::Up { touchid })
                 }
-                _ => None,
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -2394,25 +2427,25 @@ impl Event {
         interface: &str,
         operand: u32,
         bytes: &mut crate::ByteStream,
-    ) -> Option<Self> {
+    ) -> Result<Self, crate::ParseError> {
         match interface {
-            "ei_handshake" => Some(Self::Handshake(handshake::Event::parse(operand, bytes)?)),
-            "ei_connection" => Some(Self::Connection(connection::Event::parse(operand, bytes)?)),
-            "ei_callback" => Some(Self::Callback(callback::Event::parse(operand, bytes)?)),
-            "ei_pingpong" => Some(Self::Pingpong(pingpong::Event::parse(operand, bytes)?)),
-            "ei_seat" => Some(Self::Seat(seat::Event::parse(operand, bytes)?)),
-            "ei_device" => Some(Self::Device(device::Event::parse(operand, bytes)?)),
-            "ei_pointer" => Some(Self::Pointer(pointer::Event::parse(operand, bytes)?)),
-            "ei_pointer_absolute" => Some(Self::PointerAbsolute(pointer_absolute::Event::parse(
+            "ei_handshake" => Ok(Self::Handshake(handshake::Event::parse(operand, bytes)?)),
+            "ei_connection" => Ok(Self::Connection(connection::Event::parse(operand, bytes)?)),
+            "ei_callback" => Ok(Self::Callback(callback::Event::parse(operand, bytes)?)),
+            "ei_pingpong" => Ok(Self::Pingpong(pingpong::Event::parse(operand, bytes)?)),
+            "ei_seat" => Ok(Self::Seat(seat::Event::parse(operand, bytes)?)),
+            "ei_device" => Ok(Self::Device(device::Event::parse(operand, bytes)?)),
+            "ei_pointer" => Ok(Self::Pointer(pointer::Event::parse(operand, bytes)?)),
+            "ei_pointer_absolute" => Ok(Self::PointerAbsolute(pointer_absolute::Event::parse(
                 operand, bytes,
             )?)),
-            "ei_scroll" => Some(Self::Scroll(scroll::Event::parse(operand, bytes)?)),
-            "ei_button" => Some(Self::Button(button::Event::parse(operand, bytes)?)),
-            "ei_keyboard" => Some(Self::Keyboard(keyboard::Event::parse(operand, bytes)?)),
-            "ei_touchscreen" => Some(Self::Touchscreen(touchscreen::Event::parse(
+            "ei_scroll" => Ok(Self::Scroll(scroll::Event::parse(operand, bytes)?)),
+            "ei_button" => Ok(Self::Button(button::Event::parse(operand, bytes)?)),
+            "ei_keyboard" => Ok(Self::Keyboard(keyboard::Event::parse(operand, bytes)?)),
+            "ei_touchscreen" => Ok(Self::Touchscreen(touchscreen::Event::parse(
                 operand, bytes,
             )?)),
-            _ => None,
+            _ => Err(crate::ParseError::InvalidOpcode),
         }
     }
 }

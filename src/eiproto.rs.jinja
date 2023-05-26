@@ -149,12 +149,12 @@ pub mod {{interface.plainname}} {
     }
 
     impl crate::OwnedArg for {{enum.camel_name}} {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
+        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
             match u32::parse(buf)? {
             {% for entry in enum.entries %}
-                {{entry.value}} => Some(Self::{{entry.name|camel}}),
+                {{entry.value}} => Ok(Self::{{entry.name|camel}}),
             {% endfor %}
-                _ => None
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -178,7 +178,7 @@ pub mod {{interface.plainname}} {
     }
 
     impl {{incoming_enum()}} {
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
+        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
             match operand {
             {% for incoming in interface.incoming %}
                 {{incoming.opcode}} => {
@@ -186,15 +186,15 @@ pub mod {{interface.plainname}} {
                         let {{arg.name}} = _bytes.read_arg()?;
                     {% endfor %}
 
-                    Some(Self::{{ incoming.name|camel }}
+                    Ok(Self::{{ incoming.name|camel }}
                     {% if incoming.arguments %} {
                     {% for arg in incoming.arguments %}
                         {% if arg.version_arg_for or arg.interface_arg_for %}
                         {% elif arg.protocol_type == 'new_id' and arg.interface_arg %}
-                        {{arg.name}}: _bytes.connection().new_peer_object({{arg.name}}, {{arg.interface_arg.name}}, {{arg.version_arg.name}}).ok()?,
+                        {{arg.name}}: _bytes.connection().new_peer_object({{arg.name}}, {{arg.interface_arg.name}}, {{arg.version_arg.name}})?,
                         {% elif arg.protocol_type == 'new_id' %}
                         {# XXX error #}
-                        {{arg.name}}: _bytes.connection().new_peer_interface({{arg.name}}, {{arg.version_arg.name}}).ok()?,
+                        {{arg.name}}: _bytes.connection().new_peer_interface({{arg.name}}, {{arg.version_arg.name}})?,
                         {% else %}
                         {{arg.name}},
                         {% endif %}
@@ -202,7 +202,7 @@ pub mod {{interface.plainname}} {
                     {% endif %} )
                 }
             {% endfor %}
-                _ => None
+                _ => Err(crate::ParseError::InvalidOpcode),
             }
         }
     }
@@ -220,12 +220,12 @@ pub enum {{incoming_enum()}} {
 
 impl {{incoming_enum()}} {
     // TODO: pass object along with event?
-    pub(crate) fn parse(interface: &str, operand: u32, bytes: &mut crate::ByteStream) -> Option<Self> {
+    pub(crate) fn parse(interface: &str, operand: u32, bytes: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
         match interface {
             {% for interface in interfaces %}
-            "{{interface.protocol_name}}" => Some(Self::{{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)),
+            "{{interface.protocol_name}}" => Ok(Self::{{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)),
             {% endfor %}
-            _=> None,
+            _ => Err(crate::ParseError::InvalidOpcode),
         }
     }
 }

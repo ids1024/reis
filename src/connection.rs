@@ -107,7 +107,7 @@ impl ConnectionInner {
 
     pub(crate) fn pending<T>(
         self: &Arc<Self>,
-        parse: fn(&str, u32, &mut crate::ByteStream) -> Option<T>,
+        parse: fn(&str, u32, &mut crate::ByteStream) -> Result<T, crate::ParseError>,
     ) -> Option<PendingRequestResult<T>> {
         let mut read = self.read.lock().unwrap();
         if read.buf.len() >= 16 {
@@ -135,9 +135,10 @@ impl ConnectionInner {
                 // XXX inefficient
                 read.buf.drain(0..header.length as usize);
 
-                if let Some(request) = request {
+                if let Ok(request) = request {
                     Some(PendingRequestResult::Request(request))
                 } else {
+                    // XXX handle specific error
                     Some(PendingRequestResult::ProtocolError(
                         "failed to parse request",
                     ))
@@ -159,10 +160,15 @@ impl ConnectionInner {
         id
     }
 
-    fn new_peer_id(&self, id: u64, interface: String, version: u32) -> Result<(), ()> {
+    fn new_peer_id(
+        &self,
+        id: u64,
+        interface: String,
+        version: u32,
+    ) -> Result<(), crate::ParseError> {
         let mut state = self.state.lock().unwrap();
         if id < state.next_peer_id || (!self.client && id >= 0xff00000000000000) {
-            return Err(());
+            return Err(crate::ParseError::InvalidId);
         }
         state.next_peer_id = id + 1;
         state.objects.insert(id, (interface, version));
@@ -174,17 +180,16 @@ impl ConnectionInner {
         id: u64,
         interface: String,
         version: u32,
-    ) -> Result<crate::Object, ()> {
+    ) -> Result<crate::Object, crate::ParseError> {
         self.new_peer_id(id, interface, version)?;
         Ok(crate::Object::new(self.clone(), id))
     }
 
-    // XXX return type?
     pub(crate) fn new_peer_interface<T: crate::Interface>(
         self: &Arc<Self>,
         id: u64,
         version: u32,
-    ) -> Result<T, ()> {
+    ) -> Result<T, crate::ParseError> {
         Ok(T::downcast_unchecked(self.new_peer_object(
             id,
             T::NAME.to_string(),

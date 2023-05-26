@@ -1,6 +1,6 @@
 use std::os::unix::io::{BorrowedFd, OwnedFd};
 
-use crate::ByteStream;
+use crate::{ByteStream, ParseError};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -44,77 +44,60 @@ impl<'a> Arg<'a> {
     }
 }
 
-struct Id(u64);
-
-struct NewId(u64);
-
 pub(crate) trait OwnedArg: Sized {
-    fn parse(buf: &mut ByteStream) -> Option<Self>;
+    fn parse(buf: &mut ByteStream) -> Result<Self, ParseError>;
 }
 
 impl OwnedArg for u32 {
-    fn parse(buf: &mut ByteStream) -> Option<Self> {
-        Some(Self::from_ne_bytes(buf.read()?))
+    fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
+        Ok(Self::from_ne_bytes(buf.read()?))
     }
 }
 
 impl OwnedArg for i32 {
-    fn parse(buf: &mut ByteStream) -> Option<Self> {
-        Some(Self::from_ne_bytes(buf.read()?))
+    fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
+        Ok(Self::from_ne_bytes(buf.read()?))
     }
 }
 
 impl OwnedArg for u64 {
-    fn parse(buf: &mut ByteStream) -> Option<Self> {
-        Some(Self::from_ne_bytes(buf.read()?))
+    fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
+        Ok(Self::from_ne_bytes(buf.read()?))
     }
 }
 
 impl OwnedArg for i64 {
-    fn parse(buf: &mut ByteStream) -> Option<Self> {
-        Some(Self::from_ne_bytes(buf.read()?))
+    fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
+        Ok(Self::from_ne_bytes(buf.read()?))
     }
 }
 
 impl OwnedArg for f32 {
-    fn parse(buf: &mut ByteStream) -> Option<Self> {
-        Some(Self::from_ne_bytes(buf.read()?))
+    fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
+        Ok(Self::from_ne_bytes(buf.read()?))
     }
 }
 
 // XXX how are fds grouped in stream?
 impl OwnedArg for OwnedFd {
-    fn parse(buf: &mut ByteStream) -> Option<Self> {
+    fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         // XXX error?
         buf.read_fd()
     }
 }
 
 impl OwnedArg for String {
-    fn parse(buf: &mut ByteStream) -> Option<Self> {
+    fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         let mut len = u32::parse(buf)?;
         let bytes = buf.read_n(len as usize - 1)?; // Exclude NUL
-                                                   // XXX error?
-        let string = String::from_utf8(bytes.to_owned()).ok()?;
+        let string = String::from_utf8(bytes.to_owned())?;
         buf.read_n(1)?; // NUL
         while len % 4 != 0 {
             // Padding
             len += 1;
             buf.read::<1>()?;
         }
-        Some(string)
-    }
-}
-
-impl OwnedArg for NewId {
-    fn parse(buf: &mut ByteStream) -> Option<Self> {
-        u64::parse(buf).map(Self)
-    }
-}
-
-impl OwnedArg for Id {
-    fn parse(buf: &mut ByteStream) -> Option<Self> {
-        u64::parse(buf).map(Self)
+        Ok(string)
     }
 }
 

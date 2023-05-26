@@ -4,7 +4,7 @@
 // TODO split up
 // Implement handshake
 
-use std::{env, os::unix::io::OwnedFd, path::PathBuf, sync::Arc};
+use std::{env, os::unix::io::OwnedFd, path::PathBuf, string::FromUtf8Error, sync::Arc};
 
 mod arg;
 use arg::{Arg, OwnedArg};
@@ -78,35 +78,50 @@ impl<'a> ByteStream<'a> {
         self.connection
     }
 
-    fn read_n(&mut self, n: usize) -> Option<&[u8]> {
+    fn read_n(&mut self, n: usize) -> Result<&[u8], ParseError> {
         if self.bytes.len() >= n {
             let value;
             (value, self.bytes) = self.bytes.split_at(n);
-            Some(value)
+            Ok(value)
         } else {
-            None
+            Err(ParseError::EndOfMessage)
         }
     }
 
-    fn read<const N: usize>(&mut self) -> Option<[u8; N]> {
+    fn read<const N: usize>(&mut self) -> Result<[u8; N], ParseError> {
         if self.bytes.len() >= N {
             let value;
             (value, self.bytes) = self.bytes.split_at(N);
-            Some(value.try_into().unwrap())
+            Ok(value.try_into().unwrap())
         } else {
-            None
+            Err(ParseError::EndOfMessage)
         }
     }
 
-    fn read_fd(&mut self) -> Option<OwnedFd> {
+    fn read_fd(&mut self) -> Result<OwnedFd, ParseError> {
         if !self.fds.is_empty() {
-            Some(self.fds.remove(0))
+            Ok(self.fds.remove(0))
         } else {
-            None
+            Err(ParseError::NoFd)
         }
     }
 
-    fn read_arg<T: OwnedArg>(&mut self) -> Option<T> {
+    fn read_arg<T: OwnedArg>(&mut self) -> Result<T, ParseError> {
         T::parse(self)
+    }
+}
+
+// TODO add detail, format for display
+enum ParseError {
+    EndOfMessage,
+    Utf8,
+    InvalidId,
+    NoFd,
+    InvalidOpcode,
+}
+
+impl From<FromUtf8Error> for ParseError {
+    fn from(err: FromUtf8Error) -> Self {
+        Self::Utf8
     }
 }
