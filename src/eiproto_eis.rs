@@ -2349,47 +2349,77 @@ pub mod touchscreen {
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum Request {
-    Handshake(handshake::Request),
-    Connection(connection::Request),
-    Callback(callback::Request),
-    Pingpong(pingpong::Request),
-    Seat(seat::Request),
-    Device(device::Request),
-    Pointer(pointer::Request),
-    PointerAbsolute(pointer_absolute::Request),
-    Scroll(scroll::Request),
-    Button(button::Request),
-    Keyboard(keyboard::Request),
-    Touchscreen(touchscreen::Request),
+    Handshake(handshake::Handshake, handshake::Request),
+    Connection(connection::Connection, connection::Request),
+    Callback(callback::Callback, callback::Request),
+    Pingpong(pingpong::Pingpong, pingpong::Request),
+    Seat(seat::Seat, seat::Request),
+    Device(device::Device, device::Request),
+    Pointer(pointer::Pointer, pointer::Request),
+    PointerAbsolute(pointer_absolute::PointerAbsolute, pointer_absolute::Request),
+    Scroll(scroll::Scroll, scroll::Request),
+    Button(button::Button, button::Request),
+    Keyboard(keyboard::Keyboard, keyboard::Request),
+    Touchscreen(touchscreen::Touchscreen, touchscreen::Request),
 }
 
 impl Request {
-    // TODO: pass object along with event?
     pub(crate) fn parse(
+        id: u64,
         interface: &str,
         operand: u32,
         bytes: &mut crate::ByteStream,
     ) -> Result<Self, crate::ParseError> {
         match interface {
-            "ei_handshake" => Ok(Self::Handshake(handshake::Request::parse(operand, bytes)?)),
-            "ei_connection" => Ok(Self::Connection(connection::Request::parse(
-                operand, bytes,
-            )?)),
-            "ei_callback" => Ok(Self::Callback(callback::Request::parse(operand, bytes)?)),
-            "ei_pingpong" => Ok(Self::Pingpong(pingpong::Request::parse(operand, bytes)?)),
-            "ei_seat" => Ok(Self::Seat(seat::Request::parse(operand, bytes)?)),
-            "ei_device" => Ok(Self::Device(device::Request::parse(operand, bytes)?)),
-            "ei_pointer" => Ok(Self::Pointer(pointer::Request::parse(operand, bytes)?)),
-            "ei_pointer_absolute" => Ok(Self::PointerAbsolute(pointer_absolute::Request::parse(
-                operand, bytes,
-            )?)),
-            "ei_scroll" => Ok(Self::Scroll(scroll::Request::parse(operand, bytes)?)),
-            "ei_button" => Ok(Self::Button(button::Request::parse(operand, bytes)?)),
-            "ei_keyboard" => Ok(Self::Keyboard(keyboard::Request::parse(operand, bytes)?)),
-            "ei_touchscreen" => Ok(Self::Touchscreen(touchscreen::Request::parse(
-                operand, bytes,
-            )?)),
-            _ => Err(crate::ParseError::InvalidOpcode),
+            "ei_handshake" => Ok(Self::Handshake(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                handshake::Request::parse(operand, bytes)?,
+            )),
+            "ei_connection" => Ok(Self::Connection(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                connection::Request::parse(operand, bytes)?,
+            )),
+            "ei_callback" => Ok(Self::Callback(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                callback::Request::parse(operand, bytes)?,
+            )),
+            "ei_pingpong" => Ok(Self::Pingpong(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                pingpong::Request::parse(operand, bytes)?,
+            )),
+            "ei_seat" => Ok(Self::Seat(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                seat::Request::parse(operand, bytes)?,
+            )),
+            "ei_device" => Ok(Self::Device(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                device::Request::parse(operand, bytes)?,
+            )),
+            "ei_pointer" => Ok(Self::Pointer(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                pointer::Request::parse(operand, bytes)?,
+            )),
+            "ei_pointer_absolute" => Ok(Self::PointerAbsolute(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                pointer_absolute::Request::parse(operand, bytes)?,
+            )),
+            "ei_scroll" => Ok(Self::Scroll(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                scroll::Request::parse(operand, bytes)?,
+            )),
+            "ei_button" => Ok(Self::Button(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                button::Request::parse(operand, bytes)?,
+            )),
+            "ei_keyboard" => Ok(Self::Keyboard(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                keyboard::Request::parse(operand, bytes)?,
+            )),
+            "ei_touchscreen" => Ok(Self::Touchscreen(
+                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                touchscreen::Request::parse(operand, bytes)?,
+            )),
+            _ => Err(crate::ParseError::InvalidInterface),
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::Arc;
 
 use crate::{Arg, ConnectionInner, Interface};
 
@@ -6,7 +6,6 @@ use crate::{Arg, ConnectionInner, Interface};
 struct ObjectInner {
     connection: Arc<ConnectionInner>,
     id: u64,
-    destroyed: AtomicBool,
 }
 
 #[derive(Clone, Debug)]
@@ -14,11 +13,7 @@ pub struct Object(Arc<ObjectInner>);
 
 impl Object {
     pub(crate) fn new(connection: Arc<ConnectionInner>, id: u64) -> Self {
-        Self(Arc::new(ObjectInner {
-            connection,
-            id,
-            destroyed: AtomicBool::new(false),
-        }))
+        Self(Arc::new(ObjectInner { connection, id }))
     }
 
     pub fn connection(&self) -> &Arc<ConnectionInner> {
@@ -31,6 +26,10 @@ impl Object {
 
     pub fn request(&self, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
         self.connection().request(self.id(), opcode, args)
+    }
+
+    pub(crate) fn downcast_unchecked<T: Interface>(self) -> T {
+        T::downcast_unchecked(self)
     }
 
     // XXX test ei vs ei

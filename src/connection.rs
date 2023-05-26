@@ -107,7 +107,7 @@ impl ConnectionInner {
 
     pub(crate) fn pending<T>(
         self: &Arc<Self>,
-        parse: fn(&str, u32, &mut crate::ByteStream) -> Result<T, crate::ParseError>,
+        parse: fn(u64, &str, u32, &mut crate::ByteStream) -> Result<T, crate::ParseError>,
     ) -> Option<PendingRequestResult<T>> {
         let mut read = self.read.lock().unwrap();
         if read.buf.len() >= 16 {
@@ -125,7 +125,7 @@ impl ConnectionInner {
                     bytes: &read.buf[16..header.length as usize],
                     fds: &mut read.fds,
                 };
-                let request = parse(&interface, header.opcode, &mut bytes);
+                let request = parse(header.object_id, &interface, header.opcode, &mut bytes);
                 if !bytes.bytes.is_empty() {
                     return Some(PendingRequestResult::ProtocolError(
                         "message length doesn't match header",

@@ -118,10 +118,12 @@ enum ParseError {
     InvalidId,
     NoFd,
     InvalidOpcode,
+    InvalidInterface,
+    NoObject,
 }
 
 impl From<FromUtf8Error> for ParseError {
-    fn from(err: FromUtf8Error) -> Self {
+    fn from(_err: FromUtf8Error) -> Self {
         Self::Utf8
     }
 }

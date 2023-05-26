@@ -193,7 +193,6 @@ pub mod {{interface.plainname}} {
                         {% elif arg.protocol_type == 'new_id' and arg.interface_arg %}
                         {{arg.name}}: _bytes.connection().new_peer_object({{arg.name}}, {{arg.interface_arg.name}}, {{arg.version_arg.name}})?,
                         {% elif arg.protocol_type == 'new_id' %}
-                        {# XXX error #}
                         {{arg.name}}: _bytes.connection().new_peer_interface({{arg.name}}, {{arg.version_arg.name}})?,
                         {% else %}
                         {{arg.name}},
@@ -214,18 +213,20 @@ pub mod {{interface.plainname}} {
 #[derive(Debug)]
 pub enum {{incoming_enum()}} {
     {% for interface in interfaces %}
-        {{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum()}}),
+        {{interface.plainname|camel}}({{interface.plainname}}::{{interface.plainname|camel}}, {{interface.plainname}}::{{incoming_enum()}}),
     {% endfor %}
 }
 
 impl {{incoming_enum()}} {
-    // TODO: pass object along with event?
-    pub(crate) fn parse(interface: &str, operand: u32, bytes: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+    pub(crate) fn parse(id: u64, interface: &str, operand: u32, bytes: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
         match interface {
             {% for interface in interfaces %}
-            "{{interface.protocol_name}}" => Ok(Self::{{interface.plainname|camel}}({{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)),
+                "{{interface.protocol_name}}" => Ok(Self::{{interface.plainname|camel}}(
+                    crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(), 
+                    {{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)
+                ),
             {% endfor %}
-            _ => Err(crate::ParseError::InvalidOpcode),
+            _ => Err(crate::ParseError::InvalidInterface),
         }
     }
 }
