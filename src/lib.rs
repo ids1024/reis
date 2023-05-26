@@ -4,7 +4,7 @@
 // TODO split up
 // Implement handshake
 
-use std::{env, os::unix::io::OwnedFd, path::PathBuf, string::FromUtf8Error, sync::Arc};
+use std::{env, os::unix::io::OwnedFd, path::PathBuf, string::FromUtf8Error};
 
 mod arg;
 use arg::{Arg, OwnedArg};
@@ -68,13 +68,13 @@ pub trait Interface: private::Sealed {
 }
 
 struct ByteStream<'a> {
-    backend: &'a Arc<Backend>,
+    backend: &'a Backend,
     bytes: &'a [u8],
     fds: &'a mut Vec<OwnedFd>,
 }
 
 impl<'a> ByteStream<'a> {
-    fn backend(&self) -> &Arc<Backend> {
+    fn backend(&self) -> &Backend {
         self.backend
     }
 

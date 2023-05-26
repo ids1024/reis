@@ -4,7 +4,6 @@ use std::{
         io::{AsFd, AsRawFd, BorrowedFd, RawFd},
         net::UnixStream,
     },
-    sync::Arc,
 };
 
 use crate::{Backend, ConnectionReadResult, Object, PendingRequestResult};
@@ -13,7 +12,7 @@ use crate::{Backend, ConnectionReadResult, Object, PendingRequestResult};
 pub use crate::eiproto_ei::*;
 
 #[derive(Clone, Debug)]
-pub struct Connection(pub(crate) Arc<Backend>);
+pub struct Connection(pub(crate) Backend);
 
 impl AsFd for Connection {
     fn as_fd(&self) -> BorrowedFd {
@@ -30,7 +29,7 @@ impl AsRawFd for Connection {
 impl Connection {
     // TODO way to connect
     pub fn new(socket: UnixStream) -> io::Result<Self> {
-        Ok(Self(Arc::new(Backend::new(socket, false)?)))
+        Ok(Self(Backend::new(socket, false)?))
     }
 
     /// Read any pending data on socket into buffer

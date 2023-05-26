@@ -24,18 +24,21 @@ struct BackendState {
     objects: HashMap<u64, (String, u32)>,
 }
 
-// Ref-counted; shared for both ei and eis
 #[derive(Debug)]
-pub struct Backend {
+struct BackendInner {
     socket: UnixStream,
     client: bool,
     state: Mutex<BackendState>,
     read: Mutex<Buffer>,
 }
 
+// Used for both ei and eis
+#[derive(Clone, Debug)]
+pub struct Backend(Arc<BackendInner>);
+
 impl AsFd for Backend {
     fn as_fd(&self) -> BorrowedFd {
-        self.socket.as_fd()
+        self.0.socket.as_fd()
     }
 }
 
@@ -63,7 +66,7 @@ impl Backend {
         let next_peer_id = if client { 0xff00000000000000 } else { 1 };
         let mut objects = HashMap::new();
         objects.insert(0, ("ei_handshake".to_string(), 1));
-        Ok(Self {
+        Ok(Self(Arc::new(BackendInner {
             socket,
             client,
             state: Mutex::new(BackendState {
@@ -75,17 +78,17 @@ impl Backend {
                 buf: Vec::new(),
                 fds: Vec::new(),
             }),
-        })
+        })))
     }
 
     /// Read any pending data on socket into buffer
     pub fn read(&self) -> io::Result<ConnectionReadResult> {
-        let mut read = self.read.lock().unwrap();
+        let mut read = self.0.read.lock().unwrap();
 
         let mut buf = [0; 2048];
         let mut total_count = 0;
         loop {
-            match util::recv_with_fds(&self.socket, &mut buf, &mut read.fds) {
+            match util::recv_with_fds(&self.0.socket, &mut buf, &mut read.fds) {
                 Ok(0) if total_count == 0 => {
                     return Ok(ConnectionReadResult::EOF);
                 }
@@ -106,10 +109,10 @@ impl Backend {
     }
 
     pub(crate) fn pending<T>(
-        self: &Arc<Self>,
+        &self,
         parse: fn(u64, &str, u32, &mut crate::ByteStream) -> Result<T, crate::ParseError>,
     ) -> Option<PendingRequestResult<T>> {
-        let mut read = self.read.lock().unwrap();
+        let mut read = self.0.read.lock().unwrap();
         if read.buf.len() >= 16 {
             let header = Header::parse(&read.buf).unwrap();
             if read.buf.len() < header.length as usize {
@@ -153,7 +156,7 @@ impl Backend {
     }
 
     pub fn new_id(&self, interface: String, version: u32) -> u64 {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.0.state.lock().unwrap();
         let id = state.next_id;
         state.next_id += 1;
         state.objects.insert(id, (interface, version));
@@ -166,8 +169,8 @@ impl Backend {
         interface: String,
         version: u32,
     ) -> Result<(), crate::ParseError> {
-        let mut state = self.state.lock().unwrap();
-        if id < state.next_peer_id || (!self.client && id >= 0xff00000000000000) {
+        let mut state = self.0.state.lock().unwrap();
+        if id < state.next_peer_id || (!self.0.client && id >= 0xff00000000000000) {
             return Err(crate::ParseError::InvalidId);
         }
         state.next_peer_id = id + 1;
@@ -176,7 +179,7 @@ impl Backend {
     }
 
     pub(crate) fn new_peer_object(
-        self: &Arc<Self>,
+        &self,
         id: u64,
         interface: String,
         version: u32,
@@ -186,7 +189,7 @@ impl Backend {
     }
 
     pub(crate) fn new_peer_interface<T: crate::Interface>(
-        self: &Arc<Self>,
+        &self,
         id: u64,
         version: u32,
     ) -> Result<T, crate::ParseError> {
@@ -196,12 +199,12 @@ impl Backend {
     }
 
     pub fn remove_id(&self, id: u64) {
-        self.state.lock().unwrap().objects.remove(&id);
+        self.0.state.lock().unwrap().objects.remove(&id);
     }
 
     // TODO avoid allocation? Would `Arc<String>` be better?
     pub fn object_interface(&self, id: u64) -> Option<(String, u32)> {
-        self.state.lock().unwrap().objects.get(&id).cloned()
+        self.0.state.lock().unwrap().objects.get(&id).cloned()
     }
 
     // TODO send return value? send more?
@@ -225,6 +228,6 @@ impl Backend {
             opcode,
         };
         header.write_at(&mut buf);
-        util::send_with_fds(&self.socket, &buf, &fds)
+        util::send_with_fds(&self.0.socket, &buf, &fds)
     }
 }

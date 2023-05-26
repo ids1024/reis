@@ -5,7 +5,6 @@ use std::{
         net::{UnixListener, UnixStream},
     },
     path::Path,
-    sync::Arc,
 };
 
 use crate::{Backend, ConnectionReadResult, Object, PendingRequestResult};
@@ -47,7 +46,7 @@ impl AsRawFd for Listener {
 }
 
 #[derive(Clone, Debug)]
-pub struct Connection(pub(crate) Arc<Backend>);
+pub struct Connection(pub(crate) Backend);
 
 impl AsFd for Connection {
     fn as_fd(&self) -> BorrowedFd {
@@ -63,7 +62,7 @@ impl AsRawFd for Connection {
 
 impl Connection {
     pub(crate) fn new(socket: UnixStream) -> io::Result<Self> {
-        Ok(Self(Arc::new(Backend::new(socket, false)?)))
+        Ok(Self(Backend::new(socket, false)?))
     }
 
     /// Read any pending data on socket into buffer
