@@ -4,7 +4,13 @@
 // TODO split up
 // Implement handshake
 
-use std::{env, os::unix::io::OwnedFd, path::PathBuf, string::FromUtf8Error};
+use std::{
+    collections::{self, VecDeque},
+    env, iter,
+    os::unix::io::OwnedFd,
+    path::PathBuf,
+    string::FromUtf8Error,
+};
 
 mod arg;
 use arg::{Arg, OwnedArg};
@@ -42,12 +48,12 @@ struct Header {
 }
 
 impl Header {
-    fn parse(bytes: &[u8]) -> Option<Self> {
-        Some(Self {
-            object_id: u64::from_ne_bytes(bytes[0..8].try_into().ok()?),
-            length: u32::from_ne_bytes(bytes[8..12].try_into().ok()?),
-            opcode: u32::from_ne_bytes(bytes[12..16].try_into().ok()?),
-        })
+    fn parse(bytes: [u8; 16]) -> Self {
+        Self {
+            object_id: u64::from_ne_bytes(bytes[0..8].try_into().unwrap()),
+            length: u32::from_ne_bytes(bytes[8..12].try_into().unwrap()),
+            opcode: u32::from_ne_bytes(bytes[12..16].try_into().unwrap()),
+        }
     }
 
     /// Writes header into start of `buf`; panic if it has length less than 16
@@ -69,8 +75,8 @@ pub trait Interface: private::Sealed {
 
 struct ByteStream<'a> {
     backend: &'a Backend,
-    bytes: &'a [u8],
-    fds: &'a mut Vec<OwnedFd>,
+    bytes: std::collections::vec_deque::Drain<'a, u8>,
+    fds: &'a mut VecDeque<OwnedFd>,
 }
 
 impl<'a> ByteStream<'a> {
@@ -78,32 +84,24 @@ impl<'a> ByteStream<'a> {
         self.backend
     }
 
-    fn read_n(&mut self, n: usize) -> Result<&[u8], ParseError> {
+    // TODO: Using impl Iterator ran into lifetime issues
+    fn read_n<'b>(
+        &'b mut self,
+        n: usize,
+    ) -> Result<iter::Take<&'b mut collections::vec_deque::Drain<'a, u8>>, ParseError> {
         if self.bytes.len() >= n {
-            let value;
-            (value, self.bytes) = self.bytes.split_at(n);
-            Ok(value)
+            Ok(self.bytes.by_ref().take(n))
         } else {
             Err(ParseError::EndOfMessage)
         }
     }
 
     fn read<const N: usize>(&mut self) -> Result<[u8; N], ParseError> {
-        if self.bytes.len() >= N {
-            let value;
-            (value, self.bytes) = self.bytes.split_at(N);
-            Ok(value.try_into().unwrap())
-        } else {
-            Err(ParseError::EndOfMessage)
-        }
+        Ok(util::array_from_iterator_unchecked(self.read_n(N)?))
     }
 
     fn read_fd(&mut self) -> Result<OwnedFd, ParseError> {
-        if !self.fds.is_empty() {
-            Ok(self.fds.remove(0))
-        } else {
-            Err(ParseError::NoFd)
-        }
+        self.fds.pop_front().ok_or(ParseError::NoFd)
     }
 
     fn read_arg<T: OwnedArg>(&mut self) -> Result<T, ParseError> {

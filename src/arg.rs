@@ -90,8 +90,8 @@ impl OwnedArg for String {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         let mut len = u32::parse(buf)?;
         let bytes = buf.read_n(len as usize - 1)?; // Exclude NUL
-        let string = String::from_utf8(bytes.to_owned())?;
-        buf.read_n(1)?; // NUL
+        let string = String::from_utf8(bytes.collect())?;
+        buf.read_n(1)?.next(); // NUL
         while len % 4 != 0 {
             // Padding
             len += 1;

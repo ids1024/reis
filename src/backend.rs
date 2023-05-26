@@ -1,6 +1,6 @@
 use rustix::io::Errno;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     io,
     os::unix::{
         io::{AsFd, BorrowedFd, OwnedFd},
@@ -13,8 +13,8 @@ use crate::{util, Arg, ByteStream, Header};
 
 #[derive(Debug)]
 struct Buffer {
-    buf: Vec<u8>,
-    fds: Vec<OwnedFd>,
+    buf: VecDeque<u8>,
+    fds: VecDeque<OwnedFd>,
 }
 
 #[derive(Debug)]
@@ -75,8 +75,8 @@ impl Backend {
                 objects,
             }),
             read: Mutex::new(Buffer {
-                buf: Vec::new(),
-                fds: Vec::new(),
+                buf: VecDeque::new(),
+                fds: VecDeque::new(),
             }),
         })))
     }
@@ -96,7 +96,7 @@ impl Backend {
                     return Ok(ConnectionReadResult::Read(total_count));
                 }
                 Ok(count) => {
-                    read.buf.extend_from_slice(&buf[0..count]);
+                    read.buf.extend(&buf[0..count]);
                     total_count += count;
                 }
                 #[allow(unreachable_patterns)] // `WOULDBLOCK` and `AGAIN` typically equal
@@ -114,7 +114,8 @@ impl Backend {
     ) -> Option<PendingRequestResult<T>> {
         let mut read = self.0.read.lock().unwrap();
         if read.buf.len() >= 16 {
-            let header = Header::parse(&read.buf).unwrap();
+            let header_bytes = util::array_from_iterator_unchecked(read.buf.iter().copied());
+            let header = Header::parse(header_bytes);
             if read.buf.len() < header.length as usize {
                 return None;
             }
@@ -123,20 +124,18 @@ impl Backend {
             }
             if let Some((interface, _version)) = self.object_interface(header.object_id) {
                 let read = &mut *read;
+                read.buf.drain(..16); // Remove header
                 let mut bytes = ByteStream {
                     backend: self,
-                    bytes: &read.buf[16..header.length as usize],
+                    bytes: read.buf.drain(..header.length as usize - 16),
                     fds: &mut read.fds,
                 };
                 let request = parse(header.object_id, &interface, header.opcode, &mut bytes);
-                if !bytes.bytes.is_empty() {
+                if bytes.bytes.len() != 0 {
                     return Some(PendingRequestResult::ProtocolError(
                         "message length doesn't match header",
                     ));
                 }
-
-                // XXX inefficient
-                read.buf.drain(0..header.length as usize);
 
                 if let Ok(request) = request {
                     Some(PendingRequestResult::Request(request))
