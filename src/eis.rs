@@ -1,3 +1,8 @@
+//! Server-side EI protocol.
+//!
+//! Use [Listener] to create a socket, listening for clients creating a new
+//! [Context].
+
 use std::{
     io,
     os::unix::{

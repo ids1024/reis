@@ -20,12 +20,12 @@ static SERVER_INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
 
 struct ContextState {
     context: eis::Context,
-    handshake: eis::handshake::Handshake,
-    connection_obj: Option<eis::connection::Connection>,
+    handshake: eis::Handshake,
+    connection_obj: Option<eis::Connection>,
     last_serial: u32,
     name: Option<String>,
     context_type: Option<eis::handshake::ContextType>,
-    seat: Option<eis::seat::Seat>,
+    seat: Option<eis::Seat>,
     negotiated_interfaces: HashMap<&'static str, u32>,
 }
 
@@ -212,9 +212,7 @@ impl State {
                         let device = seat.device(1).unwrap();
                         device.name("keyboard");
                         device.device_type(eis::device::DeviceType::Virtual);
-                        // XXX how to indicate type as return
-                        // - first argument could be populated using a type generic
-                        device.interface::<eis::keyboard::Keyboard>(1);
+                        device.interface::<eis::Keyboard>(1);
                         device.done();
                         // TODO create devices; compare against current bitflag
                     }

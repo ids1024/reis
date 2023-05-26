@@ -287,6 +287,8 @@ pub mod handshake {
     }
 }
 
+pub use handshake::Handshake;
+
 /**
 The core connection object. This is the top-level object for any communication
 with the EIS implementation.
@@ -556,6 +558,8 @@ pub mod connection {
     }
 }
 
+pub use connection::Connection;
+
 /**
 Interface for ensuring a roundtrip to the EIS implementation.
 Clients can handle the 'done' event to get notified when
@@ -615,6 +619,8 @@ pub mod callback {
     }
 }
 
+pub use callback::Callback;
+
 /**
 Interface for ensuring a roundtrip to the client implementation.
 This interface is identical to `ei_callback` but is intended for
@@ -672,6 +678,8 @@ pub mod pingpong {
         }
     }
 }
+
+pub use pingpong::Pingpong;
 
 /**
 An `ei_seat` represents a set of input devices that logically belong together. In most
@@ -864,6 +872,8 @@ pub mod seat {
         }
     }
 }
+
+pub use seat::Seat;
 
 /**
 An `ei_device` represents a single logical input devices. Like physical input devices
@@ -1333,6 +1343,8 @@ pub mod device {
     }
 }
 
+pub use device::Device;
+
 /**
 Interface for pointer motion requests and events. This interface
 is available on devices with the `ei_device.capability` pointer.
@@ -1449,6 +1461,8 @@ pub mod pointer {
         }
     }
 }
+
+pub use pointer::Pointer;
 
 /**
 Interface for absolute pointer requests and events. This interface
@@ -1568,6 +1582,8 @@ pub mod pointer_absolute {
         }
     }
 }
+
+pub use pointer_absolute::PointerAbsolute;
 
 /**
 Interface for scroll requests and events. This interface
@@ -1785,6 +1801,8 @@ pub mod scroll {
     }
 }
 
+pub use scroll::Scroll;
+
 /**
 Interface for button requests and events. This interface
 is available on devices with the `ei_device.capability` button.
@@ -1933,6 +1951,8 @@ pub mod button {
         }
     }
 }
+
+pub use button::Button;
 
 /**
 Interface for keyboard requests and events. This interface
@@ -2187,6 +2207,8 @@ pub mod keyboard {
     }
 }
 
+pub use keyboard::Keyboard;
+
 /**
 Interface for touchscreen requests and events. This interface
 is available on devices with the `ei_device.capability` touchscreen.
@@ -2395,6 +2417,8 @@ pub mod touchscreen {
         }
     }
 }
+
+pub use touchscreen::Touchscreen;
 
 #[non_exhaustive]
 #[derive(Debug)]

@@ -208,6 +208,8 @@ pub mod {{interface.plainname}} {
     }
 }
 
+pub use {{interface.plainname}}::{{interface.plainname|camel}};
+
 {% endfor %}
 
 #[non_exhaustive]
