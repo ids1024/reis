@@ -1,11 +1,18 @@
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
 use crate::{Arg, ConnectionInner, Interface};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Object {
+    // TODO use weak, like wayland-rs?
     connection: Arc<ConnectionInner>,
     id: u64,
+}
+
+impl fmt::Debug for Object {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Object(_, {})", self.id)
+    }
 }
 
 impl Object {
