@@ -24,9 +24,9 @@ impl Listener {
         Ok(Self { listener })
     }
 
-    pub fn accept(&self) -> io::Result<Option<Connection>> {
+    pub fn accept(&self) -> io::Result<Option<Context>> {
         match self.listener.accept() {
-            Ok((socket, _)) => Ok(Some(Connection::new(socket)?)),
+            Ok((socket, _)) => Ok(Some(Context::new(socket)?)),
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => Ok(None),
             Err(e) => Err(e),
         }
@@ -46,21 +46,21 @@ impl AsRawFd for Listener {
 }
 
 #[derive(Clone, Debug)]
-pub struct Connection(pub(crate) Backend);
+pub struct Context(pub(crate) Backend);
 
-impl AsFd for Connection {
+impl AsFd for Context {
     fn as_fd(&self) -> BorrowedFd {
         self.0.as_fd()
     }
 }
 
-impl AsRawFd for Connection {
+impl AsRawFd for Context {
     fn as_raw_fd(&self) -> RawFd {
         self.0.as_fd().as_raw_fd()
     }
 }
 
-impl Connection {
+impl Context {
     pub(crate) fn new(socket: UnixStream) -> io::Result<Self> {
         Ok(Self(Backend::new(socket, false)?))
     }

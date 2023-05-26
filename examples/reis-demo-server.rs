@@ -18,8 +18,8 @@ static SERVER_INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     m
 });
 
-struct ConnectionState {
-    connection: eis::Connection,
+struct ContextState {
+    context: eis::Context,
     handshake: eis::handshake::Handshake,
     connection_obj: Option<eis::connection::Connection>,
     last_serial: u32,
@@ -29,7 +29,7 @@ struct ConnectionState {
     negotiated_interfaces: HashMap<&'static str, u32>,
 }
 
-impl ConnectionState {
+impl ContextState {
     fn next_serial(&mut self) -> u32 {
         self.last_serial += 1;
         self.last_serial
@@ -56,9 +56,9 @@ impl ConnectionState {
     }
 }
 
-impl AsRawFd for ConnectionState {
+impl AsRawFd for ContextState {
     fn as_raw_fd(&self) -> RawFd {
-        self.connection.as_raw_fd()
+        self.context.as_raw_fd()
     }
 }
 
@@ -71,17 +71,17 @@ impl State {
         &mut self,
         listener: &mut eis::Listener,
     ) -> io::Result<calloop::PostAction> {
-        while let Some(connection) = listener.accept()? {
-            println!("New connection: {:?}", connection);
+        while let Some(context) = listener.accept()? {
+            println!("New connection: {:?}", context);
 
-            let handshake = connection.handshake();
+            let handshake = context.handshake();
             handshake.handshake_version(1);
             for (interface, version) in SERVER_INTERFACES.iter() {
                 handshake.interface_version(interface, *version);
             }
 
-            let connection_state = ConnectionState {
-                connection,
+            let context_state = ContextState {
+                context,
                 handshake,
                 connection_obj: None,
                 last_serial: 0,
@@ -90,14 +90,10 @@ impl State {
                 seat: None,
                 negotiated_interfaces: HashMap::new(),
             };
-            let source = Generic::new(
-                connection_state,
-                calloop::Interest::READ,
-                calloop::Mode::Level,
-            );
+            let source = Generic::new(context_state, calloop::Interest::READ, calloop::Mode::Level);
             self.handle
-                .insert_source(source, |_event, connection_state, state| {
-                    Ok(state.handle_connection_readable(connection_state))
+                .insert_source(source, |_event, context_state, state| {
+                    Ok(state.handle_connection_readable(context_state))
                 })
                 .unwrap();
         }
@@ -107,9 +103,9 @@ impl State {
 
     fn handle_connection_readable(
         &mut self,
-        connection_state: &mut ConnectionState,
+        context_state: &mut ContextState,
     ) -> calloop::PostAction {
-        match connection_state.connection.read() {
+        match context_state.context.read() {
             Ok(res) if res.is_eof() => {
                 return calloop::PostAction::Remove;
             }
@@ -119,16 +115,16 @@ impl State {
             _ => {}
         }
 
-        while let Some(result) = connection_state.connection.pending_request() {
+        while let Some(result) = context_state.context.pending_request() {
             let request = match result {
                 PendingRequestResult::Request(request) => request,
                 PendingRequestResult::ProtocolError(msg) => {
-                    return connection_state.protocol_error(msg);
+                    return context_state.protocol_error(msg);
                 }
                 PendingRequestResult::InvalidObject(object_id) => {
-                    if let Some(connection) = connection_state.connection_obj.as_ref() {
+                    if let Some(connection) = context_state.connection_obj.as_ref() {
                         // Only send if object ID is in range?
-                        connection.invalid_object(connection_state.last_serial, object_id);
+                        connection.invalid_object(context_state.last_serial, object_id);
                     }
                     continue;
                 }
@@ -137,23 +133,23 @@ impl State {
             match request {
                 eis::Request::Handshake(_handshake, request) => match request {
                     eis::handshake::Request::ContextType { context_type } => {
-                        if connection_state.context_type.is_some() {
-                            return connection_state
+                        if context_state.context_type.is_some() {
+                            return context_state
                                 .protocol_error("context_type can only be sent once");
                         }
-                        connection_state.context_type = Some(context_type);
+                        context_state.context_type = Some(context_type);
                     }
                     eis::handshake::Request::Name { name } => {
-                        if connection_state.name.is_some() {
-                            return connection_state.protocol_error("name can only be sent once");
+                        if context_state.name.is_some() {
+                            return context_state.protocol_error("name can only be sent once");
                         }
-                        connection_state.name = Some(name);
+                        context_state.name = Some(name);
                     }
                     eis::handshake::Request::InterfaceVersion { name, version } => {
                         if let Some((interface, server_version)) =
                             SERVER_INTERFACES.get_key_value(name.as_str())
                         {
-                            connection_state
+                            context_state
                                 .negotiated_interfaces
                                 .insert(interface, version.min(*server_version));
                         }
@@ -161,22 +157,21 @@ impl State {
                     eis::handshake::Request::Finish => {
                         // May prompt user here whether to allow this
 
-                        if !connection_state.has_interface("ei_connection")
-                            || !connection_state.has_interface("ei_pingpong")
-                            || !connection_state.has_interface("ei_callback")
+                        if !context_state.has_interface("ei_connection")
+                            || !context_state.has_interface("ei_pingpong")
+                            || !context_state.has_interface("ei_callback")
                         {
                             return calloop::PostAction::Remove;
                         }
 
-                        let serial = connection_state.next_serial();
-                        let connection_obj =
-                            connection_state.handshake.connection(serial, 1).unwrap();
-                        connection_state.connection_obj = Some(connection_obj.clone());
-                        if !connection_state.has_interface("ei_seat")
-                            || !connection_state.has_interface("ei_device")
-                            || !connection_state.has_interface("ei_callback")
+                        let serial = context_state.next_serial();
+                        let connection_obj = context_state.handshake.connection(serial, 1).unwrap();
+                        context_state.connection_obj = Some(connection_obj.clone());
+                        if !context_state.has_interface("ei_seat")
+                            || !context_state.has_interface("ei_device")
+                            || !context_state.has_interface("ei_callback")
                         {
-                            return connection_state
+                            return context_state
                                 .disconnected(eis::connection::DisconnectReason::Disconnected, "");
                             // XXX reason
                         }
@@ -189,8 +184,8 @@ impl State {
                         seat.capability(0x20, "ei_keyboard");
                         seat.capability(0x40, "ei_touchscreen");
                         seat.done();
-                        connection_state.seat = Some(seat);
-                        connection_state.connection_obj = Some(connection_obj);
+                        context_state.seat = Some(seat);
+                        context_state.connection_obj = Some(connection_obj);
                     }
                     _ => {}
                 },
@@ -207,9 +202,9 @@ impl State {
                 eis::Request::Seat(seat, request) => match request {
                     eis::seat::Request::Bind { capabilities } => {
                         if capabilities & 0x7e != capabilities {
-                            let serial = connection_state.next_serial();
+                            let serial = context_state.next_serial();
                             seat.destroyed(serial);
-                            return connection_state.disconnected(
+                            return context_state.disconnected(
                                 eis::connection::DisconnectReason::Value,
                                 "Invalid capabilities",
                             );
@@ -225,7 +220,7 @@ impl State {
                     }
                     eis::seat::Request::Release => {
                         // XXX
-                        let serial = connection_state.next_serial();
+                        let serial = context_state.next_serial();
                         seat.destroyed(serial);
                     }
                     _ => {}

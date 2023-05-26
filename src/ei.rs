@@ -12,21 +12,21 @@ use crate::{Backend, ConnectionReadResult, Object, PendingRequestResult};
 pub use crate::eiproto_ei::*;
 
 #[derive(Clone, Debug)]
-pub struct Connection(pub(crate) Backend);
+pub struct Context(pub(crate) Backend);
 
-impl AsFd for Connection {
+impl AsFd for Context {
     fn as_fd(&self) -> BorrowedFd {
         self.0.as_fd()
     }
 }
 
-impl AsRawFd for Connection {
+impl AsRawFd for Context {
     fn as_raw_fd(&self) -> RawFd {
         self.0.as_fd().as_raw_fd()
     }
 }
 
-impl Connection {
+impl Context {
     // TODO way to connect
     pub fn new(socket: UnixStream) -> io::Result<Self> {
         Ok(Self(Backend::new(socket, false)?))
