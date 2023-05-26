@@ -43,17 +43,6 @@ pub mod handshake {
 
     impl crate::ei::Interface for Handshake {}
 
-    impl crate::OwnedArg for Handshake {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
-
     impl Handshake {
         /**
         Notifies the EIS implementation that this client supports the
@@ -262,26 +251,36 @@ pub mod handshake {
             serial: u32,
             /** the connection object */
             connection: super::connection::Connection,
-            /** the version of the connection object */
-            version: u32,
         },
     }
 
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::HandshakeVersion {
-                    version: _bytes.read_arg()?,
-                }),
-                1 => Some(Self::InterfaceVersion {
-                    name: _bytes.read_arg()?,
-                    version: _bytes.read_arg()?,
-                }),
-                2 => Some(Self::Connection {
-                    serial: _bytes.read_arg()?,
-                    connection: _bytes.read_arg()?,
-                    version: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let version = _bytes.read_arg()?;
+
+                    Some(Self::HandshakeVersion { version })
+                }
+                1 => {
+                    let name = _bytes.read_arg()?;
+                    let version = _bytes.read_arg()?;
+
+                    Some(Self::InterfaceVersion { name, version })
+                }
+                2 => {
+                    let serial = _bytes.read_arg()?;
+                    let connection = _bytes.read_arg()?;
+                    let version = _bytes.read_arg()?;
+
+                    Some(Self::Connection {
+                        serial,
+                        connection: _bytes
+                            .connection()
+                            .new_peer_interface(connection, version)
+                            .ok()?,
+                    })
+                }
                 _ => None,
             }
         }
@@ -313,17 +312,6 @@ pub mod connection {
 
     impl crate::ei::Interface for Connection {}
 
-    impl crate::OwnedArg for Connection {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
-
     impl Connection {
         /**
         The sync request asks the EIS implementation to emit the 'done' event
@@ -345,7 +333,10 @@ pub mod connection {
         the client.
          */
         pub fn sync(&self, version: u32) -> rustix::io::Result<(super::callback::Callback)> {
-            let callback = self.0.connection().new_id("ei_callback");
+            let callback = self
+                .0
+                .connection()
+                .new_id("ei_callback".to_string(), version);
             let args = &[
                 crate::Arg::NewId(callback.into()),
                 crate::Arg::Uint32(version.into()),
@@ -475,8 +466,6 @@ pub mod connection {
         Seat {
             /**  */
             seat: super::seat::Seat,
-            /** the interface version */
-            version: u32,
         },
         /**
         Notification that an object ID used in an earlier request was
@@ -522,31 +511,48 @@ pub mod connection {
         Ping {
             /** callback object for the ping request */
             ping: super::pingpong::Pingpong,
-            /** the version of the callback object */
-            version: u32,
         },
     }
 
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::Disconnected {
-                    last_serial: _bytes.read_arg()?,
-                    reason: _bytes.read_arg()?,
-                    explanation: _bytes.read_arg()?,
-                }),
-                1 => Some(Self::Seat {
-                    seat: _bytes.read_arg()?,
-                    version: _bytes.read_arg()?,
-                }),
-                2 => Some(Self::InvalidObject {
-                    last_serial: _bytes.read_arg()?,
-                    invalid_id: _bytes.read_arg()?,
-                }),
-                3 => Some(Self::Ping {
-                    ping: _bytes.read_arg()?,
-                    version: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let last_serial = _bytes.read_arg()?;
+                    let reason = _bytes.read_arg()?;
+                    let explanation = _bytes.read_arg()?;
+
+                    Some(Self::Disconnected {
+                        last_serial,
+                        reason,
+                        explanation,
+                    })
+                }
+                1 => {
+                    let seat = _bytes.read_arg()?;
+                    let version = _bytes.read_arg()?;
+
+                    Some(Self::Seat {
+                        seat: _bytes.connection().new_peer_interface(seat, version).ok()?,
+                    })
+                }
+                2 => {
+                    let last_serial = _bytes.read_arg()?;
+                    let invalid_id = _bytes.read_arg()?;
+
+                    Some(Self::InvalidObject {
+                        last_serial,
+                        invalid_id,
+                    })
+                }
+                3 => {
+                    let ping = _bytes.read_arg()?;
+                    let version = _bytes.read_arg()?;
+
+                    Some(Self::Ping {
+                        ping: _bytes.connection().new_peer_interface(ping, version).ok()?,
+                    })
+                }
                 _ => None,
             }
         }
@@ -579,17 +585,6 @@ pub mod callback {
 
     impl crate::ei::Interface for Callback {}
 
-    impl crate::OwnedArg for Callback {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
-
     impl Callback {}
 
     #[non_exhaustive]
@@ -609,9 +604,11 @@ pub mod callback {
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::Done {
-                    callback_data: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let callback_data = _bytes.read_arg()?;
+
+                    Some(Self::Done { callback_data })
+                }
                 _ => None,
             }
         }
@@ -643,17 +640,6 @@ pub mod pingpong {
     }
 
     impl crate::ei::Interface for Pingpong {}
-
-    impl crate::OwnedArg for Pingpong {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
 
     impl Pingpong {
         /**
@@ -717,17 +703,6 @@ pub mod seat {
     }
 
     impl crate::ei::Interface for Seat {}
-
-    impl crate::OwnedArg for Seat {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
 
     impl Seat {
         /**
@@ -847,29 +822,40 @@ pub mod seat {
         Device {
             /** the new device */
             device: super::device::Device,
-            /** the interface version */
-            version: u32,
         },
     }
 
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::Destroyed {
-                    serial: _bytes.read_arg()?,
-                }),
-                1 => Some(Self::Name {
-                    name: _bytes.read_arg()?,
-                }),
-                2 => Some(Self::Capability {
-                    mask: _bytes.read_arg()?,
-                    interface: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::Destroyed { serial })
+                }
+                1 => {
+                    let name = _bytes.read_arg()?;
+
+                    Some(Self::Name { name })
+                }
+                2 => {
+                    let mask = _bytes.read_arg()?;
+                    let interface = _bytes.read_arg()?;
+
+                    Some(Self::Capability { mask, interface })
+                }
                 3 => Some(Self::Done),
-                4 => Some(Self::Device {
-                    device: _bytes.read_arg()?,
-                    version: _bytes.read_arg()?,
-                }),
+                4 => {
+                    let device = _bytes.read_arg()?;
+                    let version = _bytes.read_arg()?;
+
+                    Some(Self::Device {
+                        device: _bytes
+                            .connection()
+                            .new_peer_interface(device, version)
+                            .ok()?,
+                    })
+                }
                 _ => None,
             }
         }
@@ -907,17 +893,6 @@ pub mod device {
     }
 
     impl crate::ei::Interface for Device {}
-
-    impl crate::OwnedArg for Device {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
 
     impl Device {
         /**
@@ -1177,11 +1152,7 @@ pub mod device {
          */
         Interface {
             /**  */
-            object: u64,
-            /** the interface name */
-            interface_name: String,
-            /** the interface version */
-            version: u32,
+            object: crate::Object,
         },
         /**
         Notification that the initial burst of events is complete and
@@ -1273,49 +1244,82 @@ pub mod device {
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::Destroyed {
-                    serial: _bytes.read_arg()?,
-                }),
-                1 => Some(Self::Name {
-                    name: _bytes.read_arg()?,
-                }),
-                2 => Some(Self::DeviceType {
-                    device_type: _bytes.read_arg()?,
-                }),
-                3 => Some(Self::Dimensions {
-                    width: _bytes.read_arg()?,
-                    height: _bytes.read_arg()?,
-                }),
-                4 => Some(Self::Region {
-                    offset_x: _bytes.read_arg()?,
-                    offset_y: _bytes.read_arg()?,
-                    width: _bytes.read_arg()?,
-                    hight: _bytes.read_arg()?,
-                    scale: _bytes.read_arg()?,
-                }),
-                5 => Some(Self::Interface {
-                    object: _bytes.read_arg()?,
-                    interface_name: _bytes.read_arg()?,
-                    version: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::Destroyed { serial })
+                }
+                1 => {
+                    let name = _bytes.read_arg()?;
+
+                    Some(Self::Name { name })
+                }
+                2 => {
+                    let device_type = _bytes.read_arg()?;
+
+                    Some(Self::DeviceType { device_type })
+                }
+                3 => {
+                    let width = _bytes.read_arg()?;
+                    let height = _bytes.read_arg()?;
+
+                    Some(Self::Dimensions { width, height })
+                }
+                4 => {
+                    let offset_x = _bytes.read_arg()?;
+                    let offset_y = _bytes.read_arg()?;
+                    let width = _bytes.read_arg()?;
+                    let hight = _bytes.read_arg()?;
+                    let scale = _bytes.read_arg()?;
+
+                    Some(Self::Region {
+                        offset_x,
+                        offset_y,
+                        width,
+                        hight,
+                        scale,
+                    })
+                }
+                5 => {
+                    let object = _bytes.read_arg()?;
+                    let interface_name = _bytes.read_arg()?;
+                    let version = _bytes.read_arg()?;
+
+                    Some(Self::Interface {
+                        object: _bytes
+                            .connection()
+                            .new_peer_object(object, interface_name, version)
+                            .ok()?,
+                    })
+                }
                 6 => Some(Self::Done),
-                7 => Some(Self::Resumed {
-                    serial: _bytes.read_arg()?,
-                }),
-                8 => Some(Self::Paused {
-                    serial: _bytes.read_arg()?,
-                }),
-                9 => Some(Self::StartEmulating {
-                    serial: _bytes.read_arg()?,
-                    sequence: _bytes.read_arg()?,
-                }),
-                10 => Some(Self::StopEmulating {
-                    serial: _bytes.read_arg()?,
-                }),
-                11 => Some(Self::Frame {
-                    serial: _bytes.read_arg()?,
-                    timestamp: _bytes.read_arg()?,
-                }),
+                7 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::Resumed { serial })
+                }
+                8 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::Paused { serial })
+                }
+                9 => {
+                    let serial = _bytes.read_arg()?;
+                    let sequence = _bytes.read_arg()?;
+
+                    Some(Self::StartEmulating { serial, sequence })
+                }
+                10 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::StopEmulating { serial })
+                }
+                11 => {
+                    let serial = _bytes.read_arg()?;
+                    let timestamp = _bytes.read_arg()?;
+
+                    Some(Self::Frame { serial, timestamp })
+                }
                 _ => None,
             }
         }
@@ -1351,17 +1355,6 @@ pub mod pointer {
     }
 
     impl crate::ei::Interface for Pointer {}
-
-    impl crate::OwnedArg for Pointer {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
 
     impl Pointer {
         /**
@@ -1430,13 +1423,17 @@ pub mod pointer {
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::Destroyed {
-                    serial: _bytes.read_arg()?,
-                }),
-                1 => Some(Self::MotionRelative {
-                    x: _bytes.read_arg()?,
-                    y: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::Destroyed { serial })
+                }
+                1 => {
+                    let x = _bytes.read_arg()?;
+                    let y = _bytes.read_arg()?;
+
+                    Some(Self::MotionRelative { x, y })
+                }
                 _ => None,
             }
         }
@@ -1472,17 +1469,6 @@ pub mod pointer_absolute {
     }
 
     impl crate::ei::Interface for PointerAbsolute {}
-
-    impl crate::OwnedArg for PointerAbsolute {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
 
     impl PointerAbsolute {
         /**
@@ -1553,13 +1539,17 @@ pub mod pointer_absolute {
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::Destroyed {
-                    serial: _bytes.read_arg()?,
-                }),
-                1 => Some(Self::MotionAbsolute {
-                    x: _bytes.read_arg()?,
-                    y: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::Destroyed { serial })
+                }
+                1 => {
+                    let x = _bytes.read_arg()?;
+                    let y = _bytes.read_arg()?;
+
+                    Some(Self::MotionAbsolute { x, y })
+                }
                 _ => None,
             }
         }
@@ -1595,17 +1585,6 @@ pub mod scroll {
     }
 
     impl crate::ei::Interface for Scroll {}
-
-    impl crate::OwnedArg for Scroll {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
 
     impl Scroll {
         /**
@@ -1760,22 +1739,30 @@ pub mod scroll {
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::Destroyed {
-                    serial: _bytes.read_arg()?,
-                }),
-                1 => Some(Self::Scroll {
-                    x: _bytes.read_arg()?,
-                    y: _bytes.read_arg()?,
-                }),
-                2 => Some(Self::ScrollDiscrete {
-                    x: _bytes.read_arg()?,
-                    y: _bytes.read_arg()?,
-                }),
-                3 => Some(Self::ScrollStop {
-                    x: _bytes.read_arg()?,
-                    y: _bytes.read_arg()?,
-                    is_cancel: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::Destroyed { serial })
+                }
+                1 => {
+                    let x = _bytes.read_arg()?;
+                    let y = _bytes.read_arg()?;
+
+                    Some(Self::Scroll { x, y })
+                }
+                2 => {
+                    let x = _bytes.read_arg()?;
+                    let y = _bytes.read_arg()?;
+
+                    Some(Self::ScrollDiscrete { x, y })
+                }
+                3 => {
+                    let x = _bytes.read_arg()?;
+                    let y = _bytes.read_arg()?;
+                    let is_cancel = _bytes.read_arg()?;
+
+                    Some(Self::ScrollStop { x, y, is_cancel })
+                }
                 _ => None,
             }
         }
@@ -1811,17 +1798,6 @@ pub mod button {
     }
 
     impl crate::ei::Interface for Button {}
-
-    impl crate::OwnedArg for Button {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
 
     impl Button {
         /**
@@ -1922,13 +1898,17 @@ pub mod button {
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::Destroyed {
-                    serial: _bytes.read_arg()?,
-                }),
-                1 => Some(Self::Button {
-                    button: _bytes.read_arg()?,
-                    state: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::Destroyed { serial })
+                }
+                1 => {
+                    let button = _bytes.read_arg()?;
+                    let state = _bytes.read_arg()?;
+
+                    Some(Self::Button { button, state })
+                }
                 _ => None,
             }
         }
@@ -1964,17 +1944,6 @@ pub mod keyboard {
     }
 
     impl crate::ei::Interface for Keyboard {}
-
-    impl crate::OwnedArg for Keyboard {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
 
     impl Keyboard {
         /**
@@ -2153,25 +2122,43 @@ pub mod keyboard {
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::Destroyed {
-                    serial: _bytes.read_arg()?,
-                }),
-                1 => Some(Self::Keymap {
-                    keymap_type: _bytes.read_arg()?,
-                    size: _bytes.read_arg()?,
-                    keymap: _bytes.read_arg()?,
-                }),
-                2 => Some(Self::Key {
-                    key: _bytes.read_arg()?,
-                    state: _bytes.read_arg()?,
-                }),
-                3 => Some(Self::Modifiers {
-                    serial: _bytes.read_arg()?,
-                    depressed: _bytes.read_arg()?,
-                    locked: _bytes.read_arg()?,
-                    latched: _bytes.read_arg()?,
-                    group: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::Destroyed { serial })
+                }
+                1 => {
+                    let keymap_type = _bytes.read_arg()?;
+                    let size = _bytes.read_arg()?;
+                    let keymap = _bytes.read_arg()?;
+
+                    Some(Self::Keymap {
+                        keymap_type,
+                        size,
+                        keymap,
+                    })
+                }
+                2 => {
+                    let key = _bytes.read_arg()?;
+                    let state = _bytes.read_arg()?;
+
+                    Some(Self::Key { key, state })
+                }
+                3 => {
+                    let serial = _bytes.read_arg()?;
+                    let depressed = _bytes.read_arg()?;
+                    let locked = _bytes.read_arg()?;
+                    let latched = _bytes.read_arg()?;
+                    let group = _bytes.read_arg()?;
+
+                    Some(Self::Modifiers {
+                        serial,
+                        depressed,
+                        locked,
+                        latched,
+                        group,
+                    })
+                }
                 _ => None,
             }
         }
@@ -2207,17 +2194,6 @@ pub mod touchscreen {
     }
 
     impl crate::ei::Interface for Touchscreen {}
-
-    impl crate::OwnedArg for Touchscreen {
-        fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
-            use crate::Interface;
-            let id = u64::parse(buf)?;
-            if buf.connection().new_peer_id(id, Self::NAME).is_err() {
-                return None; // XXX better error
-            }
-            Some(Self(crate::Object::new(buf.connection().clone(), id)))
-        }
-    }
 
     impl Touchscreen {
         /**
@@ -2365,22 +2341,30 @@ pub mod touchscreen {
     impl Event {
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Option<Self> {
             match operand {
-                0 => Some(Self::Destroyed {
-                    serial: _bytes.read_arg()?,
-                }),
-                1 => Some(Self::Down {
-                    touchid: _bytes.read_arg()?,
-                    x: _bytes.read_arg()?,
-                    y: _bytes.read_arg()?,
-                }),
-                2 => Some(Self::Motion {
-                    touchid: _bytes.read_arg()?,
-                    x: _bytes.read_arg()?,
-                    y: _bytes.read_arg()?,
-                }),
-                3 => Some(Self::Up {
-                    touchid: _bytes.read_arg()?,
-                }),
+                0 => {
+                    let serial = _bytes.read_arg()?;
+
+                    Some(Self::Destroyed { serial })
+                }
+                1 => {
+                    let touchid = _bytes.read_arg()?;
+                    let x = _bytes.read_arg()?;
+                    let y = _bytes.read_arg()?;
+
+                    Some(Self::Down { touchid, x, y })
+                }
+                2 => {
+                    let touchid = _bytes.read_arg()?;
+                    let x = _bytes.read_arg()?;
+                    let y = _bytes.read_arg()?;
+
+                    Some(Self::Motion { touchid, x, y })
+                }
+                3 => {
+                    let touchid = _bytes.read_arg()?;
+
+                    Some(Self::Up { touchid })
+                }
                 _ => None,
             }
         }
@@ -2407,7 +2391,7 @@ pub enum Event {
 impl Event {
     // TODO: pass object along with event?
     pub(crate) fn parse(
-        interface: &'static str,
+        interface: &str,
         operand: u32,
         bytes: &mut crate::ByteStream,
     ) -> Option<Self> {

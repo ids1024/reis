@@ -7,8 +7,6 @@ use std::{
     os::unix::io::{AsRawFd, RawFd},
 };
 
-// TODO oncecell interfaces
-
 static SERVER_INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     let mut m = HashMap::new();
     m.insert("ei_callback", 1);
@@ -201,7 +199,7 @@ impl State {
                         // Do not send `disconnected` in response
                         return calloop::PostAction::Remove;
                     }
-                    eis::connection::Request::Sync { callback, version } => {
+                    eis::connection::Request::Sync { callback } => {
                         callback.done(0);
                     }
                     _ => {}

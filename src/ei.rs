@@ -47,7 +47,7 @@ impl Connection {
         handshake::Handshake(Object::new(self.0.clone(), 0))
     }
 
-    pub fn object_interface(&self, id: u64) -> Option<&'static str> {
+    pub fn object_interface(&self, id: u64) -> Option<(String, u32)> {
         self.0.object_interface(id)
     }
 }

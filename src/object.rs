@@ -13,7 +13,7 @@ struct ObjectInner {
 pub struct Object(Arc<ObjectInner>);
 
 impl Object {
-    pub fn new(connection: Arc<ConnectionInner>, id: u64) -> Self {
+    pub(crate) fn new(connection: Arc<ConnectionInner>, id: u64) -> Self {
         Self(Arc::new(ObjectInner {
             connection,
             id,
@@ -35,7 +35,8 @@ impl Object {
 
     // XXX test ei vs ei
     pub fn downcast<T: Interface>(self) -> Option<T> {
-        if self.connection().object_interface(self.id()) == Some(T::NAME) {
+        let (interface, _version) = self.connection().object_interface(self.id())?;
+        if &interface == T::NAME {
             Some(T::downcast_unchecked(self))
         } else {
             None
