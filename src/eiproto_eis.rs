@@ -1026,7 +1026,10 @@ pub mod device {
             &self,
             version: u32,
         ) -> rustix::io::Result<(InterfaceName)> {
-            let object = self.0.connection().new_id("".to_string(), version);
+            let object = self
+                .0
+                .connection()
+                .new_id(InterfaceName::NAME.to_string(), version);
             let args = &[
                 crate::Arg::NewId(object.into()),
                 crate::Arg::String(InterfaceName::NAME),

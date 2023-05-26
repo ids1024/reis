@@ -74,7 +74,6 @@ pub mod {{interface.plainname}} {
         pub fn {{outgoing.name}}<
             {%- for arg in outgoing.arguments %}
             {% if arg.interface_arg_for %}
-            {# XXX need to avoid mixing up EI/EIS types #}
             {{arg.name|camel}}: {{module()}}::Interface
             {% endif %}
             {% endfor -%}
@@ -93,7 +92,9 @@ pub mod {{interface.plainname}} {
             {% endfor -%}
             )>{
             {%- for arg in outgoing.arguments %}
-            {% if arg.protocol_type == 'new_id' %}
+            {% if arg.protocol_type == 'new_id' and arg.interface_arg %}
+            let {{arg.name}} = self.0.connection().new_id({{arg.interface_arg.name|camel}}::NAME.to_string(), {{arg.version_arg.name}});
+            {% elif arg.protocol_type == 'new_id' %}
             let {{arg.name}} = self.0.connection().new_id("{{arg.interface.protocol_name}}".to_string(), {{arg.version_arg.name}});
             {% endif -%}
             {% endfor -%}
