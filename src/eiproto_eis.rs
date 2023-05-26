@@ -512,6 +512,8 @@ pub mod connection {
         Sync {
             /** callback object for the sync request */
             callback: super::callback::Callback,
+            /** the interface version */
+            version: u32,
         },
         /**
         A request to the EIS implementation that this client should be disconnected.
@@ -532,6 +534,7 @@ pub mod connection {
             match operand {
                 0 => Some(Self::Sync {
                     callback: _bytes.read_arg()?,
+                    version: _bytes.read_arg()?,
                 }),
                 1 => Some(Self::Disconnect),
                 _ => None,
@@ -1038,17 +1041,23 @@ pub mod device {
         and at most once per interface.
         It is a protocol violation to send this event after the ei_device.done event.
          */
-        pub fn interface(&self, interface_name: &str, version: u32) -> rustix::io::Result<(u64)> {
+        pub fn interface<InterfaceName: crate::Interface>(
+            &self,
+            version: u32,
+        ) -> rustix::io::Result<(InterfaceName)> {
             let object = self.0.connection().new_id("");
             let args = &[
                 crate::Arg::NewId(object.into()),
-                crate::Arg::String(interface_name.into()),
+                crate::Arg::String(InterfaceName::NAME),
                 crate::Arg::Uint32(version.into()),
             ];
 
             self.0.request(5, args)?;
 
-            Ok((object))
+            Ok((InterfaceName::downcast_unchecked(crate::Object::new(
+                self.0.connection().clone(),
+                object,
+            ))))
         }
 
         /**

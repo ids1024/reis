@@ -336,9 +336,12 @@ pub mod connection {
         "`ei_callback`" interface and the EIS implementation must disconnect
         the client.
          */
-        pub fn sync(&self) -> rustix::io::Result<(super::callback::Callback)> {
+        pub fn sync(&self, version: u32) -> rustix::io::Result<(super::callback::Callback)> {
             let callback = self.0.connection().new_id("ei_callback");
-            let args = &[crate::Arg::NewId(callback.into())];
+            let args = &[
+                crate::Arg::NewId(callback.into()),
+                crate::Arg::Uint32(version.into()),
+            ];
 
             self.0.request(0, args)?;
 

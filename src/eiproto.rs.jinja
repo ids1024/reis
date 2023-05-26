@@ -9,7 +9,7 @@
     super::{{interface.plainname}}::{{interface.plainname|camel}}
 {%- endmacro %}
 
-{% macro arg_type(arg, owned) -%}
+{% macro arg_type(arg, owned, generic) -%}
     {% if arg.enum != None %} {{ arg.enum.name|camel }}
     {% elif arg.protocol_type == 'string' and owned %} String
     {% elif arg.protocol_type == 'string' %} &str
@@ -20,7 +20,8 @@
     {% elif arg.protocol_type == 'object' and owned %} {{interface_type(arg.interface)}}
     {% elif arg.protocol_type == 'object' %} &{{interface_type(arg.interface)}}
     {% elif arg.protocol_type == 'new_id' and arg.interface %} {{interface_type(arg.interface)}} {# TODO #}
-    {% elif arg.protocol_type == 'new_id' %} u64 {# TODO interface arg? #}
+    {% elif arg.protocol_type == 'new_id' and arg.interface_arg and generic %} {{arg.interface_arg.name|camel}}
+    {% elif arg.protocol_type == 'new_id' and arg.interface_arg %} u64 {# TODO #}
     {% elif arg.protocol_type == 'float' %} f32
     {% elif arg.protocol_type == 'fd' and owned %} std::os::unix::io::OwnedFd
     {% elif arg.protocol_type == 'fd' %} std::os::unix::io::BorrowedFd
@@ -70,17 +71,24 @@ pub mod {{interface.plainname}} {
     impl {{interface.plainname|camel}} {
         {% for outgoing in interface.outgoing %}
         /** {{outgoing.description.text|ei_escape_names}} */
-        pub fn {{outgoing.name}}(
+        pub fn {{outgoing.name}}<
+            {%- for arg in outgoing.arguments %}
+            {% if arg.interface_arg_for %}
+            {# XXX need to avoid mixing up EI/EIS types #}
+            {{arg.name|camel}}: crate::Interface
+            {% endif %}
+            {% endfor -%}
+        >(
             &self,
             {%- for arg in outgoing.arguments %}
-            {% if arg.protocol_type != 'new_id' %}
-            {{arg.name}}: {{arg_type(arg, false)}},
+            {% if arg.protocol_type != 'new_id' and not arg.interface_arg_for %}
+            {{arg.name}}: {{arg_type(arg, false, false)}},
             {% endif %}
             {% endfor -%}
             ) -> rustix::io::Result<(
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
-            {{arg_type(arg, true)}}
+            {{arg_type(arg, true, true)}}
             {% endif %}
             {% endfor -%}
             )>{
@@ -92,7 +100,11 @@ pub mod {{interface.plainname}} {
 
             let args = &[
             {%- for arg in outgoing.arguments %}
+            {% if arg.interface_arg_for %}
+                crate::Arg::{{arg.protocol_type|camel}}({{arg.name|camel}}::NAME),
+            {% else %}
                 crate::Arg::{{arg.protocol_type|camel}}({{arg.name}}.into()),
+            {% endif %}
             {% endfor -%}
             ];
 
@@ -105,7 +117,9 @@ pub mod {{interface.plainname}} {
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
             {% if arg.interface %}
-                {{arg_type(arg, true)}}(crate::Object::new(self.0.connection().clone(), {{arg.name}}))
+                {{arg_type(arg, true, false)}}(crate::Object::new(self.0.connection().clone(), {{arg.name}}))
+            {% elif arg.interface_arg %}
+                {{arg.interface_arg.name|camel}}::downcast_unchecked(crate::Object::new(self.0.connection().clone(), {{arg.name}}))
             {% else -%}
             {{arg.name}} {# TODO how to handle type that's not statically known? #}
             {% endif -%}
@@ -154,7 +168,7 @@ pub mod {{interface.plainname}} {
                 {% if incoming.arguments %}
                 { {% for arg in incoming.arguments %}
                     /** {{arg.summary}} */
-                    {{arg.name}}: {{arg_type(arg, true)}},
+                    {{arg.name}}: {{arg_type(arg, true, false)}},
                 {% endfor %} }
                 {% endif %},
         {% endfor %}

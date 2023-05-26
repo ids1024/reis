@@ -201,7 +201,7 @@ impl State {
                         // Do not send `disconnected` in response
                         return calloop::PostAction::Remove;
                     }
-                    eis::connection::Request::Sync { callback } => {
+                    eis::connection::Request::Sync { callback, version } => {
                         callback.done(0);
                     }
                     _ => {}
@@ -223,7 +223,7 @@ impl State {
                         device.device_type(eis::device::DeviceType::Virtual);
                         // XXX how to indicate type as return
                         // - first argument could be populated using a type generic
-                        device.interface("ei_keyboard", 1);
+                        device.interface::<eis::keyboard::Keyboard>(1);
                         device.done();
                         // TODO create devices; compare against current bitflag
                     }
