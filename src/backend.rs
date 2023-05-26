@@ -18,7 +18,7 @@ struct Buffer {
 }
 
 #[derive(Debug)]
-struct ConnectionState {
+struct BackendState {
     next_id: u64,
     next_peer_id: u64,
     objects: HashMap<u64, (String, u32)>,
@@ -29,7 +29,7 @@ struct ConnectionState {
 pub struct Backend {
     socket: UnixStream,
     client: bool,
-    state: Mutex<ConnectionState>,
+    state: Mutex<BackendState>,
     read: Mutex<Buffer>,
 }
 
@@ -66,7 +66,7 @@ impl Backend {
         Ok(Self {
             socket,
             client,
-            state: Mutex::new(ConnectionState {
+            state: Mutex::new(BackendState {
                 next_id,
                 next_peer_id,
                 objects,
@@ -121,7 +121,7 @@ impl Backend {
             if let Some((interface, _version)) = self.object_interface(header.object_id) {
                 let read = &mut *read;
                 let mut bytes = ByteStream {
-                    connection: self,
+                    backend: self,
                     bytes: &read.buf[16..header.length as usize],
                     fds: &mut read.fds,
                 };

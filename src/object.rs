@@ -5,7 +5,7 @@ use crate::{Arg, Backend, Interface};
 #[derive(Clone)]
 pub struct Object {
     // TODO use weak, like wayland-rs?
-    connection: Arc<Backend>,
+    backend: Arc<Backend>,
     id: u64,
 }
 
@@ -16,12 +16,12 @@ impl fmt::Debug for Object {
 }
 
 impl Object {
-    pub(crate) fn new(connection: Arc<Backend>, id: u64) -> Self {
-        Self { connection, id }
+    pub(crate) fn new(backend: Arc<Backend>, id: u64) -> Self {
+        Self { backend, id }
     }
 
-    pub fn connection(&self) -> &Arc<Backend> {
-        &self.connection
+    pub fn backend(&self) -> &Arc<Backend> {
+        &self.backend
     }
 
     pub fn id(&self) -> u64 {
@@ -29,7 +29,7 @@ impl Object {
     }
 
     pub fn request(&self, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
-        self.connection.request(self.id, opcode, args)
+        self.backend.request(self.id, opcode, args)
     }
 
     pub(crate) fn downcast_unchecked<T: Interface>(self) -> T {
@@ -38,7 +38,7 @@ impl Object {
 
     // XXX test ei vs ei
     pub fn downcast<T: Interface>(self) -> Option<T> {
-        let (interface, _version) = self.connection.object_interface(self.id)?;
+        let (interface, _version) = self.backend.object_interface(self.id)?;
         if &interface == T::NAME {
             Some(self.downcast_unchecked())
         } else {

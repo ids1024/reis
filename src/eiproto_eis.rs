@@ -115,7 +115,7 @@ pub mod handshake {
         ) -> rustix::io::Result<(super::connection::Connection)> {
             let connection = self
                 .0
-                .connection()
+                .backend()
                 .new_id("ei_connection".to_string(), version);
             let args = &[
                 crate::Arg::Uint32(serial.into()),
@@ -124,10 +124,10 @@ pub mod handshake {
             ];
 
             self.0.request(2, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok((super::connection::Connection(crate::Object::new(
-                self.0.connection().clone(),
+                self.0.backend().clone(),
                 connection,
             ))))
         }
@@ -352,7 +352,7 @@ pub mod connection {
             ];
 
             self.0.request(0, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok(())
         }
@@ -369,7 +369,7 @@ pub mod connection {
         interface.
          */
         pub fn seat(&self, version: u32) -> rustix::io::Result<(super::seat::Seat)> {
-            let seat = self.0.connection().new_id("ei_seat".to_string(), version);
+            let seat = self.0.backend().new_id("ei_seat".to_string(), version);
             let args = &[
                 crate::Arg::NewId(seat.into()),
                 crate::Arg::Uint32(version.into()),
@@ -377,7 +377,7 @@ pub mod connection {
 
             self.0.request(1, args)?;
 
-            Ok((super::seat::Seat(crate::Object::new(self.0.connection().clone(), seat))))
+            Ok((super::seat::Seat(crate::Object::new(self.0.backend().clone(), seat))))
         }
 
         /**
@@ -427,10 +427,7 @@ pub mod connection {
         "ei_pingpong" interface.
          */
         pub fn ping(&self, version: u32) -> rustix::io::Result<(super::pingpong::Pingpong)> {
-            let ping = self
-                .0
-                .connection()
-                .new_id("ei_pingpong".to_string(), version);
+            let ping = self.0.backend().new_id("ei_pingpong".to_string(), version);
             let args = &[
                 crate::Arg::NewId(ping.into()),
                 crate::Arg::Uint32(version.into()),
@@ -438,7 +435,7 @@ pub mod connection {
 
             self.0.request(3, args)?;
 
-            Ok((super::pingpong::Pingpong(crate::Object::new(self.0.connection().clone(), ping))))
+            Ok((super::pingpong::Pingpong(crate::Object::new(self.0.backend().clone(), ping))))
         }
     }
 
@@ -541,7 +538,7 @@ pub mod connection {
                     let version = _bytes.read_arg()?;
 
                     Ok(Self::Sync {
-                        callback: _bytes.connection().new_peer_interface(callback, version)?,
+                        callback: _bytes.backend().new_peer_interface(callback, version)?,
                     })
                 }
                 1 => Ok(Self::Disconnect),
@@ -587,7 +584,7 @@ pub mod callback {
             let args = &[crate::Arg::Uint64(callback_data.into())];
 
             self.0.request(0, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok(())
         }
@@ -715,7 +712,7 @@ pub mod seat {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok(())
         }
@@ -798,7 +795,7 @@ pub mod seat {
         interface.
          */
         pub fn device(&self, version: u32) -> rustix::io::Result<(super::device::Device)> {
-            let device = self.0.connection().new_id("ei_device".to_string(), version);
+            let device = self.0.backend().new_id("ei_device".to_string(), version);
             let args = &[
                 crate::Arg::NewId(device.into()),
                 crate::Arg::Uint32(version.into()),
@@ -806,7 +803,7 @@ pub mod seat {
 
             self.0.request(4, args)?;
 
-            Ok((super::device::Device(crate::Object::new(self.0.connection().clone(), device))))
+            Ok((super::device::Device(crate::Object::new(self.0.backend().clone(), device))))
         }
     }
 
@@ -904,7 +901,7 @@ pub mod device {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok(())
         }
@@ -1040,7 +1037,7 @@ pub mod device {
         ) -> rustix::io::Result<(InterfaceName)> {
             let object = self
                 .0
-                .connection()
+                .backend()
                 .new_id(InterfaceName::NAME.to_string(), version);
             let args = &[
                 crate::Arg::NewId(object.into()),
@@ -1050,7 +1047,7 @@ pub mod device {
 
             self.0.request(5, args)?;
 
-            Ok((crate::Object::new(self.0.connection().clone(), object).downcast_unchecked()))
+            Ok((crate::Object::new(self.0.backend().clone(), object).downcast_unchecked()))
         }
 
         /**
@@ -1367,7 +1364,7 @@ pub mod pointer {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok(())
         }
@@ -1478,7 +1475,7 @@ pub mod pointer_absolute {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok(())
         }
@@ -1591,7 +1588,7 @@ pub mod scroll {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok(())
         }
@@ -1801,7 +1798,7 @@ pub mod button {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok(())
         }
@@ -1944,7 +1941,7 @@ pub mod keyboard {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok(())
         }
@@ -2183,7 +2180,7 @@ pub mod touchscreen {
             let args = &[crate::Arg::Uint32(serial.into())];
 
             self.0.request(0, args)?;
-            self.0.connection().remove_id(self.0.id());
+            self.0.backend().remove_id(self.0.id());
 
             Ok(())
         }
@@ -2369,51 +2366,51 @@ impl Request {
     ) -> Result<Self, crate::ParseError> {
         match interface {
             "ei_handshake" => Ok(Self::Handshake(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 handshake::Request::parse(operand, bytes)?,
             )),
             "ei_connection" => Ok(Self::Connection(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 connection::Request::parse(operand, bytes)?,
             )),
             "ei_callback" => Ok(Self::Callback(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 callback::Request::parse(operand, bytes)?,
             )),
             "ei_pingpong" => Ok(Self::Pingpong(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 pingpong::Request::parse(operand, bytes)?,
             )),
             "ei_seat" => Ok(Self::Seat(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 seat::Request::parse(operand, bytes)?,
             )),
             "ei_device" => Ok(Self::Device(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 device::Request::parse(operand, bytes)?,
             )),
             "ei_pointer" => Ok(Self::Pointer(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 pointer::Request::parse(operand, bytes)?,
             )),
             "ei_pointer_absolute" => Ok(Self::PointerAbsolute(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 pointer_absolute::Request::parse(operand, bytes)?,
             )),
             "ei_scroll" => Ok(Self::Scroll(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 scroll::Request::parse(operand, bytes)?,
             )),
             "ei_button" => Ok(Self::Button(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 button::Request::parse(operand, bytes)?,
             )),
             "ei_keyboard" => Ok(Self::Keyboard(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 keyboard::Request::parse(operand, bytes)?,
             )),
             "ei_touchscreen" => Ok(Self::Touchscreen(
-                crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
                 touchscreen::Request::parse(operand, bytes)?,
             )),
             _ => Err(crate::ParseError::InvalidInterface),

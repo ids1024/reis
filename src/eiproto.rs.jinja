@@ -94,9 +94,9 @@ pub mod {{interface.plainname}} {
             )>{
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' and arg.interface_arg %}
-            let {{arg.name}} = self.0.connection().new_id({{arg.interface_arg.name|camel}}::NAME.to_string(), {{arg.version_arg.name}});
+            let {{arg.name}} = self.0.backend().new_id({{arg.interface_arg.name|camel}}::NAME.to_string(), {{arg.version_arg.name}});
             {% elif arg.protocol_type == 'new_id' %}
-            let {{arg.name}} = self.0.connection().new_id("{{arg.interface.protocol_name}}".to_string(), {{arg.version_arg.name}});
+            let {{arg.name}} = self.0.backend().new_id("{{arg.interface.protocol_name}}".to_string(), {{arg.version_arg.name}});
             {% endif -%}
             {% endfor -%}
 
@@ -112,16 +112,16 @@ pub mod {{interface.plainname}} {
 
             self.0.request({{outgoing.opcode}}, args)?;
             {% if outgoing.is_destructor %}
-                self.0.connection().remove_id(self.0.id());
+                self.0.backend().remove_id(self.0.id());
             {% endif %}
 
             Ok((
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
             {% if arg.interface %}
-                {{arg_type(arg, true, false)}}(crate::Object::new(self.0.connection().clone(), {{arg.name}}))
+                {{arg_type(arg, true, false)}}(crate::Object::new(self.0.backend().clone(), {{arg.name}}))
             {% elif arg.interface_arg %}
-                crate::Object::new(self.0.connection().clone(), {{arg.name}}).downcast_unchecked()
+                crate::Object::new(self.0.backend().clone(), {{arg.name}}).downcast_unchecked()
             {% else -%}
                 unreachable
             {% endif -%}
@@ -192,9 +192,9 @@ pub mod {{interface.plainname}} {
                     {% for arg in incoming.arguments %}
                         {% if arg.version_arg_for or arg.interface_arg_for %}
                         {% elif arg.protocol_type == 'new_id' and arg.interface_arg %}
-                        {{arg.name}}: _bytes.connection().new_peer_object({{arg.name}}, {{arg.interface_arg.name}}, {{arg.version_arg.name}})?,
+                        {{arg.name}}: _bytes.backend().new_peer_object({{arg.name}}, {{arg.interface_arg.name}}, {{arg.version_arg.name}})?,
                         {% elif arg.protocol_type == 'new_id' %}
-                        {{arg.name}}: _bytes.connection().new_peer_interface({{arg.name}}, {{arg.version_arg.name}})?,
+                        {{arg.name}}: _bytes.backend().new_peer_interface({{arg.name}}, {{arg.version_arg.name}})?,
                         {% else %}
                         {{arg.name}},
                         {% endif %}
@@ -223,7 +223,7 @@ impl {{incoming_enum()}} {
         match interface {
             {% for interface in interfaces %}
                 "{{interface.protocol_name}}" => Ok(Self::{{interface.plainname|camel}}(
-                    crate::Object::new(bytes.connection().clone(), id).downcast_unchecked(), 
+                    crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(), 
                     {{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)
                 ),
             {% endfor %}

@@ -68,14 +68,14 @@ pub trait Interface: private::Sealed {
 }
 
 struct ByteStream<'a> {
-    connection: &'a Arc<Backend>,
+    backend: &'a Arc<Backend>,
     bytes: &'a [u8],
     fds: &'a mut Vec<OwnedFd>,
 }
 
 impl<'a> ByteStream<'a> {
-    fn connection(&self) -> &Arc<Backend> {
-        self.connection
+    fn backend(&self) -> &Arc<Backend> {
+        self.backend
     }
 
     fn read_n(&mut self, n: usize) -> Result<&[u8], ParseError> {
