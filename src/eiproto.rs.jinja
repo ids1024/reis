@@ -40,6 +40,14 @@
     {% endif %}
 {%- endmacro %}
 
+{% macro module() -%}
+    {% if extra.eis %}
+    crate::eis
+    {% else %}
+    crate::ei
+    {% endif %}
+{%- endmacro %}
+
 {% for interface in interfaces %}
 /** {{interface.description.text|ei_escape_names}} */
 pub mod {{interface.plainname}} {
@@ -57,6 +65,8 @@ pub mod {{interface.plainname}} {
             Self(object)
         }
     }
+
+    impl {{module()}}::Interface for {{interface.plainname|camel}} {}
 
     {# TODO validate that ID is valid? #}
     impl crate::OwnedArg for {{interface.plainname|camel}} {
@@ -77,7 +87,7 @@ pub mod {{interface.plainname}} {
             {%- for arg in outgoing.arguments %}
             {% if arg.interface_arg_for %}
             {# XXX need to avoid mixing up EI/EIS types #}
-            {{arg.name|camel}}: crate::Interface
+            {{arg.name|camel}}: {{module()}}::Interface
             {% endif %}
             {% endfor -%}
         >(

@@ -58,9 +58,6 @@ impl Header {
     }
 }
 
-// XXX Seal trait?
-// XXX distinguish EI/EIS interface
-// - marker subtrait
 #[doc(hidden)]
 pub trait Interface: private::Sealed {
     const NAME: &'static str;

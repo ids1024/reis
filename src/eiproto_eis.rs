@@ -41,6 +41,8 @@ pub mod handshake {
         }
     }
 
+    impl crate::eis::Interface for Handshake {}
+
     impl crate::OwnedArg for Handshake {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             use crate::Interface;
@@ -309,6 +311,8 @@ pub mod connection {
         }
     }
 
+    impl crate::eis::Interface for Connection {}
+
     impl crate::OwnedArg for Connection {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             use crate::Interface;
@@ -571,6 +575,8 @@ pub mod callback {
         }
     }
 
+    impl crate::eis::Interface for Callback {}
+
     impl crate::OwnedArg for Callback {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             use crate::Interface;
@@ -634,6 +640,8 @@ pub mod pingpong {
             Self(object)
         }
     }
+
+    impl crate::eis::Interface for Pingpong {}
 
     impl crate::OwnedArg for Pingpong {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
@@ -705,6 +713,8 @@ pub mod seat {
             Self(object)
         }
     }
+
+    impl crate::eis::Interface for Seat {}
 
     impl crate::OwnedArg for Seat {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
@@ -899,6 +909,8 @@ pub mod device {
         }
     }
 
+    impl crate::eis::Interface for Device {}
+
     impl crate::OwnedArg for Device {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             use crate::Interface;
@@ -1053,7 +1065,7 @@ pub mod device {
         and at most once per interface.
         It is a protocol violation to send this event after the ei_device.done event.
          */
-        pub fn interface<InterfaceName: crate::Interface>(
+        pub fn interface<InterfaceName: crate::eis::Interface>(
             &self,
             version: u32,
         ) -> rustix::io::Result<(InterfaceName)> {
@@ -1356,6 +1368,8 @@ pub mod pointer {
         }
     }
 
+    impl crate::eis::Interface for Pointer {}
+
     impl crate::OwnedArg for Pointer {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             use crate::Interface;
@@ -1470,6 +1484,8 @@ pub mod pointer_absolute {
             Self(object)
         }
     }
+
+    impl crate::eis::Interface for PointerAbsolute {}
 
     impl crate::OwnedArg for PointerAbsolute {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
@@ -1587,6 +1603,8 @@ pub mod scroll {
             Self(object)
         }
     }
+
+    impl crate::eis::Interface for Scroll {}
 
     impl crate::OwnedArg for Scroll {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
@@ -1798,6 +1816,8 @@ pub mod button {
         }
     }
 
+    impl crate::eis::Interface for Button {}
+
     impl crate::OwnedArg for Button {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
             use crate::Interface;
@@ -1944,6 +1964,8 @@ pub mod keyboard {
             Self(object)
         }
     }
+
+    impl crate::eis::Interface for Keyboard {}
 
     impl crate::OwnedArg for Keyboard {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {
@@ -2187,6 +2209,8 @@ pub mod touchscreen {
             Self(object)
         }
     }
+
+    impl crate::eis::Interface for Touchscreen {}
 
     impl crate::OwnedArg for Touchscreen {
         fn parse(buf: &mut crate::ByteStream) -> Option<Self> {

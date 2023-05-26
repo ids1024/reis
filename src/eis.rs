@@ -84,3 +84,6 @@ impl Connection {
         self.0.object_interface(id)
     }
 }
+
+#[doc(hidden)]
+pub trait Interface: crate::Interface {}

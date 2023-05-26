@@ -33,6 +33,7 @@ impl Object {
         self.connection().request(self.id(), opcode, args)
     }
 
+    // XXX test ei vs ei
     pub fn downcast<T: Interface>(self) -> Option<T> {
         if self.connection().object_interface(self.id()) == Some(T::NAME) {
             Some(T::downcast_unchecked(self))
