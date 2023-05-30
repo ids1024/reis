@@ -119,7 +119,7 @@ impl State {
             let request = match result {
                 PendingRequestResult::Request(request) => request,
                 PendingRequestResult::ProtocolError(msg) => {
-                    return context_state.protocol_error(msg);
+                    return context_state.protocol_error(&msg);
                 }
                 PendingRequestResult::InvalidObject(object_id) => {
                     if let Some(connection) = context_state.connection_obj.as_ref() {

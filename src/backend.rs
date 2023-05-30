@@ -49,7 +49,7 @@ pub enum ConnectionReadResult {
 
 pub enum PendingRequestResult<T> {
     Request(T),
-    ProtocolError(&'static str),
+    ProtocolError(String),
     InvalidObject(u64),
 }
 
@@ -120,7 +120,9 @@ impl Backend {
                 return None;
             }
             if header.length < 16 {
-                return Some(PendingRequestResult::ProtocolError("header length < 16"));
+                return Some(PendingRequestResult::ProtocolError(
+                    "header length < 16".to_string(),
+                ));
             }
             if let Some((interface, _version)) = self.object_interface(header.object_id) {
                 let read = &mut *read;
@@ -133,18 +135,17 @@ impl Backend {
                 let request = parse(header.object_id, &interface, header.opcode, &mut bytes);
                 if bytes.bytes.len() != 0 {
                     return Some(PendingRequestResult::ProtocolError(
-                        "message length doesn't match header",
+                        "message length doesn't match header".to_string(),
                     ));
                 }
 
-                if let Ok(request) = request {
-                    Some(PendingRequestResult::Request(request))
-                } else {
-                    // XXX handle specific error
-                    Some(PendingRequestResult::ProtocolError(
-                        "failed to parse request",
-                    ))
-                }
+                Some(match request {
+                    Ok(request) => PendingRequestResult::Request(request),
+                    Err(err) => PendingRequestResult::ProtocolError(format!(
+                        "failed to parse message: {:?}",
+                        err
+                    )),
+                })
             } else {
                 read.buf.drain(0..header.length as usize);
                 Some(PendingRequestResult::InvalidObject(header.object_id))
