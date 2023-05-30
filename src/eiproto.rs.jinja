@@ -155,7 +155,7 @@ pub mod {{interface.plainname}} {
             {% for entry in enum.entries %}
                 {{entry.value}} => Ok(Self::{{entry.name|camel}}),
             {% endfor %}
-                _ => Err(crate::ParseError::InvalidOpcode),
+        variant => Err(crate::ParseError::InvalidVariant("{{enum.camel_name}}", variant)),
             }
         }
     }
@@ -202,7 +202,7 @@ pub mod {{interface.plainname}} {
                     {% endif %} )
                 }
             {% endfor %}
-                _ => Err(crate::ParseError::InvalidOpcode),
+         opcode => Err(crate::ParseError::InvalidOpcode("{{interface.plainname}}", opcode)),
             }
         }
     }

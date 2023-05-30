@@ -110,12 +110,14 @@ impl<'a> ByteStream<'a> {
 }
 
 // TODO add detail, format for display
+#[derive(Debug)]
 enum ParseError {
     EndOfMessage,
     Utf8,
     InvalidId,
     NoFd,
-    InvalidOpcode,
+    InvalidOpcode(&'static str, u32),
+    InvalidVariant(&'static str, u32),
     InvalidInterface,
     NoObject,
 }

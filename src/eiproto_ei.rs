@@ -183,7 +183,7 @@ pub mod handshake {
             match u32::parse(buf)? {
                 1 => Ok(Self::Receiver),
                 2 => Ok(Self::Sender),
-                _ => Err(crate::ParseError::InvalidOpcode),
+                variant => Err(crate::ParseError::InvalidVariant("ContextType", variant)),
             }
         }
     }
@@ -281,7 +281,7 @@ pub mod handshake {
                         connection: _bytes.backend().new_peer_interface(connection, version)?,
                     })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("handshake", opcode)),
             }
         }
     }
@@ -410,7 +410,10 @@ pub mod connection {
                 3 => Ok(Self::Protocol),
                 4 => Ok(Self::Value),
                 5 => Ok(Self::Transport),
-                _ => Err(crate::ParseError::InvalidOpcode),
+                variant => Err(crate::ParseError::InvalidVariant(
+                    "DisconnectReason",
+                    variant,
+                )),
             }
         }
     }
@@ -552,7 +555,7 @@ pub mod connection {
                         ping: _bytes.backend().new_peer_interface(ping, version)?,
                     })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("connection", opcode)),
             }
         }
     }
@@ -613,7 +616,7 @@ pub mod callback {
 
                     Ok(Self::Done { callback_data })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("callback", opcode)),
             }
         }
     }
@@ -673,7 +676,7 @@ pub mod pingpong {
             _bytes: &mut crate::ByteStream,
         ) -> Result<Self, crate::ParseError> {
             match operand {
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("pingpong", opcode)),
             }
         }
     }
@@ -867,7 +870,7 @@ pub mod seat {
                         device: _bytes.backend().new_peer_interface(device, version)?,
                     })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("seat", opcode)),
             }
         }
     }
@@ -1040,7 +1043,7 @@ pub mod device {
             match u32::parse(buf)? {
                 1 => Ok(Self::Virtual),
                 2 => Ok(Self::Physical),
-                _ => Err(crate::ParseError::InvalidOpcode),
+                variant => Err(crate::ParseError::InvalidVariant("DeviceType", variant)),
             }
         }
     }
@@ -1337,7 +1340,7 @@ pub mod device {
 
                     Ok(Self::Frame { serial, timestamp })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("device", opcode)),
             }
         }
     }
@@ -1456,7 +1459,7 @@ pub mod pointer {
 
                     Ok(Self::MotionRelative { x, y })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("pointer", opcode)),
             }
         }
     }
@@ -1577,7 +1580,7 @@ pub mod pointer_absolute {
 
                     Ok(Self::MotionAbsolute { x, y })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("pointer_absolute", opcode)),
             }
         }
     }
@@ -1795,7 +1798,7 @@ pub mod scroll {
 
                     Ok(Self::ScrollStop { x, y, is_cancel })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("scroll", opcode)),
             }
         }
     }
@@ -1892,7 +1895,7 @@ pub mod button {
             match u32::parse(buf)? {
                 0 => Ok(Self::Released),
                 1 => Ok(Self::Press),
-                _ => Err(crate::ParseError::InvalidOpcode),
+                variant => Err(crate::ParseError::InvalidVariant("ButtonState", variant)),
             }
         }
     }
@@ -1946,7 +1949,7 @@ pub mod button {
 
                     Ok(Self::Button { button, state })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("button", opcode)),
             }
         }
     }
@@ -2044,7 +2047,7 @@ pub mod keyboard {
             match u32::parse(buf)? {
                 0 => Ok(Self::Released),
                 1 => Ok(Self::Press),
-                _ => Err(crate::ParseError::InvalidOpcode),
+                variant => Err(crate::ParseError::InvalidVariant("KeyState", variant)),
             }
         }
     }
@@ -2068,7 +2071,7 @@ pub mod keyboard {
         fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
             match u32::parse(buf)? {
                 1 => Ok(Self::Xkb),
-                _ => Err(crate::ParseError::InvalidOpcode),
+                variant => Err(crate::ParseError::InvalidVariant("KeymapType", variant)),
             }
         }
     }
@@ -2201,7 +2204,7 @@ pub mod keyboard {
                         group,
                     })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("keyboard", opcode)),
             }
         }
     }
@@ -2412,7 +2415,7 @@ pub mod touchscreen {
 
                     Ok(Self::Up { touchid })
                 }
-                _ => Err(crate::ParseError::InvalidOpcode),
+                opcode => Err(crate::ParseError::InvalidOpcode("touchscreen", opcode)),
             }
         }
     }
