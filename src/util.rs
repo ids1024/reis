@@ -30,7 +30,7 @@ pub fn send_with_fds(
     let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
     cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(fds));
     retry_on_intr(|| {
-        net::sendmsg_noaddr(
+        net::sendmsg(
             socket,
             &[IoSlice::new(buf)],
             &mut cmsg_buffer,
