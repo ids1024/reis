@@ -36,7 +36,7 @@ impl Object {
         T::new_unchecked(self)
     }
 
-    // XXX test ei vs ei
+    // XXX test ei vs eis
     pub fn downcast<T: Interface>(self) -> Option<T> {
         let (interface, _version) = self.backend.object_interface(self.id)?;
         if &interface == T::NAME {

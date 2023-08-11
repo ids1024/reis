@@ -1,4 +1,4 @@
-use rustix::io::Errno;
+use rustix::io::{Errno, IoSlice};
 use std::{
     collections::{HashMap, VecDeque},
     io,
@@ -11,10 +11,25 @@ use std::{
 
 use crate::{util, Arg, ByteStream, Header};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Buffer {
     buf: VecDeque<u8>,
     fds: VecDeque<OwnedFd>,
+}
+
+impl Buffer {
+    fn flush_write(&mut self, socket: &UnixStream) -> rustix::io::Result<()> {
+        // TODO avoid allocation
+        while !self.buf.is_empty() {
+            let (slice1, slice2) = self.buf.as_slices();
+            let iov = &[IoSlice::new(slice1), IoSlice::new(slice2)];
+            let fds: Vec<_> = self.fds.iter().map(|x| x.as_fd()).collect();
+            let written = util::send_with_fds(socket, iov, &fds)?;
+            self.buf.drain(0..written).for_each(|_| {});
+            self.fds.clear();
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -30,6 +45,7 @@ struct BackendInner {
     client: bool,
     state: Mutex<BackendState>,
     read: Mutex<Buffer>,
+    write: Mutex<Buffer>,
 }
 
 // Used for both ei and eis
@@ -74,10 +90,8 @@ impl Backend {
                 next_peer_id,
                 objects,
             }),
-            read: Mutex::new(Buffer {
-                buf: VecDeque::new(),
-                fds: VecDeque::new(),
-            }),
+            read: Mutex::new(Buffer::default()),
+            write: Mutex::new(Buffer::default()),
         })))
     }
 
@@ -85,6 +99,7 @@ impl Backend {
     pub fn read(&self) -> io::Result<ConnectionReadResult> {
         let mut read = self.0.read.lock().unwrap();
 
+        // TODO read into read.buf with iov?
         let mut buf = [0; 2048];
         let mut total_count = 0;
         loop {
@@ -209,25 +224,36 @@ impl Backend {
 
     // TODO send return value? send more?
     // TODO buffer nonblocking output?
-    // XXX don't allow write from multiple threads without lock
     pub fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
+        let mut write = self.0.write.lock().unwrap();
+
         let interface = self.object_interface(object_id).map(|x| x.0);
         println!(
             "Request {:?} {} {}: {:?}",
             interface, object_id, opcode, args
         );
+
+        let start_len = write.buf.len();
+
         // Leave space for header
-        let mut buf = vec![0; 16];
-        let mut fds = vec![];
+        write.buf.extend([0; 16]);
+
+        // Write arguments
         for arg in args {
-            arg.write(&mut buf, &mut fds);
+            let write = &mut *write;
+            arg.write(&mut write.buf, &mut write.fds);
         }
+
+        // Write header now we know the length
         let header = Header {
             object_id,
-            length: buf.len() as u32,
+            length: (write.buf.len() - start_len) as u32,
             opcode,
         };
-        header.write_at(&mut buf);
-        util::send_with_fds(&self.0.socket, &buf, &fds)
+        for (i, b) in header.as_bytes().enumerate() {
+            write.buf[start_len + i] = b;
+        }
+
+        write.flush_write(&self.0.socket)
     }
 }

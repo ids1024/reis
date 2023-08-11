@@ -23,7 +23,7 @@ impl<'a> Arg<'a> {
     pub fn write<T, U>(&self, buf: &mut T, fds: &mut U)
     where
         T: Extend<u8>,
-        U: Extend<BorrowedFd<'a>>,
+        U: Extend<OwnedFd>,
     {
         match self {
             Arg::Uint32(value) => buf.extend(value.to_ne_bytes()),
@@ -31,7 +31,8 @@ impl<'a> Arg<'a> {
             Arg::Uint64(value) => buf.extend(value.to_ne_bytes()),
             Arg::Int64(value) => buf.extend(value.to_ne_bytes()),
             Arg::Float(value) => buf.extend(value.to_ne_bytes()),
-            Arg::Fd(value) => fds.extend([*value]),
+            // XXX unwrap?
+            Arg::Fd(value) => fds.extend([value.try_clone_to_owned().unwrap()]),
             Arg::String(value) => {
                 // Write 32-bit length, including NUL
                 let len = value.len() as u32 + 1;

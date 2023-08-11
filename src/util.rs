@@ -23,21 +23,14 @@ pub fn array_from_iterator_unchecked<T: Copy + Default, I: Iterator<Item = T>, c
 
 pub fn send_with_fds(
     socket: &UnixStream,
-    buf: &[u8],
+    //buf: &VecDeque<u8>,
+    buf: &[IoSlice],
     fds: &[BorrowedFd],
-) -> rustix::io::Result<()> {
+) -> rustix::io::Result<usize> {
     let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(fds.len()))];
     let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
     cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(fds));
-    retry_on_intr(|| {
-        net::sendmsg(
-            socket,
-            &[IoSlice::new(buf)],
-            &mut cmsg_buffer,
-            net::SendFlags::NOSIGNAL,
-        )
-    })?;
-    Ok(())
+    retry_on_intr(|| net::sendmsg(socket, buf, &mut cmsg_buffer, net::SendFlags::NOSIGNAL))
 }
 
 pub fn recv_with_fds(

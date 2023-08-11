@@ -56,11 +56,12 @@ impl Header {
         }
     }
 
-    /// Writes header into start of `buf`; panic if it has length less than 16
-    fn write_at(&self, buf: &mut [u8]) {
-        buf[0..8].copy_from_slice(&self.object_id.to_ne_bytes());
-        buf[8..12].copy_from_slice(&self.length.to_ne_bytes());
-        buf[12..16].copy_from_slice(&self.opcode.to_ne_bytes());
+    fn as_bytes(&self) -> impl Iterator<Item = u8> {
+        self.object_id
+            .to_ne_bytes()
+            .into_iter()
+            .chain(self.length.to_ne_bytes().into_iter())
+            .chain(self.opcode.to_ne_bytes().into_iter())
     }
 }
 
