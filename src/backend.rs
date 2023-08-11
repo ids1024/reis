@@ -200,7 +200,7 @@ impl Backend {
         version: u32,
     ) -> Result<crate::Object, crate::ParseError> {
         self.new_peer_id(id, interface, version)?;
-        Ok(crate::Object::new(self.clone(), id))
+        Ok(crate::Object::new(self.clone(), id, self.0.client))
     }
 
     pub(crate) fn new_peer_interface<T: crate::Interface>(

@@ -60,6 +60,11 @@ pub mod {{interface.plainname}} {
     impl crate::Interface for {{interface.plainname|camel}} {
         const NAME: &'static str = "{{interface.protocol_name}}";
         const VERSION: u32 = {{interface.version}};
+        {% if extra.eis %}
+        const CLIENT_SIDE: bool = false;
+        {% else %}
+        const CLIENT_SIDE: bool = true;
+        {% endif %}
         type Incoming = {{incoming_enum()}};
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -119,9 +124,22 @@ pub mod {{interface.plainname}} {
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
             {% if arg.interface %}
-                {{arg_type(arg, true, false)}}(crate::Object::new(self.0.backend().clone(), {{arg.name}}))
+                {{arg_type(arg, true, false)}}(crate::Object::new(
+                    self.0.backend().clone(), {{arg.name}},
+                    {% if extra.eis %}
+                    false
+                    {% else %}
+                    true
+                    {% endif %}
+                    ))
             {% elif arg.interface_arg %}
-                crate::Object::new(self.0.backend().clone(), {{arg.name}}).downcast_unchecked()
+                crate::Object::new(self.0.backend().clone(), {{arg.name}},
+                {% if extra.eis %}
+                false
+                {% else %}
+                true
+                {% endif %}
+                ).downcast_unchecked()
             {% else -%}
                 unreachable
             {% endif -%}
@@ -225,7 +243,13 @@ impl {{incoming_enum()}} {
         match interface {
             {% for interface in interfaces %}
                 "{{interface.protocol_name}}" => Ok(Self::{{interface.plainname|camel}}(
-                    crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(), 
+                    crate::Object::new(bytes.backend().clone(), id,
+                        {% if extra.eis %}
+                        false
+                        {% else %}
+                        true
+                        {% endif %}
+                    ).downcast_unchecked(), 
                     {{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)
                 ),
             {% endfor %}

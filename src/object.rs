@@ -6,6 +6,7 @@ use crate::{Arg, Backend, Interface};
 pub struct Object {
     // TODO use weak, like wayland-rs?
     backend: Backend,
+    client_side: bool,
     id: u64,
 }
 
@@ -16,8 +17,12 @@ impl fmt::Debug for Object {
 }
 
 impl Object {
-    pub(crate) fn new(backend: Backend, id: u64) -> Self {
-        Self { backend, id }
+    pub(crate) fn new(backend: Backend, id: u64, client_side: bool) -> Self {
+        Self {
+            backend,
+            id,
+            client_side,
+        }
     }
 
     pub fn backend(&self) -> &Backend {
@@ -36,10 +41,9 @@ impl Object {
         T::new_unchecked(self)
     }
 
-    // XXX test ei vs eis
     pub fn downcast<T: Interface>(self) -> Option<T> {
         let (interface, _version) = self.backend.object_interface(self.id)?;
-        if &interface == T::NAME {
+        if (self.client_side, interface.as_str()) == (T::CLIENT_SIDE, T::NAME) {
             Some(self.downcast_unchecked())
         } else {
             None

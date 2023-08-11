@@ -29,7 +29,7 @@ impl AsRawFd for Context {
 impl Context {
     // TODO way to connect
     pub fn new(socket: UnixStream) -> io::Result<Self> {
-        Ok(Self(Backend::new(socket, false)?))
+        Ok(Self(Backend::new(socket, true)?))
     }
 
     /// Read any pending data on socket into buffer
@@ -43,7 +43,7 @@ impl Context {
     }
 
     pub fn handshake(&self) -> handshake::Handshake {
-        handshake::Handshake(Object::new(self.0.clone(), 0))
+        handshake::Handshake(Object::new(self.0.clone(), 0, true))
     }
 
     pub fn object_interface(&self, id: u64) -> Option<(String, u32)> {

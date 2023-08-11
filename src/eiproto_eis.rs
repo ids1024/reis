@@ -34,6 +34,7 @@ pub mod handshake {
     impl crate::Interface for Handshake {
         const NAME: &'static str = "ei_handshake";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -125,6 +126,7 @@ pub mod handshake {
             (super::connection::Connection(crate::Object::new(
                 self.0.backend().clone(),
                 connection,
+                false,
             )))
         }
     }
@@ -305,6 +307,7 @@ pub mod connection {
     impl crate::Interface for Connection {
         const NAME: &'static str = "ei_connection";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -375,7 +378,7 @@ pub mod connection {
 
             self.0.request(1, args);
 
-            (super::seat::Seat(crate::Object::new(self.0.backend().clone(), seat)))
+            (super::seat::Seat(crate::Object::new(self.0.backend().clone(), seat, false)))
         }
 
         /**
@@ -433,7 +436,7 @@ pub mod connection {
 
             self.0.request(3, args);
 
-            (super::pingpong::Pingpong(crate::Object::new(self.0.backend().clone(), ping)))
+            (super::pingpong::Pingpong(crate::Object::new(self.0.backend().clone(), ping, false)))
         }
     }
 
@@ -568,6 +571,7 @@ pub mod callback {
     impl crate::Interface for Callback {
         const NAME: &'static str = "ei_callback";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -628,6 +632,7 @@ pub mod pingpong {
     impl crate::Interface for Pingpong {
         const NAME: &'static str = "ei_pingpong";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -697,6 +702,7 @@ pub mod seat {
     impl crate::Interface for Seat {
         const NAME: &'static str = "ei_seat";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -810,7 +816,7 @@ pub mod seat {
 
             self.0.request(4, args);
 
-            (super::device::Device(crate::Object::new(self.0.backend().clone(), device)))
+            (super::device::Device(crate::Object::new(self.0.backend().clone(), device, false)))
         }
     }
 
@@ -888,6 +894,7 @@ pub mod device {
     impl crate::Interface for Device {
         const NAME: &'static str = "ei_device";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -1056,7 +1063,7 @@ pub mod device {
 
             self.0.request(5, args);
 
-            (crate::Object::new(self.0.backend().clone(), object).downcast_unchecked())
+            (crate::Object::new(self.0.backend().clone(), object, false).downcast_unchecked())
         }
 
         /**
@@ -1353,6 +1360,7 @@ pub mod pointer {
     impl crate::Interface for Pointer {
         const NAME: &'static str = "ei_pointer";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -1466,6 +1474,7 @@ pub mod pointer_absolute {
     impl crate::Interface for PointerAbsolute {
         const NAME: &'static str = "ei_pointer_absolute";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -1581,6 +1590,7 @@ pub mod scroll {
     impl crate::Interface for Scroll {
         const NAME: &'static str = "ei_scroll";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -1793,6 +1803,7 @@ pub mod button {
     impl crate::Interface for Button {
         const NAME: &'static str = "ei_button";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -1938,6 +1949,7 @@ pub mod keyboard {
     impl crate::Interface for Keyboard {
         const NAME: &'static str = "ei_keyboard";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -2179,6 +2191,7 @@ pub mod touchscreen {
     impl crate::Interface for Touchscreen {
         const NAME: &'static str = "ei_touchscreen";
         const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -2389,51 +2402,51 @@ impl Request {
     ) -> Result<Self, crate::ParseError> {
         match interface {
             "ei_handshake" => Ok(Self::Handshake(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 handshake::Request::parse(operand, bytes)?,
             )),
             "ei_connection" => Ok(Self::Connection(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 connection::Request::parse(operand, bytes)?,
             )),
             "ei_callback" => Ok(Self::Callback(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 callback::Request::parse(operand, bytes)?,
             )),
             "ei_pingpong" => Ok(Self::Pingpong(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 pingpong::Request::parse(operand, bytes)?,
             )),
             "ei_seat" => Ok(Self::Seat(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 seat::Request::parse(operand, bytes)?,
             )),
             "ei_device" => Ok(Self::Device(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 device::Request::parse(operand, bytes)?,
             )),
             "ei_pointer" => Ok(Self::Pointer(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 pointer::Request::parse(operand, bytes)?,
             )),
             "ei_pointer_absolute" => Ok(Self::PointerAbsolute(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 pointer_absolute::Request::parse(operand, bytes)?,
             )),
             "ei_scroll" => Ok(Self::Scroll(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 scroll::Request::parse(operand, bytes)?,
             )),
             "ei_button" => Ok(Self::Button(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 button::Request::parse(operand, bytes)?,
             )),
             "ei_keyboard" => Ok(Self::Keyboard(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 keyboard::Request::parse(operand, bytes)?,
             )),
             "ei_touchscreen" => Ok(Self::Touchscreen(
-                crate::Object::new(bytes.backend().clone(), id).downcast_unchecked(),
+                crate::Object::new(bytes.backend().clone(), id, false).downcast_unchecked(),
                 touchscreen::Request::parse(operand, bytes)?,
             )),
             _ => Err(crate::ParseError::InvalidInterface),
