@@ -4,29 +4,58 @@
 //! [Context].
 
 use std::{
-    io,
+    env, fs, io,
     os::unix::{
         io::{AsFd, AsRawFd, BorrowedFd, RawFd},
         net::{UnixListener, UnixStream},
     },
-    path::Path,
+    path::{Path, PathBuf},
 };
 
-use crate::{Backend, ConnectionReadResult, Object, PendingRequestResult};
+use crate::{util, Backend, ConnectionReadResult, Object, PendingRequestResult};
 
 // Re-export generate bindings
 pub use crate::eiproto_eis::*;
 
 pub struct Listener {
-    listener: UnixListener,
+    listener: util::UnlinkOnDrop<UnixListener>,
+    _lock: Option<util::LockFile>,
 }
 
-// TODO lockfile, unlink, etc.
 impl Listener {
+    // TODO Use a lock here
     pub fn bind(path: &Path) -> io::Result<Self> {
-        let listener = UnixListener::bind(path)?;
+        Self::bind_inner(PathBuf::from(path), None)
+    }
+
+    // XXX result type?
+    // Error if XDG_RUNTIME_DIR not set?
+    pub fn bind_auto() -> io::Result<Option<Self>> {
+        let xdg_dir = if let Some(var) = env::var_os("XDG_RUNTIME_DIR") {
+            PathBuf::from(var)
+        } else {
+            return Ok(None);
+        };
+        for i in 1..33 {
+            let lock_path = xdg_dir.join(format!("eis-{i}.lock"));
+            let Some(lock_file) = util::LockFile::new(lock_path)? else {
+                // Already locked, continue to next number
+                continue;
+            };
+            let sock_path = xdg_dir.join(format!("eis-{i}"));
+            return Self::bind_inner(sock_path, Some(lock_file)).map(Some);
+        }
+        Ok(None)
+    }
+
+    fn bind_inner(path: PathBuf, lock: Option<util::LockFile>) -> io::Result<Self> {
+        let listener = UnixListener::bind(&path)?;
         listener.set_nonblocking(true)?;
-        Ok(Self { listener })
+        let listener = util::UnlinkOnDrop::new(listener, path);
+        Ok(Self {
+            listener,
+            _lock: lock,
+        })
     }
 
     pub fn accept(&self) -> io::Result<Option<Context>> {

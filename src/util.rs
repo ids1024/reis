@@ -1,13 +1,17 @@
 use rustix::{
+    fs::FlockOperation,
     io::{retry_on_intr, IoSlice, IoSliceMut},
     net,
 };
 use std::{
     collections::VecDeque,
+    fs, io, ops,
     os::unix::{
+        fs::OpenOptionsExt,
         io::{BorrowedFd, OwnedFd},
         net::UnixStream,
     },
+    path::PathBuf,
 };
 
 // Panics if iterator isn't as long as `N`
@@ -62,4 +66,53 @@ pub fn recv_with_fds(
         );
     }
     Ok(response.bytes)
+}
+
+pub struct UnlinkOnDrop<T> {
+    inner: T,
+    path: PathBuf,
+}
+
+impl<T> UnlinkOnDrop<T> {
+    pub fn new(inner: T, path: PathBuf) -> Self {
+        Self { inner, path }
+    }
+}
+
+impl<T> Drop for UnlinkOnDrop<T> {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+impl<T> ops::Deref for UnlinkOnDrop<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        &self.inner
+    }
+}
+
+impl<T> ops::DerefMut for UnlinkOnDrop<T> {
+    fn deref_mut(&mut self) -> &mut T {
+        &mut self.inner
+    }
+}
+
+// Should match way locking in libeis is handled
+pub struct LockFile(UnlinkOnDrop<fs::File>);
+
+impl LockFile {
+    pub fn new(path: PathBuf) -> io::Result<Option<Self>> {
+        let inner = fs::File::options()
+            .create(true)
+            .read(true)
+            .write(true)
+            .mode(0o660)
+            .open(&path)?;
+        let inner = UnlinkOnDrop::new(inner, path);
+        let locked =
+            rustix::fs::flock(&inner.inner, FlockOperation::NonBlockingLockExclusive).is_ok();
+        Ok(Some(inner).filter(|_| locked).map(Self))
+    }
 }
