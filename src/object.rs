@@ -28,8 +28,8 @@ impl Object {
         self.id
     }
 
-    pub fn request(&self, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
-        self.backend.request(self.id, opcode, args)
+    pub fn request(&self, opcode: u32, args: &[Arg]) {
+        self.backend.request(self.id, opcode, args);
     }
 
     pub(crate) fn downcast_unchecked<T: Interface>(self) -> T {

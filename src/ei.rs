@@ -49,6 +49,10 @@ impl Context {
     pub fn object_interface(&self, id: u64) -> Option<(String, u32)> {
         self.0.object_interface(id)
     }
+
+    pub fn flush(&self) -> rustix::io::Result<()> {
+        self.0.flush()
+    }
 }
 
 #[doc(hidden)]

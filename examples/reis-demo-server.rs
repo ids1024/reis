@@ -80,6 +80,8 @@ impl State {
                 handshake.interface_version(interface, *version);
             }
 
+            context.flush();
+
             let context_state = ContextState {
                 context,
                 handshake,
@@ -165,7 +167,7 @@ impl State {
                         }
 
                         let serial = context_state.next_serial();
-                        let connection_obj = context_state.handshake.connection(serial, 1).unwrap();
+                        let connection_obj = context_state.handshake.connection(serial, 1);
                         context_state.connection_obj = Some(connection_obj.clone());
                         if !context_state.has_interface("ei_seat")
                             || !context_state.has_interface("ei_device")
@@ -175,7 +177,7 @@ impl State {
                                 .disconnected(eis::connection::DisconnectReason::Disconnected, "");
                             // XXX reason
                         }
-                        let seat = connection_obj.seat(1).unwrap();
+                        let seat = connection_obj.seat(1);
                         seat.name("default");
                         seat.capability(0x2, "ei_pointer");
                         seat.capability(0x4, "ei_pointer_absolute");
@@ -209,7 +211,7 @@ impl State {
                                 "Invalid capabilities",
                             );
                         }
-                        let device = seat.device(1).unwrap();
+                        let device = seat.device(1);
                         device.name("keyboard");
                         device.device_type(eis::device::DeviceType::Virtual);
                         device.interface::<eis::Keyboard>(1);
@@ -226,6 +228,9 @@ impl State {
                 _ => {}
             }
         }
+
+        // XXX handle error and WouldBlock
+        context_state.context.flush();
 
         calloop::PostAction::Continue
     }

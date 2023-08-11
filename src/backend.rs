@@ -222,9 +222,7 @@ impl Backend {
         self.0.state.lock().unwrap().objects.get(&id).cloned()
     }
 
-    // TODO send return value? send more?
-    // TODO buffer nonblocking output?
-    pub fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) -> rustix::io::Result<()> {
+    pub fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) {
         let mut write = self.0.write.lock().unwrap();
 
         let interface = self.object_interface(object_id).map(|x| x.0);
@@ -253,7 +251,9 @@ impl Backend {
         for (i, b) in header.as_bytes().enumerate() {
             write.buf[start_len + i] = b;
         }
+    }
 
-        write.flush_write(&self.0.socket)
+    pub fn flush(&self) -> rustix::io::Result<()> {
+        self.0.write.lock().unwrap().flush_write(&self.0.socket)
     }
 }

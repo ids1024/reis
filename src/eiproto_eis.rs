@@ -52,12 +52,12 @@ pub mod handshake {
         with any version up to including the version provided in this event.
         See the ei_handshake.handshake_version request for details on what happens next.
          */
-        pub fn handshake_version(&self, version: u32) -> rustix::io::Result<()> {
+        pub fn handshake_version(&self, version: u32) -> () {
             let args = &[crate::Arg::Uint32(version.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -77,15 +77,15 @@ pub mod handshake {
         other supported interface (but not necessarily all supported
         interfaces) before the ei_handshake.connection event.
          */
-        pub fn interface_version(&self, name: &str, version: u32) -> rustix::io::Result<()> {
+        pub fn interface_version(&self, name: &str, version: u32) -> () {
             let args = &[
                 crate::Arg::String(name.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -108,11 +108,7 @@ pub mod handshake {
         serial number. Any future serial number in any event is monotonically
         increasing by an unspecified amount.
          */
-        pub fn connection(
-            &self,
-            serial: u32,
-            version: u32,
-        ) -> rustix::io::Result<(super::connection::Connection)> {
+        pub fn connection(&self, serial: u32, version: u32) -> (super::connection::Connection) {
             let connection = self
                 .0
                 .backend()
@@ -123,13 +119,13 @@ pub mod handshake {
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok((super::connection::Connection(crate::Object::new(
+            (super::connection::Connection(crate::Object::new(
                 self.0.backend().clone(),
                 connection,
-            ))))
+            )))
         }
     }
 
@@ -346,17 +342,17 @@ pub mod connection {
             last_serial: u32,
             reason: DisconnectReason,
             explanation: &str,
-        ) -> rustix::io::Result<()> {
+        ) -> () {
             let args = &[
                 crate::Arg::Uint32(last_serial.into()),
                 crate::Arg::Uint32(reason.into()),
                 crate::Arg::String(explanation.into()),
             ];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
 
         /**
@@ -370,16 +366,16 @@ pub mod connection {
         version in ei_handshake.interface_version for the "ei_seat"
         interface.
          */
-        pub fn seat(&self, version: u32) -> rustix::io::Result<(super::seat::Seat)> {
+        pub fn seat(&self, version: u32) -> (super::seat::Seat) {
             let seat = self.0.backend().new_id("ei_seat".to_string(), version);
             let args = &[
                 crate::Arg::NewId(seat.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok((super::seat::Seat(crate::Object::new(self.0.backend().clone(), seat))))
+            (super::seat::Seat(crate::Object::new(self.0.backend().clone(), seat)))
         }
 
         /**
@@ -398,15 +394,15 @@ pub mod connection {
         It is the client's responsibilty to unwind any state changes done
         to the object since the last successful message.
          */
-        pub fn invalid_object(&self, last_serial: u32, invalid_id: u64) -> rustix::io::Result<()> {
+        pub fn invalid_object(&self, last_serial: u32, invalid_id: u64) -> () {
             let args = &[
                 crate::Arg::Uint32(last_serial.into()),
                 crate::Arg::Uint64(invalid_id.into()),
             ];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -428,16 +424,16 @@ pub mod connection {
         a protocol violation to send this event to a client without the
         "ei_pingpong" interface.
          */
-        pub fn ping(&self, version: u32) -> rustix::io::Result<(super::pingpong::Pingpong)> {
+        pub fn ping(&self, version: u32) -> (super::pingpong::Pingpong) {
             let ping = self.0.backend().new_id("ei_pingpong".to_string(), version);
             let args = &[
                 crate::Arg::NewId(ping.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.0.request(3, args)?;
+            self.0.request(3, args);
 
-            Ok((super::pingpong::Pingpong(crate::Object::new(self.0.backend().clone(), ping))))
+            (super::pingpong::Pingpong(crate::Object::new(self.0.backend().clone(), ping)))
         }
     }
 
@@ -587,13 +583,13 @@ pub mod callback {
         the ei_callback object is destroyed by the EIS implementation and as such the
         client must not attempt to use it after that point.
          */
-        pub fn done(&self, callback_data: u64) -> rustix::io::Result<()> {
+        pub fn done(&self, callback_data: u64) -> () {
             let args = &[crate::Arg::Uint64(callback_data.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
     }
 
@@ -719,13 +715,13 @@ pub mod seat {
         after this event is sent and as such the client must not attempt to use
         it after that point.
          */
-        pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn destroyed(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
 
         /**
@@ -734,12 +730,12 @@ pub mod seat {
 
         It is a protocol violation to send this event after the ei_seat.done event.
          */
-        pub fn name(&self, name: &str) -> rustix::io::Result<()> {
+        pub fn name(&self, name: &str) -> () {
             let args = &[crate::Arg::String(name.into())];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -771,15 +767,15 @@ pub mod seat {
 
         It is a protocol violation to send this event after the ei_seat.done event.
          */
-        pub fn capability(&self, mask: u64, interface: &str) -> rustix::io::Result<()> {
+        pub fn capability(&self, mask: u64, interface: &str) -> () {
             let args = &[
                 crate::Arg::Uint64(mask.into()),
                 crate::Arg::String(interface.into()),
             ];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -788,12 +784,12 @@ pub mod seat {
 
         It is a protocol violation to send this event more than once.
          */
-        pub fn done(&self) -> rustix::io::Result<()> {
+        pub fn done(&self) -> () {
             let args = &[];
 
-            self.0.request(3, args)?;
+            self.0.request(3, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -805,16 +801,16 @@ pub mod seat {
         version in ei_handshake.interface_version for the "ei_device"
         interface.
          */
-        pub fn device(&self, version: u32) -> rustix::io::Result<(super::device::Device)> {
+        pub fn device(&self, version: u32) -> (super::device::Device) {
             let device = self.0.backend().new_id("ei_device".to_string(), version);
             let args = &[
                 crate::Arg::NewId(device.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.0.request(4, args)?;
+            self.0.request(4, args);
 
-            Ok((super::device::Device(crate::Object::new(self.0.backend().clone(), device))))
+            (super::device::Device(crate::Object::new(self.0.backend().clone(), device)))
         }
     }
 
@@ -910,13 +906,13 @@ pub mod device {
         after this event is sent and as such the client must not attempt to use
         it after that point.
          */
-        pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn destroyed(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
 
         /**
@@ -925,12 +921,12 @@ pub mod device {
 
         It is a protocol violation to send this event after the ei_device.done event.
          */
-        pub fn name(&self, name: &str) -> rustix::io::Result<()> {
+        pub fn name(&self, name: &str) -> () {
             let args = &[crate::Arg::String(name.into())];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -942,12 +938,12 @@ pub mod device {
         This event is sent once immediately after object creation.
         It is a protocol violation to send this event after the ei_device.done event.
          */
-        pub fn device_type(&self, device_type: DeviceType) -> rustix::io::Result<()> {
+        pub fn device_type(&self, device_type: DeviceType) -> () {
             let args = &[crate::Arg::Uint32(device_type.into())];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -958,15 +954,15 @@ pub mod device {
 
         It is a protocol violation to send this event after the ei_device.done event.
          */
-        pub fn dimensions(&self, width: u32, height: u32) -> rustix::io::Result<()> {
+        pub fn dimensions(&self, width: u32, height: u32) -> () {
             let args = &[
                 crate::Arg::Uint32(width.into()),
                 crate::Arg::Uint32(height.into()),
             ];
 
-            self.0.request(3, args)?;
+            self.0.request(3, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1007,7 +1003,7 @@ pub mod device {
             width: u32,
             hight: u32,
             scale: f32,
-        ) -> rustix::io::Result<()> {
+        ) -> () {
             let args = &[
                 crate::Arg::Uint32(offset_x.into()),
                 crate::Arg::Uint32(offset_y.into()),
@@ -1016,9 +1012,9 @@ pub mod device {
                 crate::Arg::Float(scale.into()),
             ];
 
-            self.0.request(4, args)?;
+            self.0.request(4, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1047,7 +1043,7 @@ pub mod device {
         pub fn interface<InterfaceName: crate::eis::Interface>(
             &self,
             version: u32,
-        ) -> rustix::io::Result<(InterfaceName)> {
+        ) -> (InterfaceName) {
             let object = self
                 .0
                 .backend()
@@ -1058,9 +1054,9 @@ pub mod device {
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.0.request(5, args)?;
+            self.0.request(5, args);
 
-            Ok((crate::Object::new(self.0.backend().clone(), object).downcast_unchecked()))
+            (crate::Object::new(self.0.backend().clone(), object).downcast_unchecked())
         }
 
         /**
@@ -1069,12 +1065,12 @@ pub mod device {
 
         It is a protocol violation to send this event more than once per device.
          */
-        pub fn done(&self) -> rustix::io::Result<()> {
+        pub fn done(&self) -> () {
             let args = &[];
 
-            self.0.request(6, args)?;
+            self.0.request(6, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1088,12 +1084,12 @@ pub mod device {
 
         A newly advertised device is in the ei_device.paused state.
          */
-        pub fn resumed(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn resumed(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(7, args)?;
+            self.0.request(7, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1121,12 +1117,12 @@ pub mod device {
 
         A newly advertised device is in the ei_device.paused state.
          */
-        pub fn paused(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn paused(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(8, args)?;
+            self.0.request(8, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1135,15 +1131,15 @@ pub mod device {
         It is a protocol violation to send this event for a client
         of an ei_handshake.context_type other than receiver.
          */
-        pub fn start_emulating(&self, serial: u32, sequence: u32) -> rustix::io::Result<()> {
+        pub fn start_emulating(&self, serial: u32, sequence: u32) -> () {
             let args = &[
                 crate::Arg::Uint32(serial.into()),
                 crate::Arg::Uint32(sequence.into()),
             ];
 
-            self.0.request(9, args)?;
+            self.0.request(9, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1152,12 +1148,12 @@ pub mod device {
         It is a protocol violation to send this event for a client
         of an ei_handshake.context_type other than receiver.
          */
-        pub fn stop_emulating(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn stop_emulating(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(10, args)?;
+            self.0.request(10, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1166,15 +1162,15 @@ pub mod device {
         It is a protocol violation to send this event for a client
         of an ei_handshake.context_type other than receiver.
          */
-        pub fn frame(&self, serial: u32, timestamp: u64) -> rustix::io::Result<()> {
+        pub fn frame(&self, serial: u32, timestamp: u64) -> () {
             let args = &[
                 crate::Arg::Uint32(serial.into()),
                 crate::Arg::Uint64(timestamp.into()),
             ];
 
-            self.0.request(11, args)?;
+            self.0.request(11, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -1375,13 +1371,13 @@ pub mod pointer {
         after this event is sent and as such the client must not attempt to use
         it after that point.
          */
-        pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn destroyed(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1390,12 +1386,12 @@ pub mod pointer {
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than receiver.
          */
-        pub fn motion_relative(&self, x: f32, y: f32) -> rustix::io::Result<()> {
+        pub fn motion_relative(&self, x: f32, y: f32) -> () {
             let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -1488,13 +1484,13 @@ pub mod pointer_absolute {
         after this event is sent and as such the client must not attempt to use
         it after that point.
          */
-        pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn destroyed(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1503,12 +1499,12 @@ pub mod pointer_absolute {
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than receiver.
          */
-        pub fn motion_absolute(&self, x: f32, y: f32) -> rustix::io::Result<()> {
+        pub fn motion_absolute(&self, x: f32, y: f32) -> () {
             let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -1603,13 +1599,13 @@ pub mod scroll {
         after this event is sent and as such the client must not attempt to use
         it after that point.
          */
-        pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn destroyed(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1618,12 +1614,12 @@ pub mod scroll {
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than receiver.
          */
-        pub fn scroll(&self, x: f32, y: f32) -> rustix::io::Result<()> {
+        pub fn scroll(&self, x: f32, y: f32) -> () {
             let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1632,12 +1628,12 @@ pub mod scroll {
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than receiver.
          */
-        pub fn scroll_discrete(&self, x: i32, y: i32) -> rustix::io::Result<()> {
+        pub fn scroll_discrete(&self, x: i32, y: i32) -> () {
             let args = &[crate::Arg::Int32(x.into()), crate::Arg::Int32(y.into())];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1646,16 +1642,16 @@ pub mod scroll {
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than receiver.
          */
-        pub fn scroll_stop(&self, x: u32, y: u32, is_cancel: u32) -> rustix::io::Result<()> {
+        pub fn scroll_stop(&self, x: u32, y: u32, is_cancel: u32) -> () {
             let args = &[
                 crate::Arg::Uint32(x.into()),
                 crate::Arg::Uint32(y.into()),
                 crate::Arg::Uint32(is_cancel.into()),
             ];
 
-            self.0.request(3, args)?;
+            self.0.request(3, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -1815,13 +1811,13 @@ pub mod button {
         after this event is sent and as such the client must not attempt to use
         it after that point.
          */
-        pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn destroyed(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1833,15 +1829,15 @@ pub mod button {
         It is an EIS implementation bug to send more than one button request
         for the same button within the same ei_device.frame.
          */
-        pub fn button(&self, button: u32, state: ButtonState) -> rustix::io::Result<()> {
+        pub fn button(&self, button: u32, state: ButtonState) -> () {
             let args = &[
                 crate::Arg::Uint32(button.into()),
                 crate::Arg::Uint32(state.into()),
             ];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -1960,13 +1956,13 @@ pub mod keyboard {
         after this event is sent and as such the client must not attempt to use
         it after that point.
          */
-        pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn destroyed(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1992,16 +1988,16 @@ pub mod keyboard {
             keymap_type: KeymapType,
             size: u32,
             keymap: std::os::unix::io::BorrowedFd,
-        ) -> rustix::io::Result<()> {
+        ) -> () {
             let args = &[
                 crate::Arg::Uint32(keymap_type.into()),
                 crate::Arg::Uint32(size.into()),
                 crate::Arg::Fd(keymap.into()),
             ];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -2013,15 +2009,15 @@ pub mod keyboard {
         It is a protocol violation to send a key down event in the same
         frame as a key up event for the same key in the same frame.
          */
-        pub fn key(&self, key: u32, state: KeyState) -> rustix::io::Result<()> {
+        pub fn key(&self, key: u32, state: KeyState) -> () {
             let args = &[
                 crate::Arg::Uint32(key.into()),
                 crate::Arg::Uint32(state.into()),
             ];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -2046,7 +2042,7 @@ pub mod keyboard {
             locked: u32,
             latched: u32,
             group: u32,
-        ) -> rustix::io::Result<()> {
+        ) -> () {
             let args = &[
                 crate::Arg::Uint32(serial.into()),
                 crate::Arg::Uint32(depressed.into()),
@@ -2055,9 +2051,9 @@ pub mod keyboard {
                 crate::Arg::Uint32(group.into()),
             ];
 
-            self.0.request(3, args)?;
+            self.0.request(3, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -2201,13 +2197,13 @@ pub mod touchscreen {
         after this event is sent and as such the client must not attempt to use
         it after that point.
          */
-        pub fn destroyed(&self, serial: u32) -> rustix::io::Result<()> {
+        pub fn destroyed(&self, serial: u32) -> () {
             let args = &[crate::Arg::Uint32(serial.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
 
         /**
@@ -2219,16 +2215,16 @@ pub mod touchscreen {
         It is a protocol violation to send a touch down in the same
         frame as a touch motion or touch up.
          */
-        pub fn down(&self, touchid: u32, x: f32, y: f32) -> rustix::io::Result<()> {
+        pub fn down(&self, touchid: u32, x: f32, y: f32) -> () {
             let args = &[
                 crate::Arg::Uint32(touchid.into()),
                 crate::Arg::Float(x.into()),
                 crate::Arg::Float(y.into()),
             ];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -2240,16 +2236,16 @@ pub mod touchscreen {
         It is a protocol violation to send a touch motion in the same
         frame as a touch down or touch up.
          */
-        pub fn motion(&self, touchid: u32, x: f32, y: f32) -> rustix::io::Result<()> {
+        pub fn motion(&self, touchid: u32, x: f32, y: f32) -> () {
             let args = &[
                 crate::Arg::Uint32(touchid.into()),
                 crate::Arg::Float(x.into()),
                 crate::Arg::Float(y.into()),
             ];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -2261,12 +2257,12 @@ pub mod touchscreen {
         It is a protocol violation to send a touch up in the same
         frame as a touch motion or touch down.
          */
-        pub fn up(&self, touchid: u32) -> rustix::io::Result<()> {
+        pub fn up(&self, touchid: u32) -> () {
             let args = &[crate::Arg::Uint32(touchid.into())];
 
-            self.0.request(3, args)?;
+            self.0.request(3, args);
 
-            Ok(())
+            ()
         }
     }
 

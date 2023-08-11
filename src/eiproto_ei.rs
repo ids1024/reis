@@ -58,12 +58,12 @@ pub mod handshake {
         This request must be sent exactly once and it must be the first request
         the client sends.
          */
-        pub fn handshake_version(&self, version: u32) -> rustix::io::Result<()> {
+        pub fn handshake_version(&self, version: u32) -> () {
             let args = &[crate::Arg::Uint32(version.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -72,12 +72,12 @@ pub mod handshake {
         In the future (and possibly after requiring user interaction),
         the EIS implementation responds by sending the `ei_handshake.connection` event.
          */
-        pub fn finish(&self) -> rustix::io::Result<()> {
+        pub fn finish(&self) -> () {
             let args = &[];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -92,12 +92,12 @@ pub mod handshake {
         This request must not be sent more than once and must be sent before
         `ei_handshake.finish.`
          */
-        pub fn context_type(&self, context_type: ContextType) -> rustix::io::Result<()> {
+        pub fn context_type(&self, context_type: ContextType) -> () {
             let args = &[crate::Arg::Uint32(context_type.into())];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -116,12 +116,12 @@ pub mod handshake {
         This request must not be sent more than once and must be sent before
         `ei_handshake.finish.`
          */
-        pub fn name(&self, name: &str) -> rustix::io::Result<()> {
+        pub fn name(&self, name: &str) -> () {
             let args = &[crate::Arg::String(name.into())];
 
-            self.0.request(3, args)?;
+            self.0.request(3, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -145,15 +145,15 @@ pub mod handshake {
         This request must not be sent more than once per interface and must be
         sent before `ei_handshake.finish.`
          */
-        pub fn interface_version(&self, name: &str, version: u32) -> rustix::io::Result<()> {
+        pub fn interface_version(&self, name: &str, version: u32) -> () {
             let args = &[
                 crate::Arg::String(name.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.0.request(4, args)?;
+            self.0.request(4, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -334,16 +334,16 @@ pub mod connection {
         "`ei_callback`" interface and the EIS implementation must disconnect
         the client.
          */
-        pub fn sync(&self, version: u32) -> rustix::io::Result<(super::callback::Callback)> {
+        pub fn sync(&self, version: u32) -> (super::callback::Callback) {
             let callback = self.0.backend().new_id("ei_callback".to_string(), version);
             let args = &[
                 crate::Arg::NewId(callback.into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok((super::callback::Callback(crate::Object::new(self.0.backend().clone(), callback))))
+            (super::callback::Callback(crate::Object::new(self.0.backend().clone(), callback)))
         }
 
         /**
@@ -357,13 +357,13 @@ pub mod connection {
         will treat the connection as already disconnected on receipt and does not
         send the `ei_connection.disconnect` event in response to this request.
          */
-        pub fn disconnect(&self) -> rustix::io::Result<()> {
+        pub fn disconnect(&self) -> () {
             let args = &[];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
     }
 
@@ -656,13 +656,13 @@ pub mod pingpong {
         the `ei_pingpong` object is destroyed by the client and as such must not be used
         any further.
          */
-        pub fn done(&self, callback_data: u64) -> rustix::io::Result<()> {
+        pub fn done(&self, callback_data: u64) -> () {
             let args = &[crate::Arg::Uint64(callback_data.into())];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
             self.0.backend().remove_id(self.0.id());
 
-            Ok(())
+            ()
         }
     }
 
@@ -728,12 +728,12 @@ pub mod seat {
         In other words, in most single-seat cases, releasing the seat means the
         connection becomes effectively inert.
          */
-        pub fn release(&self) -> rustix::io::Result<()> {
+        pub fn release(&self) -> () {
             let args = &[];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -748,12 +748,12 @@ pub mod seat {
         is interested in. If previously-bound capabilities are dropped by the client,
         the EIS implementation may `ei_device.remove` devices that have these capabilities.
          */
-        pub fn bind(&self, capabilities: u64) -> rustix::io::Result<()> {
+        pub fn bind(&self, capabilities: u64) -> () {
             let args = &[crate::Arg::Uint64(capabilities.into())];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -919,12 +919,12 @@ pub mod device {
         The EIS implementation will release any resources related to this device and
         send the `ei_device.destroyed` event once complete.
          */
-        pub fn release(&self) -> rustix::io::Result<()> {
+        pub fn release(&self) -> () {
             let args = &[];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -954,15 +954,15 @@ pub mod device {
         It is a protocol violation to send this request for a client
         of an `ei_handshake.context_type` other than sender.
          */
-        pub fn start_emulating(&self, last_serial: u32, sequence: u32) -> rustix::io::Result<()> {
+        pub fn start_emulating(&self, last_serial: u32, sequence: u32) -> () {
             let args = &[
                 crate::Arg::Uint32(last_serial.into()),
                 crate::Arg::Uint32(sequence.into()),
             ];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -972,12 +972,12 @@ pub mod device {
         It is a protocol violation to send this request for a client
         of an `ei_handshake.context_type` other than sender.
          */
-        pub fn stop_emulating(&self, last_serial: u32) -> rustix::io::Result<()> {
+        pub fn stop_emulating(&self, last_serial: u32) -> () {
             let args = &[crate::Arg::Uint32(last_serial.into())];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -997,15 +997,15 @@ pub mod device {
         It is a protocol violation to send this request for a client
         of an `ei_handshake.context_type` other than sender.
          */
-        pub fn frame(&self, last_serial: u32, timestamp: u64) -> rustix::io::Result<()> {
+        pub fn frame(&self, last_serial: u32, timestamp: u64) -> () {
             let args = &[
                 crate::Arg::Uint32(last_serial.into()),
                 crate::Arg::Uint64(timestamp.into()),
             ];
 
-            self.0.request(3, args)?;
+            self.0.request(3, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -1384,12 +1384,12 @@ pub mod pointer {
         The EIS implementation will release any resources related to this pointer and
         send the `ei_pointer.destroyed` event once complete.
          */
-        pub fn release(&self) -> rustix::io::Result<()> {
+        pub fn release(&self) -> () {
             let args = &[];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1404,12 +1404,12 @@ pub mod pointer {
         It is a protocol violation to send this request for a client
         of an `ei_handshake.context_type` other than sender.
          */
-        pub fn motion_relative(&self, x: f32, y: f32) -> rustix::io::Result<()> {
+        pub fn motion_relative(&self, x: f32, y: f32) -> () {
             let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -1503,12 +1503,12 @@ pub mod pointer_absolute {
         The EIS implementation will release any resources related to this object and
         send the `ei_pointer_absolute.destroyed` event once complete.
          */
-        pub fn release(&self) -> rustix::io::Result<()> {
+        pub fn release(&self) -> () {
             let args = &[];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1525,12 +1525,12 @@ pub mod pointer_absolute {
         It is a protocol violation to send this request for a client
         of an `ei_handshake.context_type` other than sender.
          */
-        pub fn motion_absolute(&self, x: f32, y: f32) -> rustix::io::Result<()> {
+        pub fn motion_absolute(&self, x: f32, y: f32) -> () {
             let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -1624,12 +1624,12 @@ pub mod scroll {
         The EIS implementation will release any resources related to this object and
         send the `ei_scroll.destroyed` event once complete.
          */
-        pub fn release(&self) -> rustix::io::Result<()> {
+        pub fn release(&self) -> () {
             let args = &[];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1644,12 +1644,12 @@ pub mod scroll {
         It is a protocol violation to send this request for a client
         of an `ei_handshake.context_type` other than sender.
          */
-        pub fn scroll(&self, x: f32, y: f32) -> rustix::io::Result<()> {
+        pub fn scroll(&self, x: f32, y: f32) -> () {
             let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1668,12 +1668,12 @@ pub mod scroll {
         It is a protocol violation to send this request for a client
         of an `ei_handshake.context_type` other than sender.
          */
-        pub fn scroll_discrete(&self, x: i32, y: i32) -> rustix::io::Result<()> {
+        pub fn scroll_discrete(&self, x: i32, y: i32) -> () {
             let args = &[crate::Arg::Int32(x.into()), crate::Arg::Int32(y.into())];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1700,16 +1700,16 @@ pub mod scroll {
         It is a protocol violation to send this request for a client
         of an `ei_handshake.context_type` other than sender.
          */
-        pub fn scroll_stop(&self, x: u32, y: u32, is_cancel: u32) -> rustix::io::Result<()> {
+        pub fn scroll_stop(&self, x: u32, y: u32, is_cancel: u32) -> () {
             let args = &[
                 crate::Arg::Uint32(x.into()),
                 crate::Arg::Uint32(y.into()),
                 crate::Arg::Uint32(is_cancel.into()),
             ];
 
-            self.0.request(3, args)?;
+            self.0.request(3, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -1842,12 +1842,12 @@ pub mod button {
         The EIS implementation will release any resources related to this object and
         send the `ei_button.destroyed` event once complete.
          */
-        pub fn release(&self) -> rustix::io::Result<()> {
+        pub fn release(&self) -> () {
             let args = &[];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -1861,15 +1861,15 @@ pub mod button {
         It is a protocol violation to send this request for a client
         of an `ei_handshake.context_type` other than sender.
          */
-        pub fn button(&self, button: u32, state: ButtonState) -> rustix::io::Result<()> {
+        pub fn button(&self, button: u32, state: ButtonState) -> () {
             let args = &[
                 crate::Arg::Uint32(button.into()),
                 crate::Arg::Uint32(state.into()),
             ];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -1993,12 +1993,12 @@ pub mod keyboard {
         The EIS implementation will release any resources related to this keyboard and
         send the `ei_keyboard.destroyed` event once complete.
          */
-        pub fn release(&self) -> rustix::io::Result<()> {
+        pub fn release(&self) -> () {
             let args = &[];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -2013,15 +2013,15 @@ pub mod keyboard {
         It is a protocol violation to send this request for a client
         of an `ei_handshake.context_type` other than sender.
          */
-        pub fn key(&self, key: u32, state: KeyState) -> rustix::io::Result<()> {
+        pub fn key(&self, key: u32, state: KeyState) -> () {
             let args = &[
                 crate::Arg::Uint32(key.into()),
                 crate::Arg::Uint32(state.into()),
             ];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
     }
 
@@ -2248,12 +2248,12 @@ pub mod touchscreen {
         The EIS implementation will release any resources related to this touch and
         send the `ei_touch.destroyed` event once complete.
          */
-        pub fn release(&self) -> rustix::io::Result<()> {
+        pub fn release(&self) -> () {
             let args = &[];
 
-            self.0.request(0, args)?;
+            self.0.request(0, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -2267,16 +2267,16 @@ pub mod touchscreen {
         It is a protocol violation to send a touch down in the same
         frame as a touch motion or touch up.
          */
-        pub fn down(&self, touchid: u32, x: f32, y: f32) -> rustix::io::Result<()> {
+        pub fn down(&self, touchid: u32, x: f32, y: f32) -> () {
             let args = &[
                 crate::Arg::Uint32(touchid.into()),
                 crate::Arg::Float(x.into()),
                 crate::Arg::Float(y.into()),
             ];
 
-            self.0.request(1, args)?;
+            self.0.request(1, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -2290,16 +2290,16 @@ pub mod touchscreen {
         It is a protocol violation to send a touch motion in the same
         frame as a touch down or touch up.
          */
-        pub fn motion(&self, touchid: u32, x: f32, y: f32) -> rustix::io::Result<()> {
+        pub fn motion(&self, touchid: u32, x: f32, y: f32) -> () {
             let args = &[
                 crate::Arg::Uint32(touchid.into()),
                 crate::Arg::Float(x.into()),
                 crate::Arg::Float(y.into()),
             ];
 
-            self.0.request(2, args)?;
+            self.0.request(2, args);
 
-            Ok(())
+            ()
         }
 
         /**
@@ -2312,12 +2312,12 @@ pub mod touchscreen {
         It is a protocol violation to send a touch up in the same
         frame as a touch motion or touch down.
          */
-        pub fn up(&self, touchid: u32) -> rustix::io::Result<()> {
+        pub fn up(&self, touchid: u32) -> () {
             let args = &[crate::Arg::Uint32(touchid.into())];
 
-            self.0.request(3, args)?;
+            self.0.request(3, args);
 
-            Ok(())
+            ()
         }
     }
 

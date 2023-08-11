@@ -85,13 +85,13 @@ pub mod {{interface.plainname}} {
             {{arg.name}}: {{arg_type(arg, false, false)}},
             {% endif %}
             {% endfor -%}
-            ) -> rustix::io::Result<(
+            ) -> (
                 {%- for arg in outgoing.arguments %}
                 {% if arg.protocol_type == 'new_id' %}
                 {{arg_type(arg, true, true)}}
                 {% endif %}
                 {% endfor -%}
-            )>{
+            ) {
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' and arg.interface_arg %}
             let {{arg.name}} = self.0.backend().new_id({{arg.interface_arg.name|camel}}::NAME.to_string(), {{arg.version_arg.name}});
@@ -110,12 +110,12 @@ pub mod {{interface.plainname}} {
             {% endfor -%}
             ];
 
-            self.0.request({{outgoing.opcode}}, args)?;
+            self.0.request({{outgoing.opcode}}, args);
             {% if outgoing.is_destructor %}
                 self.0.backend().remove_id(self.0.id());
             {% endif %}
 
-            Ok((
+            (
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
             {% if arg.interface %}
@@ -127,7 +127,7 @@ pub mod {{interface.plainname}} {
             {% endif -%}
             {% endif -%}
             {% endfor -%}
-            ))
+            )
         }
 
         {% endfor %}
