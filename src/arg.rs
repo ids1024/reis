@@ -1,4 +1,7 @@
-use std::os::unix::io::{BorrowedFd, OwnedFd};
+use std::{
+    iter::Extend,
+    os::unix::io::{BorrowedFd, OwnedFd},
+};
 
 use crate::{ByteStream, ParseError};
 
@@ -17,22 +20,26 @@ pub enum Arg<'a> {
 }
 
 impl<'a> Arg<'a> {
-    pub fn write(&self, buf: &mut Vec<u8>, fds: &mut Vec<BorrowedFd<'a>>) {
+    pub fn write<T, U>(&self, buf: &mut T, fds: &mut U)
+    where
+        T: Extend<u8>,
+        U: Extend<BorrowedFd<'a>>,
+    {
         match self {
             Arg::Uint32(value) => buf.extend(value.to_ne_bytes()),
             Arg::Int32(value) => buf.extend(value.to_ne_bytes()),
             Arg::Uint64(value) => buf.extend(value.to_ne_bytes()),
             Arg::Int64(value) => buf.extend(value.to_ne_bytes()),
             Arg::Float(value) => buf.extend(value.to_ne_bytes()),
-            Arg::Fd(value) => fds.push(*value),
+            Arg::Fd(value) => fds.extend([*value]),
             Arg::String(value) => {
                 // Write 32-bit length, including NUL
                 let len = value.len() as u32 + 1;
                 buf.extend(len.to_ne_bytes());
                 // Write contents of string, as UTF-8
-                buf.extend(value.as_bytes());
+                buf.extend(value.as_bytes().iter().copied());
                 // Add NUL terminator
-                buf.push(b'\0');
+                buf.extend([b'\0']);
                 // Pad to multiple of 32 bits
                 if len % 4 != 0 {
                     buf.extend((0..4 - (len % 4)).map(|_| b'\0'));
