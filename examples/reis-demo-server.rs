@@ -211,37 +211,29 @@ impl State {
                             );
                         }
 
-                        if capabilities & 0x20 != 0 {
+                        fn add_device<T: eis::Interface>(seat: &eis::Seat, name: &str) {
                             let device = seat.device(1);
-                            device.name("keyboard");
+                            device.name(name);
                             device.device_type(eis::device::DeviceType::Virtual);
-                            device.interface::<eis::Keyboard>(1);
+                            device.interface::<T>(1);
                             device.done();
+                        }
+
+                        if capabilities & 0x20 != 0 {
+                            add_device::<eis::Keyboard>(&seat, "keyboard");
                         }
 
                         //if context_state.has_interface("ei_pointer") {
                         if capabilities & 0x2 != 0 {
-                            let device = seat.device(1);
-                            device.name("pointer");
-                            device.device_type(eis::device::DeviceType::Virtual);
-                            device.interface::<eis::Pointer>(1);
-                            device.done();
+                            add_device::<eis::Pointer>(&seat, "pointer");
                         }
 
                         if capabilities & 0x40 != 0 {
-                            let device = seat.device(1);
-                            device.name("touch");
-                            device.device_type(eis::device::DeviceType::Virtual);
-                            device.interface::<eis::Touchscreen>(1);
-                            device.done();
+                            add_device::<eis::Touchscreen>(&seat, "touch");
                         }
 
                         if capabilities & 0x4 != 0 {
-                            let device = seat.device(1);
-                            device.name("pointer-abs");
-                            device.device_type(eis::device::DeviceType::Virtual);
-                            device.interface::<eis::PointerAbsolute>(1);
-                            device.done();
+                            add_device::<eis::PointerAbsolute>(&seat, "pointer-abs");
                         }
 
                         // TODO create devices; compare against current bitflag
