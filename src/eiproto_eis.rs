@@ -29,6 +29,12 @@ pub mod handshake {
     #[derive(Clone, Debug)]
     pub struct Handshake(pub(crate) crate::Object);
 
+    impl Handshake {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
+
     impl crate::private::Sealed for Handshake {}
 
     impl crate::Interface for Handshake {
@@ -361,6 +367,12 @@ pub mod connection {
     #[derive(Clone, Debug)]
     pub struct Connection(pub(crate) crate::Object);
 
+    impl Connection {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
+
     impl crate::private::Sealed for Connection {}
 
     impl crate::Interface for Connection {
@@ -675,6 +687,12 @@ pub mod callback {
     #[derive(Clone, Debug)]
     pub struct Callback(pub(crate) crate::Object);
 
+    impl Callback {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
+
     impl crate::private::Sealed for Callback {}
 
     impl crate::Interface for Callback {
@@ -761,6 +779,12 @@ support for this interface in ei_handshake.interface_version.
 pub mod pingpong {
     #[derive(Clone, Debug)]
     pub struct Pingpong(pub(crate) crate::Object);
+
+    impl Pingpong {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
 
     impl crate::private::Sealed for Pingpong {}
 
@@ -861,6 +885,12 @@ support for this interface in ei_handshake.interface_version.
 pub mod seat {
     #[derive(Clone, Debug)]
     pub struct Seat(pub(crate) crate::Object);
+
+    impl Seat {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
 
     impl crate::private::Sealed for Seat {}
 
@@ -1085,6 +1115,12 @@ support for this interface in ei_handshake.interface_version.
 pub mod device {
     #[derive(Clone, Debug)]
     pub struct Device(pub(crate) crate::Object);
+
+    impl Device {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
 
     impl crate::private::Sealed for Device {}
 
@@ -1614,6 +1650,12 @@ pub mod pointer {
     #[derive(Clone, Debug)]
     pub struct Pointer(pub(crate) crate::Object);
 
+    impl Pointer {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
+
     impl crate::private::Sealed for Pointer {}
 
     impl crate::Interface for Pointer {
@@ -1760,6 +1802,12 @@ support for this interface in ei_handshake.interface_version.
 pub mod pointer_absolute {
     #[derive(Clone, Debug)]
     pub struct PointerAbsolute(pub(crate) crate::Object);
+
+    impl PointerAbsolute {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
 
     impl crate::private::Sealed for PointerAbsolute {}
 
@@ -1909,6 +1957,12 @@ support for this interface in ei_handshake.interface_version.
 pub mod scroll {
     #[derive(Clone, Debug)]
     pub struct Scroll(pub(crate) crate::Object);
+
+    impl Scroll {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
 
     impl crate::private::Sealed for Scroll {}
 
@@ -2167,6 +2221,12 @@ pub mod button {
     #[derive(Clone, Debug)]
     pub struct Button(pub(crate) crate::Object);
 
+    impl Button {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
+
     impl crate::private::Sealed for Button {}
 
     impl crate::Interface for Button {
@@ -2359,6 +2419,12 @@ support for this interface in ei_handshake.interface_version.
 pub mod keyboard {
     #[derive(Clone, Debug)]
     pub struct Keyboard(pub(crate) crate::Object);
+
+    impl Keyboard {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
 
     impl crate::private::Sealed for Keyboard {}
 
@@ -2661,6 +2727,12 @@ support for this interface in ei_handshake.interface_version.
 pub mod touchscreen {
     #[derive(Clone, Debug)]
     pub struct Touchscreen(pub(crate) crate::Object);
+
+    impl Touchscreen {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
 
     impl crate::private::Sealed for Touchscreen {}
 

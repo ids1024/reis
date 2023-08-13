@@ -33,6 +33,11 @@ impl Object {
         self.id
     }
 
+    // XXX option?
+    pub fn version(&self) -> Option<u32> {
+        Some(self.backend.object_interface(self.id)?.1)
+    }
+
     pub fn request(&self, opcode: u32, args: &[Arg]) {
         self.backend.request(self.id, opcode, args);
     }

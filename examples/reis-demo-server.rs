@@ -196,6 +196,9 @@ impl State {
                         return calloop::PostAction::Remove;
                     }
                     eis::connection::Request::Sync { callback } => {
+                        if callback.version() != Some(1) {
+                            return context_state.protocol_error("Invalid protocol object version");
+                        }
                         callback.done(0);
                     }
                     _ => {}
@@ -214,6 +217,9 @@ impl State {
                         device.name("keyboard");
                         device.device_type(eis::device::DeviceType::Virtual);
                         device.interface::<eis::Keyboard>(1);
+                        device.interface::<eis::Pointer>(1);
+                        device.interface::<eis::Touchscreen>(1);
+                        device.interface::<eis::PointerAbsolute>(1);
                         device.done();
                         // TODO create devices; compare against current bitflag
                     }

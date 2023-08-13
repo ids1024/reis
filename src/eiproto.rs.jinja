@@ -55,6 +55,12 @@ pub mod {{interface.plainname}} {
     #[derive(Clone, Debug)]
     pub struct {{interface.plainname|camel}}(pub(crate) crate::Object);
 
+    impl {{interface.plainname|camel}} {
+        pub fn version(&self) -> Option<u32> {
+            self.0.version()
+        }
+    }
+
     impl crate::private::Sealed for {{interface.plainname|camel}} {}
 
     impl crate::Interface for {{interface.plainname|camel}} {
@@ -321,7 +327,6 @@ impl {{incoming_enum()}} {
             _ => Err(crate::ParseError::InvalidInterface),
         }
     }
-
 }
 
 impl crate::MessageEnum for {{incoming_enum()}} {
