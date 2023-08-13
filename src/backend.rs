@@ -1,7 +1,7 @@
 use rustix::io::{Errno, IoSlice};
 use std::{
     collections::{HashMap, VecDeque},
-    io,
+    env, io,
     os::unix::{
         io::{AsFd, BorrowedFd, OwnedFd},
         net::UnixStream,
@@ -46,6 +46,7 @@ struct BackendInner {
     state: Mutex<BackendState>,
     read: Mutex<Buffer>,
     write: Mutex<Buffer>,
+    debug: bool,
 }
 
 // Used for both ei and eis
@@ -92,6 +93,7 @@ impl Backend {
             }),
             read: Mutex::new(Buffer::default()),
             write: Mutex::new(Buffer::default()),
+            debug: is_reis_debug(),
         })))
     }
 
@@ -156,7 +158,9 @@ impl Backend {
 
                 Some(match request {
                     Ok(request) => {
-                        self.print_msg(header.object_id, header.opcode, &request.args(), true);
+                        if self.0.debug {
+                            self.print_msg(header.object_id, header.opcode, &request.args(), true);
+                        }
                         PendingRequestResult::Request(request)
                     }
                     Err(err) => PendingRequestResult::ProtocolError(format!(
@@ -237,22 +241,24 @@ impl Backend {
         }
         .unwrap_or("UNKNOWN");
         if incoming {
-            print!(" -> ");
+            eprint!(" -> ");
         }
-        print!("{interface}@{object_id:x}.{op_name}(");
+        eprint!("{interface}@{object_id:x}.{op_name}(");
         let mut first = true;
         for arg in args {
             if !first {
-                print!(", ");
+                eprint!(", ");
             }
             first = false;
-            print!("{}", arg);
+            eprint!("{}", arg);
         }
-        println!(")");
+        eprintln!(")");
     }
 
     pub fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) {
-        self.print_msg(object_id, opcode, args, false);
+        if self.0.debug {
+            self.print_msg(object_id, opcode, args, false);
+        }
 
         let mut write = self.0.write.lock().unwrap();
 
@@ -281,4 +287,8 @@ impl Backend {
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.write.lock().unwrap().flush_write(&self.0.socket)
     }
+}
+
+fn is_reis_debug() -> bool {
+    env::var_os("REIS_DEBUG").map_or(false, |value| !value.is_empty())
 }
