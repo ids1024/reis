@@ -70,6 +70,10 @@ pub mod {{interface.plainname}} {
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
+        }
     }
 
     impl {{module()}}::Interface for {{interface.plainname|camel}} {}
@@ -245,6 +249,35 @@ pub mod {{interface.plainname}} {
          opcode => Err(crate::ParseError::InvalidOpcode("{{interface.plainname}}", opcode)),
             }
         }
+
+        #[allow(unused_imports, unused_mut, unused_variables, unreachable_code, unreachable_patterns)]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+            {% for incoming in interface.incoming %}
+                {% if incoming.arguments %}
+                Self::{{ incoming.name|camel }} {
+                    {% for arg in incoming.arguments %}
+                    {% if not (arg.version_arg_for or arg.interface_arg_for) %}
+                    {{arg.name}},
+                    {% endif %}
+                    {% endfor %}
+                } => {
+                    {% for arg in incoming.arguments %}
+                    {% if not (arg.version_arg_for or arg.interface_arg_for) %}
+                    args.push({{arg.name}}.as_arg());
+                    {% endif %}
+                    {% endfor %}
+                }
+                {% else %}
+                Self::{{ incoming.name|camel }} => {}
+                {% endif %}
+            {% endfor %}
+                _ => unreachable!()
+            }
+            args
+        }
     }
 }
 
@@ -286,6 +319,17 @@ impl {{incoming_enum()}} {
                 ),
             {% endfor %}
             _ => Err(crate::ParseError::InvalidInterface),
+        }
+    }
+
+}
+
+impl crate::MessageEnum for {{incoming_enum()}} {
+    fn args(&self) -> Vec<crate::Arg<'_>> {
+        match self {
+            {% for interface in interfaces %}
+            Self::{{interface.plainname|camel}}(_, x) => x.args(),
+            {% endfor %}
         }
     }
 }

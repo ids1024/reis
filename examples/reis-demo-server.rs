@@ -131,7 +131,6 @@ impl State {
                     continue;
                 }
             };
-            println!("{:?}", request);
             match request {
                 eis::Request::Handshake(_handshake, request) => match request {
                     eis::handshake::Request::ContextType { context_type } => {

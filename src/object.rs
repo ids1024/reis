@@ -41,6 +41,10 @@ impl Object {
         T::new_unchecked(self)
     }
 
+    pub(crate) fn as_arg(&self) -> crate::Arg<'_> {
+        crate::Arg::Id(self.id)
+    }
+
     pub fn downcast<T: Interface>(self) -> Option<T> {
         let (interface, _version) = self.backend.object_interface(self.id)?;
         if (self.client_side, interface.as_str()) == (T::CLIENT_SIDE, T::NAME) {

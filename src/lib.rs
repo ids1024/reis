@@ -73,6 +73,12 @@ pub trait Interface: private::Sealed {
     type Incoming;
 
     fn new_unchecked(object: Object) -> Self;
+
+    fn as_arg(&self) -> Arg<'_>;
+}
+
+trait MessageEnum {
+    fn args(&self) -> Vec<crate::Arg<'_>>;
 }
 
 struct ByteStream<'a> {

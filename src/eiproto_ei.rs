@@ -40,6 +40,10 @@ pub mod handshake {
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
         }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
+        }
     }
 
     impl crate::ei::Interface for Handshake {}
@@ -308,6 +312,33 @@ pub mod handshake {
                 opcode => Err(crate::ParseError::InvalidOpcode("handshake", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::HandshakeVersion { version } => {
+                    args.push(version.as_arg());
+                }
+                Self::InterfaceVersion { name, version } => {
+                    args.push(name.as_arg());
+                    args.push(version.as_arg());
+                }
+                Self::Connection { serial, connection } => {
+                    args.push(serial.as_arg());
+                    args.push(connection.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -334,6 +365,10 @@ pub mod connection {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -615,6 +650,44 @@ pub mod connection {
                 opcode => Err(crate::ParseError::InvalidOpcode("connection", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Disconnected {
+                    last_serial,
+                    reason,
+                    explanation,
+                } => {
+                    args.push(last_serial.as_arg());
+                    args.push(reason.as_arg());
+                    args.push(explanation.as_arg());
+                }
+                Self::Seat { seat } => {
+                    args.push(seat.as_arg());
+                }
+                Self::InvalidObject {
+                    last_serial,
+                    invalid_id,
+                } => {
+                    args.push(last_serial.as_arg());
+                    args.push(invalid_id.as_arg());
+                }
+                Self::Ping { ping } => {
+                    args.push(ping.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -642,6 +715,10 @@ pub mod callback {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -684,6 +761,25 @@ pub mod callback {
                 opcode => Err(crate::ParseError::InvalidOpcode("callback", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Done { callback_data } => {
+                    args.push(callback_data.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -711,6 +807,10 @@ pub mod pingpong {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -751,6 +851,22 @@ pub mod pingpong {
                 opcode => Err(crate::ParseError::InvalidOpcode("pingpong", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -786,6 +902,10 @@ pub mod seat {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -957,6 +1077,36 @@ pub mod seat {
                 opcode => Err(crate::ParseError::InvalidOpcode("seat", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Destroyed { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::Name { name } => {
+                    args.push(name.as_arg());
+                }
+                Self::Capability { mask, interface } => {
+                    args.push(mask.as_arg());
+                    args.push(interface.as_arg());
+                }
+                Self::Done => {}
+                Self::Device { device } => {
+                    args.push(device.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -990,6 +1140,10 @@ pub mod device {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -1460,6 +1614,69 @@ pub mod device {
                 opcode => Err(crate::ParseError::InvalidOpcode("device", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Destroyed { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::Name { name } => {
+                    args.push(name.as_arg());
+                }
+                Self::DeviceType { device_type } => {
+                    args.push(device_type.as_arg());
+                }
+                Self::Dimensions { width, height } => {
+                    args.push(width.as_arg());
+                    args.push(height.as_arg());
+                }
+                Self::Region {
+                    offset_x,
+                    offset_y,
+                    width,
+                    hight,
+                    scale,
+                } => {
+                    args.push(offset_x.as_arg());
+                    args.push(offset_y.as_arg());
+                    args.push(width.as_arg());
+                    args.push(hight.as_arg());
+                    args.push(scale.as_arg());
+                }
+                Self::Interface { object } => {
+                    args.push(object.as_arg());
+                }
+                Self::Done => {}
+                Self::Resumed { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::Paused { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::StartEmulating { serial, sequence } => {
+                    args.push(serial.as_arg());
+                    args.push(sequence.as_arg());
+                }
+                Self::StopEmulating { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::Frame { serial, timestamp } => {
+                    args.push(serial.as_arg());
+                    args.push(timestamp.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -1491,6 +1708,10 @@ pub mod pointer {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -1588,6 +1809,29 @@ pub mod pointer {
                 opcode => Err(crate::ParseError::InvalidOpcode("pointer", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Destroyed { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::MotionRelative { x, y } => {
+                    args.push(x.as_arg());
+                    args.push(y.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -1619,6 +1863,10 @@ pub mod pointer_absolute {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -1718,6 +1966,29 @@ pub mod pointer_absolute {
                 opcode => Err(crate::ParseError::InvalidOpcode("pointer_absolute", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Destroyed { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::MotionAbsolute { x, y } => {
+                    args.push(x.as_arg());
+                    args.push(y.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -1749,6 +2020,10 @@ pub mod scroll {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -1947,6 +2222,38 @@ pub mod scroll {
                 opcode => Err(crate::ParseError::InvalidOpcode("scroll", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Destroyed { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::Scroll { x, y } => {
+                    args.push(x.as_arg());
+                    args.push(y.as_arg());
+                }
+                Self::ScrollDiscrete { x, y } => {
+                    args.push(x.as_arg());
+                    args.push(y.as_arg());
+                }
+                Self::ScrollStop { x, y, is_cancel } => {
+                    args.push(x.as_arg());
+                    args.push(y.as_arg());
+                    args.push(is_cancel.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -1978,6 +2285,10 @@ pub mod button {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -2121,6 +2432,29 @@ pub mod button {
                 opcode => Err(crate::ParseError::InvalidOpcode("button", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Destroyed { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::Button { button, state } => {
+                    args.push(button.as_arg());
+                    args.push(state.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -2152,6 +2486,10 @@ pub mod keyboard {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -2414,6 +2752,51 @@ pub mod keyboard {
                 opcode => Err(crate::ParseError::InvalidOpcode("keyboard", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Destroyed { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::Keymap {
+                    keymap_type,
+                    size,
+                    keymap,
+                } => {
+                    args.push(keymap_type.as_arg());
+                    args.push(size.as_arg());
+                    args.push(keymap.as_arg());
+                }
+                Self::Key { key, state } => {
+                    args.push(key.as_arg());
+                    args.push(state.as_arg());
+                }
+                Self::Modifiers {
+                    serial,
+                    depressed,
+                    locked,
+                    latched,
+                    group,
+                } => {
+                    args.push(serial.as_arg());
+                    args.push(depressed.as_arg());
+                    args.push(locked.as_arg());
+                    args.push(latched.as_arg());
+                    args.push(group.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -2445,6 +2828,10 @@ pub mod touchscreen {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            self.0.as_arg()
         }
     }
 
@@ -2636,6 +3023,38 @@ pub mod touchscreen {
                 opcode => Err(crate::ParseError::InvalidOpcode("touchscreen", opcode)),
             }
         }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
+            use crate::{arg::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Destroyed { serial } => {
+                    args.push(serial.as_arg());
+                }
+                Self::Down { touchid, x, y } => {
+                    args.push(touchid.as_arg());
+                    args.push(x.as_arg());
+                    args.push(y.as_arg());
+                }
+                Self::Motion { touchid, x, y } => {
+                    args.push(touchid.as_arg());
+                    args.push(x.as_arg());
+                    args.push(y.as_arg());
+                }
+                Self::Up { touchid } => {
+                    args.push(touchid.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
     }
 }
 
@@ -2733,6 +3152,25 @@ impl Event {
                 touchscreen::Event::parse(operand, bytes)?,
             )),
             _ => Err(crate::ParseError::InvalidInterface),
+        }
+    }
+}
+
+impl crate::MessageEnum for Event {
+    fn args(&self) -> Vec<crate::Arg<'_>> {
+        match self {
+            Self::Handshake(_, x) => x.args(),
+            Self::Connection(_, x) => x.args(),
+            Self::Callback(_, x) => x.args(),
+            Self::Pingpong(_, x) => x.args(),
+            Self::Seat(_, x) => x.args(),
+            Self::Device(_, x) => x.args(),
+            Self::Pointer(_, x) => x.args(),
+            Self::PointerAbsolute(_, x) => x.args(),
+            Self::Scroll(_, x) => x.args(),
+            Self::Button(_, x) => x.args(),
+            Self::Keyboard(_, x) => x.args(),
+            Self::Touchscreen(_, x) => x.args(),
         }
     }
 }

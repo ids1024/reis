@@ -123,7 +123,7 @@ impl Backend {
         }
     }
 
-    pub(crate) fn pending<T>(
+    pub(crate) fn pending<T: crate::MessageEnum>(
         &self,
         parse: fn(u64, &str, u32, &mut crate::ByteStream) -> Result<T, crate::ParseError>,
     ) -> Option<PendingRequestResult<T>> {
@@ -155,7 +155,10 @@ impl Backend {
                 }
 
                 Some(match request {
-                    Ok(request) => PendingRequestResult::Request(request),
+                    Ok(request) => {
+                        self.print_msg(header.object_id, header.opcode, &request.args(), true);
+                        PendingRequestResult::Request(request)
+                    }
                     Err(err) => PendingRequestResult::ProtocolError(format!(
                         "failed to parse message: {:?}",
                         err
@@ -222,22 +225,25 @@ impl Backend {
         self.0.state.lock().unwrap().objects.get(&id).cloned()
     }
 
-    fn print_request(&self, object_id: u64, opcode: u32, args: &[Arg]) {
+    fn print_msg(&self, object_id: u64, opcode: u32, args: &[Arg], incoming: bool) {
         let interface = self
             .object_interface(object_id)
             .map(|x| x.0)
             .unwrap_or_else(|| "UNKNOWN".to_string());
-        let op_name = if self.0.client {
+        let op_name = if self.0.client != incoming {
             eis::Request::op_name(&interface, opcode)
         } else {
             ei::Event::op_name(&interface, opcode)
         }
         .unwrap_or("UNKNOWN");
+        if incoming {
+            print!(" -> ");
+        }
         println!("{interface}@{object_id:x}.{op_name}{args:?}");
     }
 
     pub fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) {
-        self.print_request(object_id, opcode, args);
+        self.print_msg(object_id, opcode, args, false);
 
         let mut write = self.0.write.lock().unwrap();
 
