@@ -43,6 +43,7 @@ impl ContextState {
         if let Some(connection) = self.connection_obj.as_ref() {
             connection.disconnected(self.last_serial, reason, explaination);
         }
+        self.context.flush();
         calloop::PostAction::Remove
     }
 
@@ -161,6 +162,8 @@ impl State {
                         if !context_state.has_interface("ei_connection")
                             || !context_state.has_interface("ei_pingpong")
                             || !context_state.has_interface("ei_callback")
+                            || !context_state.has_interface("ei_seat")
+                            || !context_state.has_interface("ei_device")
                         {
                             return calloop::PostAction::Remove;
                         }
@@ -168,25 +171,18 @@ impl State {
                         let serial = context_state.next_serial();
                         let connection_obj = context_state.handshake.connection(serial, 1);
                         context_state.connection_obj = Some(connection_obj.clone());
-                        if !context_state.has_interface("ei_seat")
-                            || !context_state.has_interface("ei_device")
-                            || !context_state.has_interface("ei_callback")
-                        {
-                            return context_state
-                                .disconnected(eis::connection::DisconnectReason::Disconnected, "");
-                            // XXX reason
+                        if context_state.has_interface("ei_seat") {
+                            let seat = connection_obj.seat(1);
+                            seat.name("default");
+                            seat.capability(0x2, "ei_pointer");
+                            seat.capability(0x4, "ei_pointer_absolute");
+                            seat.capability(0x8, "ei_button");
+                            seat.capability(0x10, "ei_scroll");
+                            seat.capability(0x20, "ei_keyboard");
+                            seat.capability(0x40, "ei_touchscreen");
+                            seat.done();
+                            context_state.seat = Some(seat);
                         }
-                        let seat = connection_obj.seat(1);
-                        seat.name("default");
-                        seat.capability(0x2, "ei_pointer");
-                        seat.capability(0x4, "ei_pointer_absolute");
-                        seat.capability(0x8, "ei_button");
-                        seat.capability(0x10, "ei_scroll");
-                        seat.capability(0x20, "ei_keyboard");
-                        seat.capability(0x40, "ei_touchscreen");
-                        seat.done();
-                        context_state.seat = Some(seat);
-                        context_state.connection_obj = Some(connection_obj);
                     }
                     _ => {}
                 },
