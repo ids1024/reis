@@ -76,10 +76,6 @@ impl State {
 
             let handshake = context.handshake();
             handshake.handshake_version(1);
-            for (interface, version) in SERVER_INTERFACES.iter() {
-                handshake.interface_version(interface, *version);
-            }
-
             context.flush();
 
             let context_state = ContextState {
@@ -132,7 +128,8 @@ impl State {
                 }
             };
             match request {
-                eis::Request::Handshake(_handshake, request) => match request {
+                eis::Request::Handshake(handshake, request) => match request {
+                    eis::handshake::Request::HandshakeVersion { version } => {}
                     eis::handshake::Request::ContextType { context_type } => {
                         if context_state.context_type.is_some() {
                             return context_state
@@ -157,6 +154,10 @@ impl State {
                     }
                     eis::handshake::Request::Finish => {
                         // May prompt user here whether to allow this
+
+                        for (interface, version) in context_state.negotiated_interfaces.iter() {
+                            handshake.interface_version(interface, *version);
+                        }
 
                         if !context_state.has_interface("ei_connection")
                             || !context_state.has_interface("ei_pingpong")
