@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{util, Arg, ByteStream, Header};
+use crate::{ei, eis, util, Arg, ByteStream, Header};
 
 #[derive(Debug, Default)]
 struct Buffer {
@@ -222,14 +222,24 @@ impl Backend {
         self.0.state.lock().unwrap().objects.get(&id).cloned()
     }
 
-    pub fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) {
-        let mut write = self.0.write.lock().unwrap();
+    fn print_request(&self, object_id: u64, opcode: u32, args: &[Arg]) {
+        let interface = self
+            .object_interface(object_id)
+            .map(|x| x.0)
+            .unwrap_or_else(|| "UNKNOWN".to_string());
+        let op_name = if self.0.client {
+            eis::Request::op_name(&interface, opcode)
+        } else {
+            ei::Event::op_name(&interface, opcode)
+        }
+        .unwrap_or("UNKNOWN");
+        println!("{interface}@{object_id:x}.{op_name}{args:?}");
+    }
 
-        let interface = self.object_interface(object_id).map(|x| x.0);
-        println!(
-            "Request {:?} {:x} {}: {:?}",
-            interface, object_id, opcode, args
-        );
+    pub fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) {
+        self.print_request(object_id, opcode, args);
+
+        let mut write = self.0.write.lock().unwrap();
 
         let start_len = write.buf.len();
 

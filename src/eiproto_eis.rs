@@ -256,6 +256,17 @@ pub mod handshake {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("handshake_version"),
+                1 => Some("finish"),
+                2 => Some("context_type"),
+                3 => Some("name"),
+                4 => Some("interface_version"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -532,6 +543,14 @@ pub mod connection {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("sync"),
+                1 => Some("disconnect"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -602,6 +621,12 @@ pub mod callback {
     pub enum Request {}
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -659,6 +684,13 @@ pub mod pingpong {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("done"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -852,6 +884,14 @@ pub mod seat {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("release"),
+                1 => Some("bind"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -1302,6 +1342,16 @@ pub mod device {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("release"),
+                1 => Some("start_emulating"),
+                2 => Some("stop_emulating"),
+                3 => Some("frame"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -1433,6 +1483,14 @@ pub mod pointer {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("release"),
+                1 => Some("motion_relative"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -1549,6 +1607,14 @@ pub mod pointer_absolute {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("release"),
+                1 => Some("motion_absolute"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -1749,6 +1815,16 @@ pub mod scroll {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("release"),
+                1 => Some("scroll"),
+                2 => Some("scroll_discrete"),
+                3 => Some("scroll_stop"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -1908,6 +1984,14 @@ pub mod button {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("release"),
+                1 => Some("button"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -2150,6 +2234,14 @@ pub mod keyboard {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("release"),
+                1 => Some("key"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -2343,6 +2435,16 @@ pub mod touchscreen {
     }
 
     impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("release"),
+                1 => Some("down"),
+                2 => Some("motion"),
+                3 => Some("up"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -2394,6 +2496,24 @@ pub enum Request {
 }
 
 impl Request {
+    pub(crate) fn op_name(interface: &str, operand: u32) -> Option<&'static str> {
+        match interface {
+            "ei_handshake" => handshake::Request::op_name(operand),
+            "ei_connection" => connection::Request::op_name(operand),
+            "ei_callback" => callback::Request::op_name(operand),
+            "ei_pingpong" => pingpong::Request::op_name(operand),
+            "ei_seat" => seat::Request::op_name(operand),
+            "ei_device" => device::Request::op_name(operand),
+            "ei_pointer" => pointer::Request::op_name(operand),
+            "ei_pointer_absolute" => pointer_absolute::Request::op_name(operand),
+            "ei_scroll" => scroll::Request::op_name(operand),
+            "ei_button" => button::Request::op_name(operand),
+            "ei_keyboard" => keyboard::Request::op_name(operand),
+            "ei_touchscreen" => touchscreen::Request::op_name(operand),
+            _ => None,
+        }
+    }
+
     pub(crate) fn parse(
         id: u64,
         interface: &str,

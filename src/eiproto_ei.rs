@@ -256,6 +256,15 @@ pub mod handshake {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("handshake_version"),
+                1 => Some("interface_version"),
+                2 => Some("connection"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -520,6 +529,16 @@ pub mod connection {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("disconnected"),
+                1 => Some("seat"),
+                2 => Some("invalid_object"),
+                3 => Some("ping"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -613,6 +632,13 @@ pub mod callback {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("done"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -679,6 +705,12 @@ pub mod pingpong {
     pub enum Event {}
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -849,6 +881,17 @@ pub mod seat {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("destroyed"),
+                1 => Some("name"),
+                2 => Some("capability"),
+                3 => Some("done"),
+                4 => Some("device"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -1268,6 +1311,24 @@ pub mod device {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("destroyed"),
+                1 => Some("name"),
+                2 => Some("device_type"),
+                3 => Some("dimensions"),
+                4 => Some("region"),
+                5 => Some("interface"),
+                6 => Some("done"),
+                7 => Some("resumed"),
+                8 => Some("paused"),
+                9 => Some("start_emulating"),
+                10 => Some("stop_emulating"),
+                11 => Some("frame"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -1454,6 +1515,14 @@ pub mod pointer {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("destroyed"),
+                1 => Some("motion_relative"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -1576,6 +1645,14 @@ pub mod pointer_absolute {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("destroyed"),
+                1 => Some("motion_absolute"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -1782,6 +1859,16 @@ pub mod scroll {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("destroyed"),
+                1 => Some("scroll"),
+                2 => Some("scroll_discrete"),
+                3 => Some("scroll_stop"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -1947,6 +2034,14 @@ pub mod button {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("destroyed"),
+                1 => Some("button"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -2177,6 +2272,16 @@ pub mod keyboard {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("destroyed"),
+                1 => Some("keymap"),
+                2 => Some("key"),
+                3 => Some("modifiers"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -2402,6 +2507,16 @@ pub mod touchscreen {
     }
 
     impl Event {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("destroyed"),
+                1 => Some("down"),
+                2 => Some("motion"),
+                3 => Some("up"),
+                _ => None,
+            }
+        }
+
         pub(super) fn parse(
             operand: u32,
             _bytes: &mut crate::ByteStream,
@@ -2457,6 +2572,24 @@ pub enum Event {
 }
 
 impl Event {
+    pub(crate) fn op_name(interface: &str, operand: u32) -> Option<&'static str> {
+        match interface {
+            "ei_handshake" => handshake::Event::op_name(operand),
+            "ei_connection" => connection::Event::op_name(operand),
+            "ei_callback" => callback::Event::op_name(operand),
+            "ei_pingpong" => pingpong::Event::op_name(operand),
+            "ei_seat" => seat::Event::op_name(operand),
+            "ei_device" => device::Event::op_name(operand),
+            "ei_pointer" => pointer::Event::op_name(operand),
+            "ei_pointer_absolute" => pointer_absolute::Event::op_name(operand),
+            "ei_scroll" => scroll::Event::op_name(operand),
+            "ei_button" => button::Event::op_name(operand),
+            "ei_keyboard" => keyboard::Event::op_name(operand),
+            "ei_touchscreen" => touchscreen::Event::op_name(operand),
+            _ => None,
+        }
+    }
+
     pub(crate) fn parse(
         id: u64,
         interface: &str,

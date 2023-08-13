@@ -197,6 +197,15 @@ pub mod {{interface.plainname}} {
     }
 
     impl {{incoming_enum()}} {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+            {% for incoming in interface.incoming %}
+                {{incoming.opcode}} => Some("{{incoming.name}}"),
+            {% endfor %}
+                _ => None
+            }
+        }
+
         pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
             match operand {
             {% for incoming in interface.incoming %}
@@ -239,6 +248,16 @@ pub enum {{incoming_enum()}} {
 }
 
 impl {{incoming_enum()}} {
+    pub(crate) fn op_name(interface: &str, operand: u32) -> Option<&'static str> {
+        match interface {
+            {% for interface in interfaces %}
+                "{{interface.protocol_name}}" =>
+                    {{interface.plainname}}::{{incoming_enum()}}::op_name(operand),
+            {% endfor %}
+            _ => None,
+        }
+    }
+
     pub(crate) fn parse(id: u64, interface: &str, operand: u32, bytes: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
         match interface {
             {% for interface in interfaces %}

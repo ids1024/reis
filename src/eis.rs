@@ -4,7 +4,7 @@
 //! [Context].
 
 use std::{
-    env, fs, io,
+    env, io,
     os::unix::{
         io::{AsFd, AsRawFd, BorrowedFd, RawFd},
         net::{UnixListener, UnixStream},
