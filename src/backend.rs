@@ -227,7 +227,7 @@ impl Backend {
 
         let interface = self.object_interface(object_id).map(|x| x.0);
         println!(
-            "Request {:?} {} {}: {:?}",
+            "Request {:?} {:x} {}: {:?}",
             interface, object_id, opcode, args
         );
 
