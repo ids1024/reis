@@ -1,5 +1,5 @@
 use std::{
-    io,
+    env, io,
     os::unix::{
         io::{AsFd, AsRawFd, BorrowedFd, RawFd},
         net::UnixStream,
@@ -30,6 +30,15 @@ impl Context {
     // TODO way to connect
     pub fn new(socket: UnixStream) -> io::Result<Self> {
         Ok(Self(Backend::new(socket, true)?))
+    }
+
+    pub fn connect_to_env() -> io::Result<Option<Self>> {
+        let Some(path) = env::var_os("LIBEI_SOCKET") else {
+            // XXX return error type
+            return Ok(None);
+        };
+        let socket = UnixStream::connect(path)?;
+        Self::new(socket).map(Some)
     }
 
     /// Read any pending data on socket into buffer
