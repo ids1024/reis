@@ -2,8 +2,9 @@
 // Used in parsing and serialization.
 
 use std::{
+    fmt,
     iter::Extend,
-    os::unix::io::{AsFd, BorrowedFd, OwnedFd},
+    os::unix::io::{AsFd, AsRawFd, BorrowedFd, OwnedFd},
 };
 
 use crate::{ByteStream, ParseError};
@@ -20,6 +21,22 @@ pub enum Arg<'a> {
     String(&'a str),
     NewId(u64),
     Id(u64),
+}
+
+impl<'a> fmt::Display for Arg<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Uint32(value) => write!(f, "{value}"),
+            Self::Int32(value) => write!(f, "{value}"),
+            Self::Uint64(value) => write!(f, "{value}"),
+            Self::Int64(value) => write!(f, "{value}"),
+            Self::Float(value) => write!(f, "{value}"),
+            Self::Fd(value) => write!(f, "fd {}", value.as_raw_fd()),
+            Self::String(value) => write!(f, "{value:?}"),
+            Self::NewId(value) => write!(f, "new_id {value:x}"),
+            Self::Id(value) => write!(f, "id {value:x}"),
+        }
+    }
 }
 
 impl<'a> Arg<'a> {

@@ -239,7 +239,16 @@ impl Backend {
         if incoming {
             print!(" -> ");
         }
-        println!("{interface}@{object_id:x}.{op_name}{args:?}");
+        print!("{interface}@{object_id:x}.{op_name}(");
+        let mut first = true;
+        for arg in args {
+            if !first {
+                print!(", ");
+            }
+            first = false;
+            print!("{}", arg);
+        }
+        println!(")");
     }
 
     pub fn request(&self, object_id: u64, opcode: u32, args: &[Arg]) {
