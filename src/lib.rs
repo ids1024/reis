@@ -127,6 +127,7 @@ enum ParseError {
     InvalidOpcode(&'static str, u32),
     InvalidVariant(&'static str, u32),
     InvalidInterface,
+    #[allow(dead_code)] // TODO
     NoObject,
 }
 
