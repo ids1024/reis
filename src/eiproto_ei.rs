@@ -187,6 +187,20 @@ pub mod handshake {
                 variant => Err(crate::ParseError::InvalidVariant("ContextType", variant)),
             }
         }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            crate::Arg::Uint32(*self as u32)
+        }
+
+        fn enum_name(&self) -> Option<(&'static str, &'static str)> {
+            Some((
+                "context_type",
+                match self {
+                    Self::Receiver => "receiver",
+                    Self::Sender => "sender",
+                },
+            ))
+        }
     }
 
     #[non_exhaustive]
@@ -430,6 +444,24 @@ pub mod connection {
                     variant,
                 )),
             }
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            crate::Arg::Uint32(*self as u32)
+        }
+
+        fn enum_name(&self) -> Option<(&'static str, &'static str)> {
+            Some((
+                "disconnect_reason",
+                match self {
+                    Self::Disconnected => "disconnected",
+                    Self::Error => "error",
+                    Self::Mode => "mode",
+                    Self::Protocol => "protocol",
+                    Self::Value => "value",
+                    Self::Transport => "transport",
+                },
+            ))
         }
     }
 
@@ -1098,6 +1130,20 @@ pub mod device {
                 2 => Ok(Self::Physical),
                 variant => Err(crate::ParseError::InvalidVariant("DeviceType", variant)),
             }
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            crate::Arg::Uint32(*self as u32)
+        }
+
+        fn enum_name(&self) -> Option<(&'static str, &'static str)> {
+            Some((
+                "device_type",
+                match self {
+                    Self::Virtual => "virtual",
+                    Self::Physical => "physical",
+                },
+            ))
         }
     }
 
@@ -1999,6 +2045,20 @@ pub mod button {
                 variant => Err(crate::ParseError::InvalidVariant("ButtonState", variant)),
             }
         }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            crate::Arg::Uint32(*self as u32)
+        }
+
+        fn enum_name(&self) -> Option<(&'static str, &'static str)> {
+            Some((
+                "button_state",
+                match self {
+                    Self::Released => "released",
+                    Self::Press => "press",
+                },
+            ))
+        }
     }
 
     #[non_exhaustive]
@@ -2160,6 +2220,20 @@ pub mod keyboard {
                 variant => Err(crate::ParseError::InvalidVariant("KeyState", variant)),
             }
         }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            crate::Arg::Uint32(*self as u32)
+        }
+
+        fn enum_name(&self) -> Option<(&'static str, &'static str)> {
+            Some((
+                "key_state",
+                match self {
+                    Self::Released => "released",
+                    Self::Press => "press",
+                },
+            ))
+        }
     }
     /**
     The keymap type describes how the keymap in the `ei_keyboard.keymap` event
@@ -2183,6 +2257,19 @@ pub mod keyboard {
                 1 => Ok(Self::Xkb),
                 variant => Err(crate::ParseError::InvalidVariant("KeymapType", variant)),
             }
+        }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            crate::Arg::Uint32(*self as u32)
+        }
+
+        fn enum_name(&self) -> Option<(&'static str, &'static str)> {
+            Some((
+                "keymap_type",
+                match self {
+                    Self::Xkb => "xkb",
+                },
+            ))
         }
     }
 

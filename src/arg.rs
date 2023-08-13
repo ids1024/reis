@@ -1,6 +1,9 @@
+// Types representing arguments to requests/events
+// Used in parsing and serialization.
+
 use std::{
     iter::Extend,
-    os::unix::io::{BorrowedFd, OwnedFd},
+    os::unix::io::{AsFd, BorrowedFd, OwnedFd},
 };
 
 use crate::{ByteStream, ParseError};
@@ -54,11 +57,22 @@ impl<'a> Arg<'a> {
 
 pub(crate) trait OwnedArg: Sized {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError>;
+
+    fn as_arg(&self) -> Arg<'_>;
+
+    // For enum types, this returns the name of the enum and variant
+    fn enum_name(&self) -> Option<(&'static str, &'static str)> {
+        None
+    }
 }
 
 impl OwnedArg for u32 {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         Ok(Self::from_ne_bytes(buf.read()?))
+    }
+
+    fn as_arg(&self) -> Arg<'_> {
+        Arg::Uint32(*self)
     }
 }
 
@@ -66,11 +80,19 @@ impl OwnedArg for i32 {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         Ok(Self::from_ne_bytes(buf.read()?))
     }
+
+    fn as_arg(&self) -> Arg<'_> {
+        Arg::Int32(*self)
+    }
 }
 
 impl OwnedArg for u64 {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         Ok(Self::from_ne_bytes(buf.read()?))
+    }
+
+    fn as_arg(&self) -> Arg<'_> {
+        Arg::Uint64(*self)
     }
 }
 
@@ -78,11 +100,19 @@ impl OwnedArg for i64 {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         Ok(Self::from_ne_bytes(buf.read()?))
     }
+
+    fn as_arg(&self) -> Arg<'_> {
+        Arg::Int64(*self)
+    }
 }
 
 impl OwnedArg for f32 {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         Ok(Self::from_ne_bytes(buf.read()?))
+    }
+
+    fn as_arg(&self) -> Arg<'_> {
+        Arg::Float(*self)
     }
 }
 
@@ -91,6 +121,10 @@ impl OwnedArg for OwnedFd {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         // XXX error?
         buf.read_fd()
+    }
+
+    fn as_arg(&self) -> Arg<'_> {
+        Arg::Fd(self.as_fd())
     }
 }
 
@@ -106,6 +140,10 @@ impl OwnedArg for String {
             buf.read::<1>()?;
         }
         Ok(string)
+    }
+
+    fn as_arg(&self) -> Arg<'_> {
+        Arg::String(self)
     }
 }
 

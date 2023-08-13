@@ -176,6 +176,19 @@ pub mod {{interface.plainname}} {
         variant => Err(crate::ParseError::InvalidVariant("{{enum.camel_name}}", variant)),
             }
         }
+
+        fn as_arg(&self) -> crate::Arg<'_> {
+            crate::Arg::Uint32(*self as u32)
+        }
+
+        fn enum_name(&self) -> Option<(&'static str, &'static str)> {
+            Some(("{{enum.name}}", match self {
+                {% for entry in enum.entries %}
+                Self::{{entry.name|camel}} => "{{entry.name}}",
+                {% endfor %}
+            }
+            ))
+        }
     }
     {% endfor %}
 
