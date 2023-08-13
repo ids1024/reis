@@ -210,14 +210,40 @@ impl State {
                                 "Invalid capabilities",
                             );
                         }
-                        let device = seat.device(1);
-                        device.name("keyboard");
-                        device.device_type(eis::device::DeviceType::Virtual);
-                        device.interface::<eis::Keyboard>(1);
-                        device.interface::<eis::Pointer>(1);
-                        device.interface::<eis::Touchscreen>(1);
-                        device.interface::<eis::PointerAbsolute>(1);
-                        device.done();
+
+                        if capabilities & 0x20 != 0 {
+                            let device = seat.device(1);
+                            device.name("keyboard");
+                            device.device_type(eis::device::DeviceType::Virtual);
+                            device.interface::<eis::Keyboard>(1);
+                            device.done();
+                        }
+
+                        //if context_state.has_interface("ei_pointer") {
+                        if capabilities & 0x2 != 0 {
+                            let device = seat.device(1);
+                            device.name("pointer");
+                            device.device_type(eis::device::DeviceType::Virtual);
+                            device.interface::<eis::Pointer>(1);
+                            device.done();
+                        }
+
+                        if capabilities & 0x40 != 0 {
+                            let device = seat.device(1);
+                            device.name("touch");
+                            device.device_type(eis::device::DeviceType::Virtual);
+                            device.interface::<eis::Touchscreen>(1);
+                            device.done();
+                        }
+
+                        if capabilities & 0x4 != 0 {
+                            let device = seat.device(1);
+                            device.name("pointer-abs");
+                            device.device_type(eis::device::DeviceType::Virtual);
+                            device.interface::<eis::PointerAbsolute>(1);
+                            device.done();
+                        }
+
                         // TODO create devices; compare against current bitflag
                     }
                     eis::seat::Request::Release => {
