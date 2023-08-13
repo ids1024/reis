@@ -52,8 +52,26 @@ impl State {
                         }
                         handshake.finish();
                     }
+                    ei::handshake::Event::InterfaceVersion { name: _, version: _ } => {
+                    }
+                    ei::handshake::Event::Connection { connection: _, serial: _ } => {
+                    }
                     _ => {}
                 },
+                ei::Event::Connection(connection, request) => match request {
+                    ei::connection::Event::Seat { seat } => {
+                    }
+                    _ => {}
+                }
+                ei::Event::Seat(seat, request) => match request {
+                    ei::seat::Event::Name { name: _ } => {
+                    }
+                    ei::seat::Event::Capability { mask:_, interface: _ } => {
+                    }
+                    ei::seat::Event::Done => {
+                    }
+                    _ => {}
+                }
                 _ => {}
             }
         }
