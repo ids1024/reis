@@ -52,7 +52,7 @@
 {% for interface in interfaces %}
 /** {{interface.description.text|ei_escape_names}} */
 pub mod {{interface.plainname}} {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct {{interface.plainname|camel}}(pub(crate) crate::Object);
 
     impl {{interface.plainname|camel}} {

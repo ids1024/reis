@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, hash};
 
 use crate::{Arg, Backend, Interface};
 
@@ -8,6 +8,20 @@ pub struct Object {
     backend: Backend,
     client_side: bool,
     id: u64,
+}
+
+impl PartialEq for Object {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.id == rhs.id
+    }
+}
+
+impl Eq for Object {}
+
+impl hash::Hash for Object {
+    fn hash<H: hash::Hasher>(&self, hasher: &mut H) {
+        self.id.hash(hasher)
+    }
 }
 
 impl fmt::Debug for Object {

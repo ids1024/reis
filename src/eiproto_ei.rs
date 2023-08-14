@@ -26,7 +26,7 @@ Once the `ei_connection.connection` event has been sent the handshake
 is destroyed by the EIS implementation.
  */
 pub mod handshake {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Handshake(pub(crate) crate::Object);
 
     impl Handshake {
@@ -358,7 +358,7 @@ Note that for a client to receive this object, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod connection {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Connection(pub(crate) crate::Object);
 
     impl Connection {
@@ -714,7 +714,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod callback {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Callback(pub(crate) crate::Object);
 
     impl Callback {
@@ -812,7 +812,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod pingpong {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Pingpong(pub(crate) crate::Object);
 
     impl Pingpong {
@@ -913,7 +913,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod seat {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Seat(pub(crate) crate::Object);
 
     impl Seat {
@@ -1157,7 +1157,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod device {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Device(pub(crate) crate::Object);
 
     impl Device {
@@ -1731,7 +1731,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod pointer {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Pointer(pub(crate) crate::Object);
 
     impl Pointer {
@@ -1892,7 +1892,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod pointer_absolute {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct PointerAbsolute(pub(crate) crate::Object);
 
     impl PointerAbsolute {
@@ -2055,7 +2055,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod scroll {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Scroll(pub(crate) crate::Object);
 
     impl Scroll {
@@ -2326,7 +2326,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod button {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Button(pub(crate) crate::Object);
 
     impl Button {
@@ -2533,7 +2533,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod keyboard {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Keyboard(pub(crate) crate::Object);
 
     impl Keyboard {
@@ -2881,7 +2881,7 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod touchscreen {
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Touchscreen(pub(crate) crate::Object);
 
     impl Touchscreen {

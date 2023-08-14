@@ -10,18 +10,19 @@ static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     m.insert("ei_seat", 1);
     m.insert("ei_device", 1);
     m.insert("ei_pingpong", 1);
+    m.insert("ei_keyboard", 1);
     m
 });
 
 #[derive(Default)]
 struct SeatData {
     name: Option<String>,
-    capabilities: HashMap<String, u32>,
+    capabilities: HashMap<String, u64>,
 }
 
 struct State {
     // XXX best way to handle data associated with object?
-    seats: HashMap<ei::Seat, ()>,
+    seats: HashMap<ei::Seat, SeatData>,
 }
 
 impl State {
@@ -73,19 +74,32 @@ impl State {
                 },
                 ei::Event::Connection(connection, request) => match request {
                     ei::connection::Event::Seat { seat } => {
-                        //self.seats.insert(seat, Default::default());
+                        self.seats.insert(seat, Default::default());
                     }
                     _ => {}
                 },
-                ei::Event::Seat(seat, request) => match request {
-                    ei::seat::Event::Name { name: _ } => {}
-                    ei::seat::Event::Capability {
-                        mask: _,
-                        interface: _,
-                    } => {}
-                    ei::seat::Event::Done => {
-                        seat.bind(0); // XXX
+                ei::Event::Seat(seat, request) => {
+                    let data = self.seats.get_mut(&seat).unwrap();
+                    match request {
+                        ei::seat::Event::Name { name } => {
+                            data.name = Some(name);
+                        }
+                        ei::seat::Event::Capability { mask, interface } => {
+                            data.capabilities.insert(interface, mask);
+                        }
+                        ei::seat::Event::Done => {
+                            seat.bind(*data.capabilities.get("ei_keyboard").unwrap());
+                            // XXX
+                        }
+                        ei::seat::Event::Device { device } => {}
+                        _ => {}
                     }
+                }
+                ei::Event::Device(device, request) => match request {
+                    ei::device::Event::Name { name } => {}
+                    ei::device::Event::DeviceType { device_type } => {}
+                    ei::device::Event::Interface { object } => {}
+                    ei::device::Event::Done => {}
                     _ => {}
                 },
                 _ => {}
