@@ -13,7 +13,16 @@ static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     m
 });
 
-struct State {}
+#[derive(Default)]
+struct SeatData {
+    name: Option<String>,
+    capabilities: HashMap<String, u32>,
+}
+
+struct State {
+    // XXX best way to handle data associated with object?
+    seats: HashMap<ei::Seat, ()>,
+}
 
 impl State {
     fn handle_listener_readable(
@@ -60,6 +69,7 @@ impl State {
                 },
                 ei::Event::Connection(connection, request) => match request {
                     ei::connection::Event::Seat { seat } => {
+                        //self.seats.insert(seat, Default::default());
                     }
                     _ => {}
                 }
@@ -69,6 +79,7 @@ impl State {
                     ei::seat::Event::Capability { mask:_, interface: _ } => {
                     }
                     ei::seat::Event::Done => {
+                        seat.bind(0); // XXX
                     }
                     _ => {}
                 }
@@ -97,6 +108,8 @@ fn main() {
         })
         .unwrap();
 
-    let mut state = State {};
+    let mut state = State {
+        seats: HashMap::new()
+    };
     event_loop.run(None, &mut state, |_| {}).unwrap();
 }
