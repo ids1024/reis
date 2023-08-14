@@ -61,10 +61,14 @@ impl State {
                         }
                         handshake.finish();
                     }
-                    ei::handshake::Event::InterfaceVersion { name: _, version: _ } => {
-                    }
-                    ei::handshake::Event::Connection { connection: _, serial: _ } => {
-                    }
+                    ei::handshake::Event::InterfaceVersion {
+                        name: _,
+                        version: _,
+                    } => {}
+                    ei::handshake::Event::Connection {
+                        connection: _,
+                        serial: _,
+                    } => {}
                     _ => {}
                 },
                 ei::Event::Connection(connection, request) => match request {
@@ -72,17 +76,18 @@ impl State {
                         //self.seats.insert(seat, Default::default());
                     }
                     _ => {}
-                }
+                },
                 ei::Event::Seat(seat, request) => match request {
-                    ei::seat::Event::Name { name: _ } => {
-                    }
-                    ei::seat::Event::Capability { mask:_, interface: _ } => {
-                    }
+                    ei::seat::Event::Name { name: _ } => {}
+                    ei::seat::Event::Capability {
+                        mask: _,
+                        interface: _,
+                    } => {}
                     ei::seat::Event::Done => {
                         seat.bind(0); // XXX
                     }
                     _ => {}
-                }
+                },
                 _ => {}
             }
         }
@@ -109,7 +114,7 @@ fn main() {
         .unwrap();
 
     let mut state = State {
-        seats: HashMap::new()
+        seats: HashMap::new(),
     };
     event_loop.run(None, &mut state, |_| {}).unwrap();
 }

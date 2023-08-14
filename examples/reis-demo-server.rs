@@ -16,6 +16,12 @@ static SERVER_INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     m.insert("ei_seat", 1);
     m.insert("ei_device", 1);
     m.insert("ei_pingpong", 1);
+    m.insert("ei_keyboard", 1);
+    m.insert("ei_pointer", 1);
+    m.insert("ei_pointer_absolute", 1);
+    m.insert("ei_button", 1);
+    m.insert("ei_scroll", 1);
+    m.insert("ei_touchscreen", 1);
     m
 });
 
@@ -222,20 +228,22 @@ impl State {
                             device.done();
                         }
 
-                        if capabilities & 0x20 != 0 {
+                        if context_state.has_interface("ei_keyboard") && capabilities & 0x20 != 0 {
                             add_device::<eis::Keyboard>(&seat, "keyboard");
                         }
 
-                        //if context_state.has_interface("ei_pointer") {
-                        if capabilities & 0x2 != 0 {
+                        if context_state.has_interface("ei_pointer") && capabilities & 0x2 != 0 {
                             add_device::<eis::Pointer>(&seat, "pointer");
                         }
 
-                        if capabilities & 0x40 != 0 {
+                        if context_state.has_interface("ei_touchscreen") && capabilities & 0x40 != 0
+                        {
                             add_device::<eis::Touchscreen>(&seat, "touch");
                         }
 
-                        if capabilities & 0x4 != 0 {
+                        if context_state.has_interface("ei_pointer_absolute")
+                            && capabilities & 0x4 != 0
+                        {
                             add_device::<eis::PointerAbsolute>(&seat, "pointer-abs");
                         }
 
