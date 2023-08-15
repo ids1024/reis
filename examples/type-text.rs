@@ -39,6 +39,7 @@ struct State {
     seats: HashMap<ei::Seat, SeatData>,
     // XXX association with seat?
     devices: HashMap<ei::Device, DeviceData>,
+    running: bool,
 }
 
 impl State {
@@ -127,7 +128,36 @@ impl State {
                                 .insert(object.interface().to_string(), object);
                         }
                         ei::device::Event::Done => {
-                            if let Some(keyboard) = data.interface::<ei::Keyboard>() {}
+                            if let Some(keyboard) = data.interface::<ei::Keyboard>() {
+                                let context = xkb::Context::new(0);
+                                let keymap =
+                                    xkb::Keymap::new_from_names(&context, "", "", "", "", None, 0)
+                                        .unwrap();
+                                let s = "Hello world!";
+                                for c in s.chars() {
+                                    let keysym = xkb::Keysym::from_char(c);
+                                    let mut keycode = None;
+                                    'outer: for i in
+                                        keymap.min_keycode().raw()..keymap.max_keycode().raw()
+                                    {
+                                        for j in 0..=1 {
+                                            let syms = keymap.key_get_syms_by_level(
+                                                xkb::Keycode::new(i),
+                                                0,
+                                                j,
+                                            );
+                                            if syms.contains(&keysym) {
+                                                keycode = Some(i);
+                                                break 'outer;
+                                            }
+                                        }
+                                    }
+                                    let keycode = keycode.unwrap();
+                                    keyboard.key(keycode, ei::keyboard::KeyState::Press);
+                                    keyboard.key(keycode, ei::keyboard::KeyState::Released);
+                                }
+                                self.running = false;
+                            }
                         }
                         _ => {}
                     }
@@ -185,6 +215,9 @@ fn main() {
     let mut state = State {
         seats: HashMap::new(),
         devices: HashMap::new(),
+        running: true,
     };
-    event_loop.run(None, &mut state, |_| {}).unwrap();
+    while state.running {
+        event_loop.dispatch(None, &mut state).unwrap();
+    }
 }
