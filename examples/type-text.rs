@@ -1,7 +1,8 @@
 use calloop::generic::Generic;
 use once_cell::sync::Lazy;
 use reis::{ei, PendingRequestResult};
-use std::{collections::HashMap, io};
+use std::{collections::HashMap, io, os::unix::io::AsRawFd};
+use xkbcommon::xkb;
 
 static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     let mut m = HashMap::new();
@@ -25,6 +26,12 @@ struct DeviceData {
     name: Option<String>,
     device_type: Option<ei::device::DeviceType>,
     interfaces: HashMap<String, reis::Object>,
+}
+
+impl DeviceData {
+    fn interface<T: reis::Interface>(&self) -> Option<T> {
+        self.interfaces.get(T::NAME)?.clone().downcast()
+    }
 }
 
 struct State {
@@ -119,7 +126,34 @@ impl State {
                             data.interfaces
                                 .insert(object.interface().to_string(), object);
                         }
-                        ei::device::Event::Done => {}
+                        ei::device::Event::Done => {
+                            if let Some(keyboard) = data.interface::<ei::Keyboard>() {}
+                        }
+                        _ => {}
+                    }
+                }
+                ei::Event::Keyboard(keyboard, request) => {
+                    match request {
+                        ei::keyboard::Event::Keymap {
+                            keymap_type,
+                            size,
+                            keymap,
+                        } => {
+                            // XXX format
+                            // flags?
+                            let context = xkb::Context::new(0);
+                            let keymap = unsafe {
+                                xkb::Keymap::new_from_fd(
+                                    &context,
+                                    keymap.as_raw_fd(),
+                                    size as _,
+                                    xkb::KEYMAP_FORMAT_TEXT_V1,
+                                    0,
+                                )
+                            }
+                            .unwrap()
+                            .unwrap();
+                        }
                         _ => {}
                     }
                 }
