@@ -6,7 +6,6 @@ use crate::{backend::BackendWeak, Arg, Backend, Interface};
 pub struct Object(Arc<ObjectInner>);
 
 struct ObjectInner {
-    // TODO use weak, like wayland-rs?
     backend: BackendWeak,
     client_side: bool,
     id: u64,
