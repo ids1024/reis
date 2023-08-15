@@ -16,7 +16,7 @@ struct ObjectInner {
 
 impl PartialEq for Object {
     fn eq(&self, rhs: &Self) -> bool {
-        self.0.id == rhs.0.id
+        Arc::ptr_eq(&self.0, &rhs.0)
     }
 }
 
