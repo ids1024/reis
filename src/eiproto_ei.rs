@@ -407,7 +407,10 @@ pub mod connection {
         the client.
          */
         pub fn sync(&self, version: u32) -> (super::callback::Callback) {
-            let callback = self.0.backend().new_id("ei_callback".to_string(), version);
+            let callback = self
+                .0
+                .backend_weak()
+                .new_id("ei_callback".to_string(), version);
             let args = &[
                 crate::Arg::NewId(callback.into()),
                 crate::Arg::Uint32(version.into()),
@@ -416,7 +419,7 @@ pub mod connection {
             self.0.request(0, args);
 
             (super::callback::Callback(crate::Object::new(
-                self.0.backend().clone(),
+                self.0.backend_weak().clone(),
                 callback,
                 true,
             )))
@@ -437,7 +440,7 @@ pub mod connection {
             let args = &[];
 
             self.0.request(1, args);
-            self.0.backend().remove_id(self.0.id());
+            self.0.backend_weak().remove_id(self.0.id());
 
             ()
         }
@@ -850,7 +853,7 @@ pub mod pingpong {
             let args = &[crate::Arg::Uint64(callback_data.into())];
 
             self.0.request(0, args);
-            self.0.backend().remove_id(self.0.id());
+            self.0.backend_weak().remove_id(self.0.id());
 
             ()
         }
@@ -3176,51 +3179,51 @@ impl Event {
     ) -> Result<Self, crate::ParseError> {
         match interface {
             "ei_handshake" => Ok(Self::Handshake(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 handshake::Event::parse(operand, bytes)?,
             )),
             "ei_connection" => Ok(Self::Connection(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 connection::Event::parse(operand, bytes)?,
             )),
             "ei_callback" => Ok(Self::Callback(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 callback::Event::parse(operand, bytes)?,
             )),
             "ei_pingpong" => Ok(Self::Pingpong(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 pingpong::Event::parse(operand, bytes)?,
             )),
             "ei_seat" => Ok(Self::Seat(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 seat::Event::parse(operand, bytes)?,
             )),
             "ei_device" => Ok(Self::Device(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 device::Event::parse(operand, bytes)?,
             )),
             "ei_pointer" => Ok(Self::Pointer(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 pointer::Event::parse(operand, bytes)?,
             )),
             "ei_pointer_absolute" => Ok(Self::PointerAbsolute(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 pointer_absolute::Event::parse(operand, bytes)?,
             )),
             "ei_scroll" => Ok(Self::Scroll(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 scroll::Event::parse(operand, bytes)?,
             )),
             "ei_button" => Ok(Self::Button(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 button::Event::parse(operand, bytes)?,
             )),
             "ei_keyboard" => Ok(Self::Keyboard(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 keyboard::Event::parse(operand, bytes)?,
             )),
             "ei_touchscreen" => Ok(Self::Touchscreen(
-                crate::Object::new(bytes.backend().clone(), id, true).downcast_unchecked(),
+                crate::Object::new(bytes.backend.downgrade(), id, true).downcast_unchecked(),
                 touchscreen::Event::parse(operand, bytes)?,
             )),
             _ => Err(crate::ParseError::InvalidInterface),

@@ -52,7 +52,7 @@ impl Context {
     }
 
     pub fn handshake(&self) -> handshake::Handshake {
-        handshake::Handshake(Object::new(self.0.clone(), 0, true))
+        handshake::Handshake(Object::new(self.0.downgrade(), 0, true))
     }
 
     pub fn object_interface(&self, id: u64) -> Option<(String, u32)> {

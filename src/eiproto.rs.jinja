@@ -109,9 +109,9 @@ pub mod {{interface.plainname}} {
             ) {
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' and arg.interface_arg %}
-            let {{arg.name}} = self.0.backend().new_id({{arg.interface_arg.name|camel}}::NAME.to_string(), {{arg.version_arg.name}});
+            let {{arg.name}} = self.0.backend_weak().new_id({{arg.interface_arg.name|camel}}::NAME.to_string(), {{arg.version_arg.name}});
             {% elif arg.protocol_type == 'new_id' %}
-            let {{arg.name}} = self.0.backend().new_id("{{arg.interface.protocol_name}}".to_string(), {{arg.version_arg.name}});
+            let {{arg.name}} = self.0.backend_weak().new_id("{{arg.interface.protocol_name}}".to_string(), {{arg.version_arg.name}});
             {% endif -%}
             {% endfor -%}
 
@@ -127,7 +127,7 @@ pub mod {{interface.plainname}} {
 
             self.0.request({{outgoing.opcode}}, args);
             {% if outgoing.is_destructor %}
-                self.0.backend().remove_id(self.0.id());
+                self.0.backend_weak().remove_id(self.0.id());
             {% endif %}
 
             (
@@ -135,7 +135,7 @@ pub mod {{interface.plainname}} {
             {% if arg.protocol_type == 'new_id' %}
             {% if arg.interface %}
                 {{arg_type(arg, true, false)}}(crate::Object::new(
-                    self.0.backend().clone(), {{arg.name}},
+                    self.0.backend_weak().clone(), {{arg.name}},
                     {% if extra.eis %}
                     false
                     {% else %}
@@ -143,7 +143,7 @@ pub mod {{interface.plainname}} {
                     {% endif %}
                     ))
             {% elif arg.interface_arg %}
-                crate::Object::new(self.0.backend().clone(), {{arg.name}},
+                crate::Object::new(self.0.backend_weak().clone(), {{arg.name}},
                 {% if extra.eis %}
                 false
                 {% else %}
@@ -314,7 +314,7 @@ impl {{incoming_enum()}} {
         match interface {
             {% for interface in interfaces %}
                 "{{interface.protocol_name}}" => Ok(Self::{{interface.plainname|camel}}(
-                    crate::Object::new(bytes.backend().clone(), id,
+                    crate::Object::new(bytes.backend.downgrade(), id,
                         {% if extra.eis %}
                         false
                         {% else %}

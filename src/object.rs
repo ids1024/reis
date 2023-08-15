@@ -1,11 +1,11 @@
 use std::{fmt, hash};
 
-use crate::{Arg, Backend, Interface};
+use crate::{backend::BackendWeak, Arg, Backend, Interface};
 
 #[derive(Clone)]
 pub struct Object {
     // TODO use weak, like wayland-rs?
-    backend: Backend,
+    backend: BackendWeak,
     client_side: bool,
     id: u64,
 }
@@ -31,7 +31,7 @@ impl fmt::Debug for Object {
 }
 
 impl Object {
-    pub(crate) fn new(backend: Backend, id: u64, client_side: bool) -> Self {
+    pub(crate) fn new(backend: BackendWeak, id: u64, client_side: bool) -> Self {
         Self {
             backend,
             id,
@@ -39,7 +39,11 @@ impl Object {
         }
     }
 
-    pub fn backend(&self) -> &Backend {
+    pub fn backend(&self) -> Option<Backend> {
+        self.backend.upgrade()
+    }
+
+    pub(crate) fn backend_weak(&self) -> &BackendWeak {
         &self.backend
     }
 
@@ -49,16 +53,18 @@ impl Object {
 
     // XXX option?
     pub fn interface(&self) -> Option<String> {
-        Some(self.backend.object_interface(self.id)?.0)
+        None
     }
 
     // XXX option?
     pub fn version(&self) -> Option<u32> {
-        Some(self.backend.object_interface(self.id)?.1)
+        None
     }
 
     pub fn request(&self, opcode: u32, args: &[Arg]) {
-        self.backend.request(self.id, opcode, args);
+        if let Some(backend) = self.backend() {
+            backend.request(self.id, opcode, args);
+        }
     }
 
     pub(crate) fn downcast_unchecked<T: Interface>(self) -> T {
@@ -70,7 +76,7 @@ impl Object {
     }
 
     pub fn downcast<T: Interface>(self) -> Option<T> {
-        let (interface, _version) = self.backend.object_interface(self.id)?;
+        let (interface, _version) = self.backend().and_then(|x| x.object_interface(self.id))?;
         if (self.client_side, interface.as_str()) == (T::CLIENT_SIDE, T::NAME) {
             Some(self.downcast_unchecked())
         } else {

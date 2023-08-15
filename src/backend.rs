@@ -6,7 +6,7 @@ use std::{
         io::{AsFd, BorrowedFd, OwnedFd},
         net::UnixStream,
     },
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, Weak},
 };
 
 use crate::{ei, eis, util, Arg, ByteStream, Header};
@@ -53,6 +53,30 @@ struct BackendInner {
 #[derive(Clone, Debug)]
 pub struct Backend(Arc<BackendInner>);
 
+#[derive(Clone, Debug)]
+pub(crate) struct BackendWeak(Weak<BackendInner>);
+
+impl BackendWeak {
+    pub fn upgrade(&self) -> Option<Backend> {
+        self.0.upgrade().map(Backend)
+    }
+
+    pub fn new_id(&self, interface: String, version: u32) -> u64 {
+        if let Some(backend) = self.upgrade() {
+            backend.new_id(interface, version)
+        } else {
+            // If the backend is destroyed, object will be inert and id doesn't matter
+            0
+        }
+    }
+
+    pub fn remove_id(&self, id: u64) {
+        if let Some(backend) = self.upgrade() {
+            backend.remove_id(id);
+        }
+    }
+}
+
 impl AsFd for Backend {
     fn as_fd(&self) -> BorrowedFd {
         self.0.socket.as_fd()
@@ -95,6 +119,10 @@ impl Backend {
             write: Mutex::new(Buffer::default()),
             debug: is_reis_debug(),
         })))
+    }
+
+    pub(crate) fn downgrade(&self) -> BackendWeak {
+        BackendWeak(Arc::downgrade(&self.0))
     }
 
     /// Read any pending data on socket into buffer
@@ -207,7 +235,7 @@ impl Backend {
         version: u32,
     ) -> Result<crate::Object, crate::ParseError> {
         self.new_peer_id(id, interface, version)?;
-        Ok(crate::Object::new(self.clone(), id, self.0.client))
+        Ok(crate::Object::new(self.downgrade(), id, self.0.client))
     }
 
     pub(crate) fn new_peer_interface<T: crate::Interface>(

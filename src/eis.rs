@@ -110,7 +110,7 @@ impl Context {
     }
 
     pub fn handshake(&self) -> handshake::Handshake {
-        handshake::Handshake(Object::new(self.0.clone(), 0, false))
+        handshake::Handshake(Object::new(self.0.downgrade(), 0, false))
     }
 
     pub fn object_interface(&self, id: u64) -> Option<(String, u32)> {
