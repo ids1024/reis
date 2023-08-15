@@ -48,6 +48,11 @@ impl Object {
     }
 
     // XXX option?
+    pub fn interface(&self) -> Option<String> {
+        Some(self.backend.object_interface(self.id)?.0)
+    }
+
+    // XXX option?
     pub fn version(&self) -> Option<u32> {
         Some(self.backend.object_interface(self.id)?.1)
     }

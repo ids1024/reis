@@ -232,6 +232,7 @@ impl State {
                             add_device::<eis::Keyboard>(&seat, "keyboard");
                         }
 
+                        // XXX button/etc should be on same object
                         if context_state.has_interface("ei_pointer") && capabilities & 0x2 != 0 {
                             add_device::<eis::Pointer>(&seat, "pointer");
                         }

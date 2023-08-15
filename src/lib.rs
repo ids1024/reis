@@ -22,7 +22,7 @@ mod eiproto_ei;
 mod eiproto_eis;
 pub mod eis;
 mod object;
-use object::Object;
+pub use object::Object;
 mod util;
 
 mod private {

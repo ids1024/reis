@@ -20,9 +20,18 @@ struct SeatData {
     capabilities: HashMap<String, u64>,
 }
 
+#[derive(Default)]
+struct DeviceData {
+    name: Option<String>,
+    device_type: Option<ei::device::DeviceType>,
+    interfaces: HashMap<String, reis::Object>,
+}
+
 struct State {
     // XXX best way to handle data associated with object?
     seats: HashMap<ei::Seat, SeatData>,
+    // XXX association with seat?
+    devices: HashMap<ei::Device, DeviceData>,
 }
 
 impl State {
@@ -91,17 +100,30 @@ impl State {
                             seat.bind(*data.capabilities.get("ei_keyboard").unwrap());
                             // XXX
                         }
-                        ei::seat::Event::Device { device } => {}
+                        ei::seat::Event::Device { device } => {
+                            self.devices.insert(device, Default::default());
+                        }
                         _ => {}
                     }
                 }
-                ei::Event::Device(device, request) => match request {
-                    ei::device::Event::Name { name } => {}
-                    ei::device::Event::DeviceType { device_type } => {}
-                    ei::device::Event::Interface { object } => {}
-                    ei::device::Event::Done => {}
-                    _ => {}
-                },
+                ei::Event::Device(device, request) => {
+                    let data = self.devices.get_mut(&device).unwrap();
+                    match request {
+                        ei::device::Event::Name { name } => {
+                            data.name = Some(name);
+                        }
+                        ei::device::Event::DeviceType { device_type } => {
+                            data.device_type = Some(device_type);
+                        }
+                        ei::device::Event::Interface { object } => {
+                            if let Some(interface) = object.interface() {
+                                data.interfaces.insert(interface, object);
+                            }
+                        }
+                        ei::device::Event::Done => {}
+                        _ => {}
+                    }
+                }
                 _ => {}
             }
         }
@@ -129,6 +151,7 @@ fn main() {
 
     let mut state = State {
         seats: HashMap::new(),
+        devices: HashMap::new(),
     };
     event_loop.run(None, &mut state, |_| {}).unwrap();
 }
