@@ -30,7 +30,7 @@ pub mod handshake {
     pub struct Handshake(pub(crate) crate::Object);
 
     impl Handshake {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -123,21 +123,17 @@ pub mod handshake {
             let connection = self
                 .0
                 .backend_weak()
-                .new_id("ei_connection".to_string(), version);
+                .new_object("ei_connection".to_string(), version);
             let args = &[
                 crate::Arg::Uint32(serial.into()),
-                crate::Arg::NewId(connection.into()),
+                crate::Arg::NewId(connection.id().into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
             self.0.request(2, args);
             self.0.backend_weak().remove_id(self.0.id());
 
-            (super::connection::Connection(crate::Object::new(
-                self.0.backend_weak().clone(),
-                connection,
-                false,
-            )))
+            (super::connection::Connection(connection))
         }
     }
 
@@ -368,7 +364,7 @@ pub mod connection {
     pub struct Connection(pub(crate) crate::Object);
 
     impl Connection {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -445,19 +441,18 @@ pub mod connection {
         interface.
          */
         pub fn seat(&self, version: u32) -> (super::seat::Seat) {
-            let seat = self.0.backend_weak().new_id("ei_seat".to_string(), version);
+            let seat = self
+                .0
+                .backend_weak()
+                .new_object("ei_seat".to_string(), version);
             let args = &[
-                crate::Arg::NewId(seat.into()),
+                crate::Arg::NewId(seat.id().into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
             self.0.request(1, args);
 
-            (super::seat::Seat(crate::Object::new(
-                self.0.backend_weak().clone(),
-                seat,
-                false,
-            )))
+            (super::seat::Seat(seat))
         }
 
         /**
@@ -510,19 +505,15 @@ pub mod connection {
             let ping = self
                 .0
                 .backend_weak()
-                .new_id("ei_pingpong".to_string(), version);
+                .new_object("ei_pingpong".to_string(), version);
             let args = &[
-                crate::Arg::NewId(ping.into()),
+                crate::Arg::NewId(ping.id().into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
             self.0.request(3, args);
 
-            (super::pingpong::Pingpong(crate::Object::new(
-                self.0.backend_weak().clone(),
-                ping,
-                false,
-            )))
+            (super::pingpong::Pingpong(ping))
         }
     }
 
@@ -699,7 +690,7 @@ pub mod callback {
     pub struct Callback(pub(crate) crate::Object);
 
     impl Callback {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -792,7 +783,7 @@ pub mod pingpong {
     pub struct Pingpong(pub(crate) crate::Object);
 
     impl Pingpong {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -898,7 +889,7 @@ pub mod seat {
     pub struct Seat(pub(crate) crate::Object);
 
     impl Seat {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -1021,19 +1012,15 @@ pub mod seat {
             let device = self
                 .0
                 .backend_weak()
-                .new_id("ei_device".to_string(), version);
+                .new_object("ei_device".to_string(), version);
             let args = &[
-                crate::Arg::NewId(device.into()),
+                crate::Arg::NewId(device.id().into()),
                 crate::Arg::Uint32(version.into()),
             ];
 
             self.0.request(4, args);
 
-            (super::device::Device(crate::Object::new(
-                self.0.backend_weak().clone(),
-                device,
-                false,
-            )))
+            (super::device::Device(device))
         }
     }
 
@@ -1135,7 +1122,7 @@ pub mod device {
     pub struct Device(pub(crate) crate::Object);
 
     impl Device {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -1309,16 +1296,16 @@ pub mod device {
             let object = self
                 .0
                 .backend_weak()
-                .new_id(InterfaceName::NAME.to_string(), version);
+                .new_object(InterfaceName::NAME.to_string(), version);
             let args = &[
-                crate::Arg::NewId(object.into()),
+                crate::Arg::NewId(object.id().into()),
                 crate::Arg::String(InterfaceName::NAME),
                 crate::Arg::Uint32(version.into()),
             ];
 
             self.0.request(5, args);
 
-            (crate::Object::new(self.0.backend_weak().clone(), object, false).downcast_unchecked())
+            (object.downcast_unchecked())
         }
 
         /**
@@ -1669,7 +1656,7 @@ pub mod pointer {
     pub struct Pointer(pub(crate) crate::Object);
 
     impl Pointer {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -1822,7 +1809,7 @@ pub mod pointer_absolute {
     pub struct PointerAbsolute(pub(crate) crate::Object);
 
     impl PointerAbsolute {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -1977,7 +1964,7 @@ pub mod scroll {
     pub struct Scroll(pub(crate) crate::Object);
 
     impl Scroll {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -2240,7 +2227,7 @@ pub mod button {
     pub struct Button(pub(crate) crate::Object);
 
     impl Button {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -2439,7 +2426,7 @@ pub mod keyboard {
     pub struct Keyboard(pub(crate) crate::Object);
 
     impl Keyboard {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -2747,7 +2734,7 @@ pub mod touchscreen {
     pub struct Touchscreen(pub(crate) crate::Object);
 
     impl Touchscreen {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -3023,58 +3010,57 @@ impl Request {
     }
 
     pub(crate) fn parse(
-        id: u64,
-        interface: &str,
+        object: crate::Object,
         operand: u32,
         bytes: &mut crate::ByteStream,
     ) -> Result<Self, crate::ParseError> {
-        match interface {
+        match object.interface() {
             "ei_handshake" => Ok(Self::Handshake(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 handshake::Request::parse(operand, bytes)?,
             )),
             "ei_connection" => Ok(Self::Connection(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 connection::Request::parse(operand, bytes)?,
             )),
             "ei_callback" => Ok(Self::Callback(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 callback::Request::parse(operand, bytes)?,
             )),
             "ei_pingpong" => Ok(Self::Pingpong(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 pingpong::Request::parse(operand, bytes)?,
             )),
             "ei_seat" => Ok(Self::Seat(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 seat::Request::parse(operand, bytes)?,
             )),
             "ei_device" => Ok(Self::Device(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 device::Request::parse(operand, bytes)?,
             )),
             "ei_pointer" => Ok(Self::Pointer(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 pointer::Request::parse(operand, bytes)?,
             )),
             "ei_pointer_absolute" => Ok(Self::PointerAbsolute(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 pointer_absolute::Request::parse(operand, bytes)?,
             )),
             "ei_scroll" => Ok(Self::Scroll(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 scroll::Request::parse(operand, bytes)?,
             )),
             "ei_button" => Ok(Self::Button(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 button::Request::parse(operand, bytes)?,
             )),
             "ei_keyboard" => Ok(Self::Keyboard(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 keyboard::Request::parse(operand, bytes)?,
             )),
             "ei_touchscreen" => Ok(Self::Touchscreen(
-                crate::Object::new(bytes.backend.downgrade(), id, false).downcast_unchecked(),
+                object.downcast_unchecked(),
                 touchscreen::Request::parse(operand, bytes)?,
             )),
             _ => Err(crate::ParseError::InvalidInterface),

@@ -202,7 +202,7 @@ impl State {
                         return calloop::PostAction::Remove;
                     }
                     eis::connection::Request::Sync { callback } => {
-                        if callback.version() != Some(1) {
+                        if callback.version() != 1 {
                             return context_state.protocol_error("Invalid protocol object version");
                         }
                         callback.done(0);

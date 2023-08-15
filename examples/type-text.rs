@@ -116,9 +116,8 @@ impl State {
                             data.device_type = Some(device_type);
                         }
                         ei::device::Event::Interface { object } => {
-                            if let Some(interface) = object.interface() {
-                                data.interfaces.insert(interface, object);
-                            }
+                            data.interfaces
+                                .insert(object.interface().to_string(), object);
                         }
                         ei::device::Event::Done => {}
                         _ => {}

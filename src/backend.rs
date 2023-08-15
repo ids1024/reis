@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 
-use crate::{ei, eis, util, Arg, ByteStream, Header};
+use crate::{ei, eis, util, Arg, ByteStream, Header, Object};
 
 #[derive(Debug, Default)]
 struct Buffer {
@@ -36,7 +36,7 @@ impl Buffer {
 struct BackendState {
     next_id: u64,
     next_peer_id: u64,
-    objects: HashMap<u64, (String, u32)>,
+    objects: HashMap<u64, Object>,
 }
 
 #[derive(Debug)]
@@ -61,12 +61,12 @@ impl BackendWeak {
         self.0.upgrade().map(Backend)
     }
 
-    pub fn new_id(&self, interface: String, version: u32) -> u64 {
+    pub fn new_object(&self, interface: String, version: u32) -> Object {
         if let Some(backend) = self.upgrade() {
-            backend.new_id(interface, version)
+            backend.new_object(interface, version)
         } else {
             // If the backend is destroyed, object will be inert and id doesn't matter
-            0
+            Object::for_new_id(self.clone(), u64::MAX, false, interface, version)
         }
     }
 
@@ -105,20 +105,27 @@ impl Backend {
         socket.set_nonblocking(true)?;
         let next_id = if client { 1 } else { 0xff00000000000000 };
         let next_peer_id = if client { 0xff00000000000000 } else { 1 };
-        let mut objects = HashMap::new();
-        objects.insert(0, ("ei_handshake".to_string(), 1));
-        Ok(Self(Arc::new(BackendInner {
+        let backend = Self(Arc::new(BackendInner {
             socket,
             client,
             state: Mutex::new(BackendState {
                 next_id,
                 next_peer_id,
-                objects,
+                objects: HashMap::new(),
             }),
             read: Mutex::new(Buffer::default()),
             write: Mutex::new(Buffer::default()),
             debug: is_reis_debug(),
-        })))
+        }));
+        let handshake = Object::for_new_id(
+            backend.downgrade(),
+            0,
+            client,
+            "ei_handshake".to_string(),
+            1,
+        );
+        backend.0.state.lock().unwrap().objects.insert(0, handshake);
+        Ok(backend)
     }
 
     pub(crate) fn downgrade(&self) -> BackendWeak {
@@ -155,7 +162,7 @@ impl Backend {
 
     pub(crate) fn pending<T: crate::MessageEnum>(
         &self,
-        parse: fn(u64, &str, u32, &mut crate::ByteStream) -> Result<T, crate::ParseError>,
+        parse: fn(Object, u32, &mut crate::ByteStream) -> Result<T, crate::ParseError>,
     ) -> Option<PendingRequestResult<T>> {
         let mut read = self.0.read.lock().unwrap();
         if read.buf.len() >= 16 {
@@ -169,7 +176,7 @@ impl Backend {
                     "header length < 16".to_string(),
                 ));
             }
-            if let Some((interface, _version)) = self.object_interface(header.object_id) {
+            if let Some(object) = self.object_for_id(header.object_id) {
                 let read = &mut *read;
                 read.buf.drain(..16); // Remove header
                 let mut bytes = ByteStream {
@@ -177,7 +184,7 @@ impl Backend {
                     bytes: read.buf.drain(..header.length as usize - 16),
                     fds: &mut read.fds,
                 };
-                let request = parse(header.object_id, &interface, header.opcode, &mut bytes);
+                let request = parse(object, header.opcode, &mut bytes);
                 if bytes.bytes.len() != 0 {
                     return Some(PendingRequestResult::ProtocolError(
                         "message length doesn't match header".to_string(),
@@ -205,27 +212,15 @@ impl Backend {
         }
     }
 
-    pub fn new_id(&self, interface: String, version: u32) -> u64 {
+    pub fn new_object(&self, interface: String, version: u32) -> Object {
         let mut state = self.0.state.lock().unwrap();
+
         let id = state.next_id;
         state.next_id += 1;
-        state.objects.insert(id, (interface, version));
-        id
-    }
 
-    fn new_peer_id(
-        &self,
-        id: u64,
-        interface: String,
-        version: u32,
-    ) -> Result<(), crate::ParseError> {
-        let mut state = self.0.state.lock().unwrap();
-        if id < state.next_peer_id || (!self.0.client && id >= 0xff00000000000000) {
-            return Err(crate::ParseError::InvalidId);
-        }
-        state.next_peer_id = id + 1;
-        state.objects.insert(id, (interface, version));
-        Ok(())
+        let object = Object::for_new_id(self.downgrade(), id, self.0.client, interface, version);
+        state.objects.insert(id, object.clone());
+        object
     }
 
     pub(crate) fn new_peer_object(
@@ -234,8 +229,17 @@ impl Backend {
         interface: String,
         version: u32,
     ) -> Result<crate::Object, crate::ParseError> {
-        self.new_peer_id(id, interface, version)?;
-        Ok(crate::Object::new(self.downgrade(), id, self.0.client))
+        let mut state = self.0.state.lock().unwrap();
+
+        if id < state.next_peer_id || (!self.0.client && id >= 0xff00000000000000) {
+            return Err(crate::ParseError::InvalidId);
+        }
+        state.next_peer_id = id + 1;
+
+        let object =
+            crate::Object::for_new_id(self.downgrade(), id, self.0.client, interface, version);
+        state.objects.insert(id, object.clone());
+        Ok(object)
     }
 
     pub(crate) fn new_peer_interface<T: crate::Interface>(
@@ -252,16 +256,13 @@ impl Backend {
         self.0.state.lock().unwrap().objects.remove(&id);
     }
 
-    // TODO avoid allocation? Would `Arc<String>` be better?
-    pub fn object_interface(&self, id: u64) -> Option<(String, u32)> {
+    pub fn object_for_id(&self, id: u64) -> Option<Object> {
         self.0.state.lock().unwrap().objects.get(&id).cloned()
     }
 
     fn print_msg(&self, object_id: u64, opcode: u32, args: &[Arg], incoming: bool) {
-        let interface = self
-            .object_interface(object_id)
-            .map(|x| x.0)
-            .unwrap_or_else(|| "UNKNOWN".to_string());
+        let object = self.object_for_id(object_id);
+        let interface = object.as_ref().map_or("UNKNOWN", |x| x.interface());
         let op_name = if self.0.client != incoming {
             eis::Request::op_name(&interface, opcode)
         } else {

@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use crate::{Backend, ConnectionReadResult, Object, PendingRequestResult};
+use crate::{Backend, ConnectionReadResult, PendingRequestResult};
 
 // Re-export generate bindings
 pub use crate::eiproto_ei::*;
@@ -52,12 +52,14 @@ impl Context {
     }
 
     pub fn handshake(&self) -> handshake::Handshake {
-        handshake::Handshake(Object::new(self.0.downgrade(), 0, true))
+        self.0.object_for_id(0).unwrap().downcast_unchecked()
     }
 
+    /*
     pub fn object_interface(&self, id: u64) -> Option<(String, u32)> {
         self.0.object_interface(id)
     }
+    */
 
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.flush()

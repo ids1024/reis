@@ -56,7 +56,7 @@ pub mod {{interface.plainname}} {
     pub struct {{interface.plainname|camel}}(pub(crate) crate::Object);
 
     impl {{interface.plainname|camel}} {
-        pub fn version(&self) -> Option<u32> {
+        pub fn version(&self) -> u32 {
             self.0.version()
         }
     }
@@ -109,9 +109,9 @@ pub mod {{interface.plainname}} {
             ) {
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' and arg.interface_arg %}
-            let {{arg.name}} = self.0.backend_weak().new_id({{arg.interface_arg.name|camel}}::NAME.to_string(), {{arg.version_arg.name}});
+            let {{arg.name}} = self.0.backend_weak().new_object({{arg.interface_arg.name|camel}}::NAME.to_string(), {{arg.version_arg.name}});
             {% elif arg.protocol_type == 'new_id' %}
-            let {{arg.name}} = self.0.backend_weak().new_id("{{arg.interface.protocol_name}}".to_string(), {{arg.version_arg.name}});
+            let {{arg.name}} = self.0.backend_weak().new_object("{{arg.interface.protocol_name}}".to_string(), {{arg.version_arg.name}});
             {% endif -%}
             {% endfor -%}
 
@@ -120,7 +120,11 @@ pub mod {{interface.plainname}} {
             {% if arg.interface_arg_for %}
                 crate::Arg::{{arg.protocol_type|camel}}({{arg.name|camel}}::NAME),
             {% else %}
-                crate::Arg::{{arg.protocol_type|camel}}({{arg.name}}.into()),
+                crate::Arg::{{arg.protocol_type|camel}}({{arg.name}}
+                {% if arg.protocol_type == 'new_id' %}
+                .id()
+                {% endif %}
+                .into()),
             {% endif %}
             {% endfor -%}
             ];
@@ -134,22 +138,9 @@ pub mod {{interface.plainname}} {
             {%- for arg in outgoing.arguments %}
             {% if arg.protocol_type == 'new_id' %}
             {% if arg.interface %}
-                {{arg_type(arg, true, false)}}(crate::Object::new(
-                    self.0.backend_weak().clone(), {{arg.name}},
-                    {% if extra.eis %}
-                    false
-                    {% else %}
-                    true
-                    {% endif %}
-                    ))
+                {{arg_type(arg, true, false)}}({{arg.name}})
             {% elif arg.interface_arg %}
-                crate::Object::new(self.0.backend_weak().clone(), {{arg.name}},
-                {% if extra.eis %}
-                false
-                {% else %}
-                true
-                {% endif %}
-                ).downcast_unchecked()
+                {{arg.name}}.downcast_unchecked()
             {% else -%}
                 unreachable
             {% endif -%}
@@ -310,17 +301,11 @@ impl {{incoming_enum()}} {
         }
     }
 
-    pub(crate) fn parse(id: u64, interface: &str, operand: u32, bytes: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
-        match interface {
+    pub(crate) fn parse(object: crate::Object, operand: u32, bytes: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+        match object.interface() {
             {% for interface in interfaces %}
                 "{{interface.protocol_name}}" => Ok(Self::{{interface.plainname|camel}}(
-                    crate::Object::new(bytes.backend.downgrade(), id,
-                        {% if extra.eis %}
-                        false
-                        {% else %}
-                        true
-                        {% endif %}
-                    ).downcast_unchecked(), 
+                    object.downcast_unchecked(), 
                     {{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)
                 ),
             {% endfor %}

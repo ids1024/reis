@@ -1,18 +1,22 @@
-use std::{fmt, hash};
+use std::{fmt, hash, sync::Arc};
 
 use crate::{backend::BackendWeak, Arg, Backend, Interface};
 
 #[derive(Clone)]
-pub struct Object {
+pub struct Object(Arc<ObjectInner>);
+
+struct ObjectInner {
     // TODO use weak, like wayland-rs?
     backend: BackendWeak,
     client_side: bool,
     id: u64,
+    interface: String,
+    version: u32,
 }
 
 impl PartialEq for Object {
     fn eq(&self, rhs: &Self) -> bool {
-        self.id == rhs.id
+        self.0.id == rhs.0.id
     }
 }
 
@@ -20,50 +24,58 @@ impl Eq for Object {}
 
 impl hash::Hash for Object {
     fn hash<H: hash::Hasher>(&self, hasher: &mut H) {
-        self.id.hash(hasher)
+        self.0.id.hash(hasher)
     }
 }
 
 impl fmt::Debug for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Object(_, {})", self.id)
+        write!(f, "Object(_, {})", self.id())
     }
 }
 
 impl Object {
-    pub(crate) fn new(backend: BackendWeak, id: u64, client_side: bool) -> Self {
-        Self {
+    // Should only be called by `Backend`
+    // Other references are then cloned from the version stored there
+    pub(crate) fn for_new_id(
+        backend: BackendWeak,
+        id: u64,
+        client_side: bool,
+        interface: String,
+        version: u32,
+    ) -> Self {
+        Self(Arc::new(ObjectInner {
             backend,
             id,
             client_side,
-        }
+            interface,
+            version,
+        }))
     }
 
     pub fn backend(&self) -> Option<Backend> {
-        self.backend.upgrade()
+        self.0.backend.upgrade()
     }
 
     pub(crate) fn backend_weak(&self) -> &BackendWeak {
-        &self.backend
+        &self.0.backend
     }
 
     pub fn id(&self) -> u64 {
-        self.id
+        self.0.id
     }
 
-    // XXX option?
-    pub fn interface(&self) -> Option<String> {
-        None
+    pub fn interface(&self) -> &str {
+        &self.0.interface
     }
 
-    // XXX option?
-    pub fn version(&self) -> Option<u32> {
-        None
+    pub fn version(&self) -> u32 {
+        self.0.version
     }
 
     pub fn request(&self, opcode: u32, args: &[Arg]) {
         if let Some(backend) = self.backend() {
-            backend.request(self.id, opcode, args);
+            backend.request(self.0.id, opcode, args);
         }
     }
 
@@ -72,12 +84,11 @@ impl Object {
     }
 
     pub(crate) fn as_arg(&self) -> crate::Arg<'_> {
-        crate::Arg::Id(self.id)
+        crate::Arg::Id(self.0.id)
     }
 
     pub fn downcast<T: Interface>(self) -> Option<T> {
-        let (interface, _version) = self.backend().and_then(|x| x.object_interface(self.id))?;
-        if (self.client_side, interface.as_str()) == (T::CLIENT_SIDE, T::NAME) {
+        if (self.0.client_side, self.interface()) == (T::CLIENT_SIDE, T::NAME) {
             Some(self.downcast_unchecked())
         } else {
             None
