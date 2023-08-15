@@ -93,6 +93,9 @@ impl State {
                     ei::connection::Event::Seat { seat } => {
                         self.seats.insert(seat, Default::default());
                     }
+                    ei::connection::Event::Ping { ping } => {
+                        ping.done(0);
+                    }
                     _ => {}
                 },
                 ei::Event::Seat(seat, request) => {
