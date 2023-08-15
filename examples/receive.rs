@@ -12,6 +12,9 @@ static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     m.insert("ei_device", 1);
     m.insert("ei_pingpong", 1);
     m.insert("ei_keyboard", 1);
+    m.insert("ei_pointer", 1);
+    m.insert("ei_scroll", 1);
+    m.insert("ei_touchscreen", 1);
     m
 });
 
@@ -72,8 +75,8 @@ impl State {
                 ei::Event::Handshake(handshake, request) => match request {
                     ei::handshake::Event::HandshakeVersion { version: _ } => {
                         handshake.handshake_version(1);
-                        handshake.name("type-text-example");
-                        handshake.context_type(ei::handshake::ContextType::Sender);
+                        handshake.name("receive-example");
+                        handshake.context_type(ei::handshake::ContextType::Receiver);
                         for (interface, version) in INTERFACES.iter() {
                             handshake.interface_version(interface, *version);
                         }
@@ -108,8 +111,8 @@ impl State {
                             data.capabilities.insert(interface, mask);
                         }
                         ei::seat::Event::Done => {
-                            seat.bind(*data.capabilities.get("ei_keyboard").unwrap());
-                            // XXX
+                            let caps = data.capabilities.values().fold(0, |a, b| a | b);
+                            seat.bind(caps);
                         }
                         ei::seat::Event::Device { device } => {
                             self.devices.insert(device, Default::default());
@@ -130,38 +133,7 @@ impl State {
                             data.interfaces
                                 .insert(object.interface().to_string(), object);
                         }
-                        ei::device::Event::Done => {
-                            if let Some(keyboard) = data.interface::<ei::Keyboard>() {
-                                let context = xkb::Context::new(0);
-                                let keymap =
-                                    xkb::Keymap::new_from_names(&context, "", "", "", "", None, 0)
-                                        .unwrap();
-                                let s = "Hello world!";
-                                for c in s.chars() {
-                                    let keysym = xkb::Keysym::from_char(c);
-                                    let mut keycode = None;
-                                    'outer: for i in
-                                        keymap.min_keycode().raw()..keymap.max_keycode().raw()
-                                    {
-                                        for j in 0..=1 {
-                                            let syms = keymap.key_get_syms_by_level(
-                                                xkb::Keycode::new(i),
-                                                0,
-                                                j,
-                                            );
-                                            if syms.contains(&keysym) {
-                                                keycode = Some(i);
-                                                break 'outer;
-                                            }
-                                        }
-                                    }
-                                    let keycode = keycode.unwrap();
-                                    keyboard.key(keycode, ei::keyboard::KeyState::Press);
-                                    keyboard.key(keycode, ei::keyboard::KeyState::Released);
-                                }
-                                self.running = false;
-                            }
-                        }
+                        ei::device::Event::Done => {}
                         ei::device::Event::Resumed { serial } => {}
                         _ => {}
                     }
@@ -187,6 +159,15 @@ impl State {
                             }
                             .unwrap()
                             .unwrap();
+                        }
+                        ei::keyboard::Event::Key {
+                            key, state
+                        } => {
+                            println!("Key: {key}");
+                        }
+                        ei::keyboard::Event::Modifiers {
+                            serial, depressed, locked, latched, group
+                        } => {
                         }
                         _ => {}
                     }
