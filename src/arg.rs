@@ -148,6 +148,9 @@ impl OwnedArg for OwnedFd {
 impl OwnedArg for String {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         let mut len = u32::parse(buf)?;
+        if len == 0 {
+            return Ok(String::new());
+        }
         let bytes = buf.read_n(len as usize - 1)?; // Exclude NUL
         let string = String::from_utf8(bytes.collect())?;
         buf.read_n(1)?.next(); // NUL
