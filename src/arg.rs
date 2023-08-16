@@ -133,10 +133,8 @@ impl OwnedArg for f32 {
     }
 }
 
-// XXX how are fds grouped in stream?
 impl OwnedArg for OwnedFd {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
-        // XXX error?
         buf.read_fd()
     }
 
