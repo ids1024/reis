@@ -25,6 +25,9 @@ mod object;
 pub use object::Object;
 mod util;
 
+#[cfg(feature = "tokio")]
+pub mod tokio;
+
 mod private {
     pub trait Sealed {}
 }

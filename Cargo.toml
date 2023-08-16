@@ -10,9 +10,19 @@ edition = "2021"
 [dependencies]
 # calloop = { version = "0.10.5", optional = true } # TODO calloop source
 rustix = { version = "0.38.3", features = ["fs", "net"] }
-
+futures-core = { version = "0.3.28", optional = true }
+tokio = { version = "1.31.0", features = ["net"], optional = true }
 
 [dev-dependencies]
 calloop = { version = "0.10.5" }
 once_cell = "1.17.1"
 xkbcommon = "0.6.0"
+tokio = { version = "1.31.0", features = ["rt", "macros"] }
+futures = "0.3.28"
+
+[features]
+tokio = ["dep:tokio", "futures-core"]
+
+[[example]]
+name = "receive"
+required-features = ["tokio"]
