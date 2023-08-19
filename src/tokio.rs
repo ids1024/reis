@@ -44,12 +44,8 @@ impl Stream for EiEventStream {
                 }
             };
             match guard.get_inner().read() {
-                Ok(res) if res.is_eof() => {
-                    return Poll::Ready(None);
-                }
-                Err(err) => {
-                    return Poll::Ready(Some(Err(err)));
-                }
+                Ok(res) if res.is_eof() => Poll::Ready(None),
+                Err(err) => Poll::Ready(Some(Err(err))),
                 Ok(_) => {
                     // `Backend::read()` reads until `WouldBlock`, EOF, or error
                     guard.clear_ready();

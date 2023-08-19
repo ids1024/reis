@@ -2,7 +2,8 @@
     unused_parens,
     clippy::useless_conversion,
     clippy::double_parens,
-    clippy::match_single_binding
+    clippy::match_single_binding,
+    clippy::unused_unit
 )]
 
 // GENERATED FILE

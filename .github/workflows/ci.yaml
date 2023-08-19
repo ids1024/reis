@@ -15,4 +15,4 @@ jobs:
         components: clippy, rustfmt
     - run: cargo fmt --all -- --check
     - run: cargo clippy --all-features -- -Dwarnings
-    - run: cargo build --all-features
+    - run: cargo build --all-features --examples

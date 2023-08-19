@@ -36,6 +36,7 @@ impl Listener {
         } else {
             return Ok(None);
         };
+        #[allow(clippy::never_loop)] // On 1.65 not recognzing continue in let-else
         for i in 1..33 {
             let lock_path = xdg_dir.join(format!("eis-{i}.lock"));
             let Some(lock_file) = util::LockFile::new(lock_path)? else {

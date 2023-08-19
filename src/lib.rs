@@ -63,8 +63,8 @@ impl Header {
         self.object_id
             .to_ne_bytes()
             .into_iter()
-            .chain(self.length.to_ne_bytes().into_iter())
-            .chain(self.opcode.to_ne_bytes().into_iter())
+            .chain(self.length.to_ne_bytes())
+            .chain(self.opcode.to_ne_bytes())
     }
 }
 
