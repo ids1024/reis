@@ -7,6 +7,11 @@ use std::{
     collections::HashMap,
     io,
     os::unix::io::{AsRawFd, RawFd},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
 };
 
 static SERVER_INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
@@ -282,6 +287,13 @@ fn main() {
         })
         .unwrap();
 
+    let terminate = Arc::new(AtomicBool::new(false));
+    signal_hook::flag::register(signal_hook::consts::SIGINT, terminate.clone()).unwrap();
+
     let mut state = State { handle };
-    event_loop.run(None, &mut state, |_| {}).unwrap();
+    while !terminate.load(Ordering::Relaxed) {
+        event_loop
+            .dispatch(Duration::from_millis(100), &mut state)
+            .unwrap();
+    }
 }
