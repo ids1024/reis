@@ -1170,7 +1170,7 @@ pub mod device {
 
     impl crate::Interface for Device {
         const NAME: &'static str = "ei_device";
-        const VERSION: u32 = 1;
+        const VERSION: u32 = 2;
         const CLIENT_SIDE: bool = true;
         type Incoming = Event;
 
@@ -1544,6 +1544,27 @@ pub mod device {
             /** timestamp in microseconds */
             timestamp: u64,
         },
+        /**
+        Notifies the client that the region specified in the next `ei_device.region`
+        event is to be assigned the given mapping_id.
+
+        This ID can be used by the client to identify an external resource that has a
+        relationship with this region.
+        For example the client may receive a data stream with the video
+        data that this region represents. By attaching the same identifier to the data
+        stream and this region the EIS implementation can inform the client
+        that the video data stream and the region represent paired data.
+
+        This event is optional and sent immediately after object creation but before
+        the corresponding `ei_device.region` event. Where a device has multiple regions,
+        this event may be sent zero or one time for each region.
+        It is a protocol violation to send this event after the `ei_device.done` event or
+        to send this event without a corresponding following `ei_device.region` event.
+         */
+        RegionMappingId {
+            /** region mapping id */
+            mapping_id: String,
+        },
     }
 
     impl Event {
@@ -1561,6 +1582,7 @@ pub mod device {
                 9 => Some("start_emulating"),
                 10 => Some("stop_emulating"),
                 11 => Some("frame"),
+                12 => Some("region_mapping_id"),
                 _ => None,
             }
         }
@@ -1647,6 +1669,11 @@ pub mod device {
 
                     Ok(Self::Frame { serial, timestamp })
                 }
+                12 => {
+                    let mapping_id = _bytes.read_arg()?;
+
+                    Ok(Self::RegionMappingId { mapping_id })
+                }
                 opcode => Err(crate::ParseError::InvalidOpcode("device", opcode)),
             }
         }
@@ -1708,6 +1735,9 @@ pub mod device {
                 Self::Frame { serial, timestamp } => {
                     args.push(serial.as_arg());
                     args.push(timestamp.as_arg());
+                }
+                Self::RegionMappingId { mapping_id } => {
+                    args.push(mapping_id.as_arg());
                 }
                 _ => unreachable!(),
             }

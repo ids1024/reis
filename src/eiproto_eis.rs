@@ -1132,7 +1132,7 @@ pub mod device {
 
     impl crate::Interface for Device {
         const NAME: &'static str = "ei_device";
-        const VERSION: u32 = 1;
+        const VERSION: u32 = 2;
         const CLIENT_SIDE: bool = false;
         type Incoming = Request;
 
@@ -1419,6 +1419,31 @@ pub mod device {
             ];
 
             self.0.request(11, args);
+
+            ()
+        }
+
+        /**
+        Notifies the client that the region specified in the next ei_device.region
+        event is to be assigned the given mapping_id.
+
+        This ID can be used by the client to identify an external resource that has a
+        relationship with this region.
+        For example the client may receive a data stream with the video
+        data that this region represents. By attaching the same identifier to the data
+        stream and this region the EIS implementation can inform the client
+        that the video data stream and the region represent paired data.
+
+        This event is optional and sent immediately after object creation but before
+        the corresponding ei_device.region event. Where a device has multiple regions,
+        this event may be sent zero or one time for each region.
+        It is a protocol violation to send this event after the ei_device.done event or
+        to send this event without a corresponding following ei_device.region event.
+         */
+        pub fn region_mapping_id(&self, mapping_id: &str) -> () {
+            let args = &[crate::Arg::String(mapping_id.into())];
+
+            self.0.request(12, args);
 
             ()
         }
