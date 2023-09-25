@@ -212,7 +212,7 @@ fn main() {
     let context_source = Generic::new(context, calloop::Interest::READ, calloop::Mode::Level);
     handle
         .insert_source(context_source, |_event, context, state: &mut State| {
-            state.handle_listener_readable(context)
+            state.handle_listener_readable(unsafe { context.get_mut() })
         })
         .unwrap();
 

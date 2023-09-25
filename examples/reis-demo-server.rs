@@ -6,7 +6,7 @@ use reis::{eis, PendingRequestResult};
 use std::{
     collections::HashMap,
     io,
-    os::unix::io::{AsRawFd, RawFd},
+    os::unix::io::{AsFd, BorrowedFd},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -69,9 +69,9 @@ impl ContextState {
     }
 }
 
-impl AsRawFd for ContextState {
-    fn as_raw_fd(&self) -> RawFd {
-        self.context.as_raw_fd()
+impl AsFd for ContextState {
+    fn as_fd(&self) -> BorrowedFd<'_> {
+        self.context.as_fd()
     }
 }
 
@@ -104,7 +104,8 @@ impl State {
             let source = Generic::new(context_state, calloop::Interest::READ, calloop::Mode::Level);
             self.handle
                 .insert_source(source, |_event, context_state, state| {
-                    Ok(state.handle_connection_readable(context_state))
+                    // XXX How can calloop avoid unsafe here?
+                    Ok(state.handle_connection_readable(unsafe { context_state.get_mut() }))
                 })
                 .unwrap();
         }
@@ -283,7 +284,7 @@ fn main() {
     let listener_source = Generic::new(listener, calloop::Interest::READ, calloop::Mode::Level);
     handle
         .insert_source(listener_source, |_event, listener, state: &mut State| {
-            state.handle_listener_readable(listener)
+            state.handle_listener_readable(unsafe { listener.get_mut() })
         })
         .unwrap();
 
