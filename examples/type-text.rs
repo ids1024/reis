@@ -1,7 +1,7 @@
 use calloop::generic::Generic;
 use once_cell::sync::Lazy;
 use reis::{ei, PendingRequestResult};
-use std::{collections::HashMap, io, os::unix::io::AsRawFd};
+use std::{collections::HashMap, io, os::unix::io::AsFd};
 use xkbcommon::xkb;
 
 static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
@@ -179,7 +179,7 @@ impl State {
                             let keymap = unsafe {
                                 xkb::Keymap::new_from_fd(
                                     &context,
-                                    keymap.as_raw_fd(),
+                                    keymap,
                                     size as _,
                                     xkb::KEYMAP_FORMAT_TEXT_V1,
                                     0,
