@@ -127,7 +127,7 @@ impl State {
                         let keymap = unsafe {
                             xkb::Keymap::new_from_fd(
                                 &context,
-                                keymap.as_raw_fd(),
+                                keymap,
                                 size as _,
                                 xkb::KEYMAP_FORMAT_TEXT_V1,
                                 0,
