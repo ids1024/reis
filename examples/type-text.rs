@@ -1,7 +1,12 @@
+use ashpd::desktop::remote_desktop::{DeviceType, RemoteDesktop};
 use calloop::generic::Generic;
 use once_cell::sync::Lazy;
 use reis::{ei, PendingRequestResult};
-use std::{collections::HashMap, io, os::unix::io::AsFd};
+use std::{
+    collections::HashMap,
+    io,
+    os::unix::{io::FromRawFd, net::UnixStream},
+};
 use xkbcommon::xkb;
 
 static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
@@ -15,7 +20,7 @@ static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     m
 });
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct SeatData {
     name: Option<String>,
     capabilities: HashMap<String, u64>,
@@ -201,11 +206,33 @@ impl State {
     }
 }
 
+async fn open_connection() -> ei::Context {
+    if let Some(context) = ei::Context::connect_to_env().unwrap() {
+        context
+    } else {
+        eprintln!("Unable to find ei socket. Trying xdg desktop portal.");
+        let remote_desktop = RemoteDesktop::new().await.unwrap();
+        let session = remote_desktop.create_session().await.unwrap();
+        remote_desktop
+            .select_devices(&session, DeviceType::Keyboard.into())
+            .await
+            .unwrap();
+        // XXX window identifier?
+        remote_desktop
+            .start(&session, &ashpd::WindowIdentifier::from_xid(0))
+            .await
+            .unwrap();
+        let raw_fd = remote_desktop.connect_to_eis(&session).await.unwrap();
+        let stream = unsafe { UnixStream::from_raw_fd(raw_fd) };
+        ei::Context::new(stream).unwrap()
+    }
+}
+
 fn main() {
     let mut event_loop = calloop::EventLoop::try_new().unwrap();
     let handle = event_loop.handle();
 
-    let context = ei::Context::connect_to_env().unwrap().unwrap();
+    let context = futures_executor::block_on(open_connection());
     // XXX wait for server version?
     let handshake = context.handshake();
     context.flush();
