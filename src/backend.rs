@@ -88,6 +88,7 @@ pub enum ConnectionReadResult {
     EOF,
 }
 
+#[derive(Debug)]
 pub enum PendingRequestResult<T> {
     Request(T),
     ProtocolError(String),

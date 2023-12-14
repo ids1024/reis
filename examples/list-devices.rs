@@ -49,7 +49,7 @@ impl DeviceData {
 
 struct State {
     context: ei::Context,
-    connection: Option<ei::Connection>,
+    connection: ei::Connection,
     // XXX best way to handle data associated with object?
     seats: HashMap<ei::Seat, SeatData>,
     // XXX association with seat?
@@ -59,28 +59,7 @@ struct State {
 impl State {
     fn handle_event(&mut self, event: ei::Event) {
         match event {
-            ei::Event::Handshake(handshake, request) => match request {
-                ei::handshake::Event::HandshakeVersion { version: _ } => {
-                    handshake.handshake_version(1);
-                    handshake.name("receive-example");
-                    handshake.context_type(ei::handshake::ContextType::Receiver);
-                    for (interface, version) in INTERFACES.iter() {
-                        handshake.interface_version(interface, *version);
-                    }
-                    handshake.finish();
-                }
-                ei::handshake::Event::InterfaceVersion {
-                    name: _,
-                    version: _,
-                } => {}
-                ei::handshake::Event::Connection {
-                    connection,
-                    serial: _,
-                } => {
-                    self.connection = Some(connection);
-                }
-                _ => {}
-            },
+            ei::Event::Handshake(handshake, request) => panic!(),
             ei::Event::Connection(connection, request) => match request {
                 ei::connection::Event::Seat { seat } => {
                     self.seats.insert(seat, Default::default());
@@ -103,7 +82,7 @@ impl State {
                         let caps = data.capabilities.values().fold(0, |a, b| a | b);
                         seat.bind(caps);
                         data.done = true;
-                        self.connection.as_ref().unwrap().sync(1);
+                        self.connection.sync(1);
 
                         println!("Seat");
                         println!("    Name: {:?}", data.name);
@@ -200,14 +179,23 @@ async fn main() {
     let handshake = context.handshake();
     context.flush();
 
+    let mut events = EiEventStream::new(context.clone()).unwrap();
+    let handshake_resp = reis::tokio::ei_handshake(
+        &mut events,
+        "list-devices-example",
+        ei::handshake::ContextType::Receiver,
+        &INTERFACES,
+    )
+    .await
+    .unwrap();
+
     let mut state = State {
         context: context.clone(),
-        connection: None,
+        connection: handshake_resp.connection,
         seats: HashMap::new(),
         devices: HashMap::new(),
     };
 
-    let mut events = EiEventStream::new(context.clone()).unwrap();
     while let Some(result) = events.next().await {
         let event = match result.unwrap() {
             PendingRequestResult::Request(event) => event,

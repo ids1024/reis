@@ -1,7 +1,8 @@
 // TODO: Handle writable fd too?
 
-use futures_core::stream::Stream;
+use futures::stream::{Stream, StreamExt};
 use std::{
+    collections::HashMap,
     io,
     pin::Pin,
     task::{Context, Poll},
@@ -55,5 +56,81 @@ impl Stream for EiEventStream {
         } else {
             Poll::Pending
         }
+    }
+}
+
+pub async fn ei_handshake(
+    events: &mut EiEventStream,
+    name: &str,
+    context_type: ei::handshake::ContextType,
+    interfaces: &HashMap<&str, u32>,
+) -> Result<HandshakeResp, HandshakeError> {
+    let mut interface_versions = HashMap::new();
+
+    while let Some(result) = events.next().await {
+        dbg!(&result);
+        let (handshake, request) = match result? {
+            PendingRequestResult::Request(request) => match request {
+                ei::Event::Handshake(handshake, request) => (handshake, request),
+                _ => {
+                    return Err(HandshakeError::Protocol(
+                        "event on non-handshake object during handshake".to_string(),
+                    ));
+                }
+            },
+            PendingRequestResult::ProtocolError(protocol_error) => {
+                return Err(HandshakeError::Protocol(protocol_error));
+            }
+            PendingRequestResult::InvalidObject(invalid_object) => {
+                return Err(HandshakeError::Protocol(format!(
+                    "invalid object: {}",
+                    invalid_object
+                )));
+            }
+        };
+
+        match request {
+            ei::handshake::Event::HandshakeVersion { version: _ } => {
+                handshake.handshake_version(1);
+                handshake.name(name);
+                handshake.context_type(context_type);
+                for (interface, version) in interfaces.iter() {
+                    handshake.interface_version(interface, *version);
+                }
+                handshake.finish();
+
+                events.0.get_ref().flush();
+            }
+            ei::handshake::Event::InterfaceVersion { name, version } => {
+                interface_versions.insert(name, version);
+            }
+            ei::handshake::Event::Connection { connection, serial } => {
+                return Ok(HandshakeResp {
+                    connection,
+                    serial,
+                    interface_versions,
+                });
+            }
+        }
+    }
+    Err(HandshakeError::UnexpectedEof)
+}
+
+pub struct HandshakeResp {
+    pub connection: ei::Connection,
+    pub serial: u32,
+    pub interface_versions: HashMap<String, u32>,
+}
+
+#[derive(Debug)]
+pub enum HandshakeError {
+    Io(io::Error),
+    UnexpectedEof,
+    Protocol(String),
+}
+
+impl From<io::Error> for HandshakeError {
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
     }
 }
