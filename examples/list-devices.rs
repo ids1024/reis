@@ -136,7 +136,7 @@ impl State {
             _ => {}
         }
 
-        self.context.flush();
+        let _ = self.context.flush();
     }
 
     fn print_and_exit_if_done(&self) {
@@ -175,9 +175,6 @@ async fn open_connection() -> ei::Context {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let context = open_connection().await;
-    // XXX wait for server version?
-    let handshake = context.handshake();
-    context.flush();
 
     let mut events = EiEventStream::new(context.clone()).unwrap();
     let handshake_resp = reis::tokio::ei_handshake(
