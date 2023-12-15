@@ -29,3 +29,7 @@ tokio = ["dep:tokio", "futures-core"]
 [[example]]
 name = "receive"
 required-features = ["tokio"]
+
+[[example]]
+name = "list-devices"
+required-features = ["tokio"]
