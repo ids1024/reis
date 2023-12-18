@@ -1,7 +1,8 @@
+use ashpd::desktop::input_capture::{Capabilities, InputCapture};
 use futures::stream::StreamExt;
 use once_cell::sync::Lazy;
 use reis::{ei, tokio::EiEventStream, PendingRequestResult};
-use std::{collections::HashMap, os::unix::io::AsRawFd};
+use std::{collections::HashMap, os::unix::{io::{AsRawFd, FromRawFd}, net::UnixStream}};
 use xkbcommon::xkb;
 
 static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
@@ -156,9 +157,30 @@ impl State {
     }
 }
 
+async fn open_connection() -> ei::Context {
+    if let Some(context) = ei::Context::connect_to_env().unwrap() {
+        context
+    } else {
+        eprintln!("Unable to find ei socket. Trying xdg desktop portal.");
+        let input_capture = InputCapture::new().await.unwrap();
+        // XXX window identifier?
+        let session = input_capture
+            .create_session(
+                &ashpd::WindowIdentifier::from_xid(0),
+                (Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen).into(),
+            )
+            .await
+            .unwrap().0;
+        input_capture.enable(&session).await.unwrap();
+        let raw_fd = input_capture.connect_to_eis(&session).await.unwrap();
+        let stream = unsafe { UnixStream::from_raw_fd(raw_fd) };
+        ei::Context::new(stream).unwrap()
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let context = ei::Context::connect_to_env().unwrap().unwrap();
+    let context = open_connection().await;
     // XXX wait for server version?
     let handshake = context.handshake();
     context.flush();
