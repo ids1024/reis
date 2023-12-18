@@ -99,7 +99,8 @@ pub async fn ei_handshake(
                 }
                 handshake.finish();
 
-                events.0.get_ref().flush();
+                // TODO Handle
+                let _ = events.0.get_ref().flush();
             }
             ei::handshake::Event::InterfaceVersion { name, version } => {
                 interface_versions.insert(name, version);
