@@ -130,8 +130,8 @@ impl State {
         while let Some(result) = context_state.context.pending_request() {
             let request = match result {
                 PendingRequestResult::Request(request) => request,
-                PendingRequestResult::ProtocolError(msg) => {
-                    return context_state.protocol_error(&msg);
+                PendingRequestResult::ParseError(msg) => {
+                    return context_state.protocol_error(&format!("parse error: {}", msg));
                 }
                 PendingRequestResult::InvalidObject(object_id) => {
                     if let Some(connection) = context_state.connection_obj.as_ref() {
