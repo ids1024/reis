@@ -33,11 +33,25 @@ struct SeatData {
     capabilities: HashMap<String, u64>,
 }
 
+#[derive(Debug)]
+struct Region {
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    scale: f32,
+    mapping_id: Option<String>,
+}
+
 #[derive(Debug, Default)]
 struct DeviceData {
     name: Option<String>,
     device_type: Option<ei::device::DeviceType>,
     interfaces: HashMap<String, reis::Object>,
+    dimensions: Option<(u32, u32)>,
+    regions: Vec<Region>,
+    next_region_mapping_id: Option<String>,
+    // keymap?
 }
 
 impl DeviceData {
@@ -79,6 +93,8 @@ impl State {
                         let caps = data.capabilities.values().fold(0, |a, b| a | b);
                         seat.bind(caps);
                         println!("seat added");
+                        println!("    name: {:?}", data.name);
+                        println!("    capabilities: {:?}", data.capabilities.keys());
                     }
                     ei::seat::Event::Device { device } => {
                         self.devices.insert(device, Default::default());
@@ -99,23 +115,39 @@ impl State {
                         data.interfaces
                             .insert(object.interface().to_string(), object);
                     }
-                    ei::device::Event::Dimensions { width, height } => {}
+                    ei::device::Event::Dimensions { width, height } => {
+                        data.dimensions = Some((width, height));
+                    }
                     ei::device::Event::Region {
                         offset_x,
                         offset_y,
                         width,
                         hight,
                         scale,
-                    } => {}
+                    } => {
+                        data.regions.push(Region {
+                            x: offset_x,
+                            y: offset_y,
+                            width,
+                            height: hight,
+                            scale,
+                            mapping_id: data.next_region_mapping_id.clone(),
+                        });
+                    }
                     ei::device::Event::Done => {
                         println!("device added");
+                        println!("    name: {:?}", data.name);
+                        println!("    type: {:?}", data.device_type);
+                        println!("    dimensions: {:?}", data.dimensions);
+                        println!("    regions: {:?}", &data.regions);
+                        println!("    interfaces: {:?}", data.interfaces.keys());
                     }
                     ei::device::Event::Resumed { serial } => {}
                     ei::device::Event::Paused { serial } => {}
                     ei::device::Event::StartEmulating { serial, sequence } => {}
                     ei::device::Event::StopEmulating { serial } => {}
                     ei::device::Event::RegionMappingId { mapping_id } => {
-                        dbg!(mapping_id);
+                        data.next_region_mapping_id = Some(mapping_id);
                     }
                     ei::device::Event::Frame { serial, timestamp } => {
                         println!("device frame");
