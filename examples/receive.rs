@@ -100,6 +100,9 @@ impl State {
                     }
                     ei::device::Event::Done => {}
                     ei::device::Event::Resumed { serial } => {}
+                    ei::device::Event::Frame { serial, timestamp } => {
+                        println!("device frame");
+                    }
                     _ => {}
                 }
             }
@@ -130,7 +133,7 @@ impl State {
                         if key == 1 {
                             std::process::exit(0);
                         }
-                        println!("Key: {key}");
+                        println!("key {key} {state:?}");
                     }
                     ei::keyboard::Event::Modifiers {
                         serial,
@@ -142,6 +145,48 @@ impl State {
                     _ => {}
                 }
             }
+            ei::Event::Pointer(pointer, request) => match request {
+                ei::pointer::Event::MotionRelative { x, y } => {
+                    println!("relative motion {x}, {y}");
+                }
+                _ => {}
+            },
+            ei::Event::PointerAbsolute(pointer_absolute, request) => match request {
+                ei::pointer_absolute::Event::MotionAbsolute { x, y } => {
+                    println!("absolute motion {x}, {y}");
+                }
+                _ => {}
+            },
+            ei::Event::Scroll(scroll, request) => match request {
+                ei::scroll::Event::Scroll { x, y } => {
+                    println!("scroll {x}, {y}");
+                }
+                ei::scroll::Event::ScrollDiscrete { x, y } => {
+                    println!("scroll discrete {x}, {y}");
+                }
+                ei::scroll::Event::ScrollStop { x, y, is_cancel } => {
+                    println!("scroll stop {x}, {y}, {is_cancel}");
+                }
+                _ => {}
+            },
+            ei::Event::Button(button, request) => match request {
+                ei::button::Event::Button { button, state } => {
+                    println!("button {button} {state:?}");
+                }
+                _ => {}
+            },
+            ei::Event::Touchscreen(touchscreen, request) => match request {
+                ei::touchscreen::Event::Down { touchid, x, y } => {
+                    println!("touch down {touchid} {x} {y}");
+                }
+                ei::touchscreen::Event::Motion { touchid, x, y } => {
+                    println!("touch motion {touchid} {x} {y}");
+                }
+                ei::touchscreen::Event::Up { touchid } => {
+                    println!("touch up {touchid}");
+                }
+                _ => {}
+            },
             _ => {}
         }
 
