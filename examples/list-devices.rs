@@ -180,7 +180,7 @@ async fn main() {
     let handshake_resp = reis::tokio::ei_handshake(
         &mut events,
         "list-devices-example",
-        ei::handshake::ContextType::Receiver,
+        ei::handshake::ContextType::Sender,
         &INTERFACES,
     )
     .await

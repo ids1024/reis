@@ -1,4 +1,4 @@
-use ashpd::desktop::input_capture::{Capabilities, InputCapture};
+use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use futures::stream::StreamExt;
 use once_cell::sync::Lazy;
 use reis::{ei, tokio::EiEventStream, PendingRequestResult};
@@ -13,14 +13,16 @@ use xkbcommon::xkb;
 
 static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     let mut m = HashMap::new();
-    m.insert("ei_callback", 1);
     m.insert("ei_connection", 1);
+    m.insert("ei_callback", 1);
+    m.insert("ei_pingpong", 1);
     m.insert("ei_seat", 1);
     m.insert("ei_device", 1);
-    m.insert("ei_pingpong", 1);
-    m.insert("ei_keyboard", 1);
     m.insert("ei_pointer", 1);
+    m.insert("ei_pointer_absolute", 1);
     m.insert("ei_scroll", 1);
+    m.insert("ei_button", 1);
+    m.insert("ei_keyboard", 1);
     m.insert("ei_touchscreen", 1);
     m
 });
@@ -55,26 +57,6 @@ struct State {
 impl State {
     fn handle_event(&mut self, event: ei::Event) {
         match event {
-            ei::Event::Handshake(handshake, request) => match request {
-                ei::handshake::Event::HandshakeVersion { version: _ } => {
-                    handshake.handshake_version(1);
-                    handshake.name("receive-example");
-                    handshake.context_type(ei::handshake::ContextType::Receiver);
-                    for (interface, version) in INTERFACES.iter() {
-                        handshake.interface_version(interface, *version);
-                    }
-                    handshake.finish();
-                }
-                ei::handshake::Event::InterfaceVersion {
-                    name: _,
-                    version: _,
-                } => {}
-                ei::handshake::Event::Connection {
-                    connection: _,
-                    serial: _,
-                } => {}
-                _ => {}
-            },
             ei::Event::Connection(connection, request) => match request {
                 ei::connection::Event::Seat { seat } => {
                     self.seats.insert(seat, Default::default());
@@ -144,6 +126,10 @@ impl State {
                         .unwrap();
                     }
                     ei::keyboard::Event::Key { key, state } => {
+                        // Escape key
+                        if key == 1 {
+                            std::process::exit(0);
+                        }
                         println!("Key: {key}");
                     }
                     ei::keyboard::Event::Modifiers {
@@ -178,9 +164,37 @@ async fn open_connection() -> ei::Context {
             .await
             .unwrap()
             .0;
-        input_capture.enable(&session).await.unwrap();
         let raw_fd = input_capture.connect_to_eis(&session).await.unwrap();
         let stream = unsafe { UnixStream::from_raw_fd(raw_fd) };
+        let zones = input_capture
+            .zones(&session)
+            .await
+            .unwrap()
+            .response()
+            .unwrap();
+
+        let barriers = zones
+            .regions()
+            .iter()
+            .enumerate()
+            .map(|(n, region)| {
+                let x = region.x_offset();
+                let y = region.y_offset();
+                let w = region.width() as i32;
+                let h = region.height() as i32;
+                Barrier::new(n as u32 + 1, (x, y, x + w - 1, y))
+            })
+            .collect::<Vec<_>>();
+        let resp = input_capture
+            .set_pointer_barriers(&session, &barriers, zones.zone_set())
+            .await
+            .unwrap()
+            .response()
+            .unwrap();
+        assert_eq!(&resp.failed_barriers(), &[]);
+        eprintln!("Set capture barrier to top edge of screen.");
+        eprintln!("(When input is captured, Esc will exit.)");
+        input_capture.enable(&session).await.unwrap();
         ei::Context::new(stream).unwrap()
     }
 }
@@ -188,9 +202,15 @@ async fn open_connection() -> ei::Context {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let context = open_connection().await;
-    // XXX wait for server version?
-    let handshake = context.handshake();
-    context.flush();
+    let mut events = EiEventStream::new(context.clone()).unwrap();
+    reis::tokio::ei_handshake(
+        &mut events,
+        "receive-example",
+        ei::handshake::ContextType::Receiver,
+        &INTERFACES,
+    )
+    .await
+    .unwrap();
 
     let mut state = State {
         context: context.clone(),
@@ -198,7 +218,6 @@ async fn main() {
         devices: HashMap::new(),
     };
 
-    let mut events = EiEventStream::new(context.clone()).unwrap();
     while let Some(result) = events.next().await {
         let event = match result.unwrap() {
             PendingRequestResult::Request(event) => event,
