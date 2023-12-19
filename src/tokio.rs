@@ -68,7 +68,6 @@ pub async fn ei_handshake(
     let mut interface_versions = HashMap::new();
 
     while let Some(result) = events.next().await {
-        dbg!(&result);
         let (handshake, request) = match result? {
             PendingRequestResult::Request(request) => match request {
                 ei::Event::Handshake(handshake, request) => (handshake, request),
