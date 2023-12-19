@@ -9,7 +9,7 @@ use std::{
 };
 use tokio::io::unix::AsyncFd;
 
-use crate::{ei, PendingRequestResult};
+use crate::{ei, ParseError, PendingRequestResult};
 
 // XXX make this ei::EventStream?
 pub struct EiEventStream(AsyncFd<ei::Context>);
@@ -73,19 +73,14 @@ pub async fn ei_handshake(
             PendingRequestResult::Request(request) => match request {
                 ei::Event::Handshake(handshake, request) => (handshake, request),
                 _ => {
-                    return Err(HandshakeError::Protocol(
-                        "event on non-handshake object during handshake".to_string(),
-                    ));
+                    panic!("Event on non-handshake object during handshake. `ei_handshake` called after handshake?");
                 }
             },
-            PendingRequestResult::ProtocolError(protocol_error) => {
-                return Err(HandshakeError::Protocol(protocol_error));
+            PendingRequestResult::ParseError(parse_error) => {
+                return Err(HandshakeError::Parse(parse_error));
             }
             PendingRequestResult::InvalidObject(invalid_object) => {
-                return Err(HandshakeError::Protocol(format!(
-                    "invalid object: {}",
-                    invalid_object
-                )));
+                return Err(HandshakeError::InvalidObject(invalid_object));
             }
         };
 
@@ -127,7 +122,8 @@ pub struct HandshakeResp {
 pub enum HandshakeError {
     Io(io::Error),
     UnexpectedEof,
-    Protocol(String),
+    Parse(ParseError),
+    InvalidObject(u64),
 }
 
 impl From<io::Error> for HandshakeError {

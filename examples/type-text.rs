@@ -65,7 +65,7 @@ impl State {
         while let Some(result) = context.pending_event() {
             let request = match result {
                 PendingRequestResult::Request(request) => request,
-                PendingRequestResult::ProtocolError(msg) => {
+                PendingRequestResult::ParseError(msg) => {
                     todo!()
                 }
                 PendingRequestResult::InvalidObject(object_id) => {

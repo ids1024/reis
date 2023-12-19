@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 
-use crate::{ei, eis, util, Arg, ByteStream, Header, Object};
+use crate::{ei, eis, util, Arg, ByteStream, Header, Object, ParseError};
 
 #[derive(Debug, Default)]
 struct Buffer {
@@ -91,7 +91,7 @@ pub enum ConnectionReadResult {
 #[derive(Debug)]
 pub enum PendingRequestResult<T> {
     Request(T),
-    ProtocolError(String),
+    ParseError(ParseError),
     InvalidObject(u64),
 }
 
@@ -173,9 +173,9 @@ impl Backend {
                 return None;
             }
             if header.length < 16 {
-                return Some(PendingRequestResult::ProtocolError(
-                    "header length < 16".to_string(),
-                ));
+                return Some(PendingRequestResult::ParseError(ParseError::HeaderLength(
+                    header.length,
+                )));
             }
             if let Some(object) = self.object_for_id(header.object_id) {
                 let read = &mut *read;
@@ -187,9 +187,10 @@ impl Backend {
                 };
                 let request = parse(object, header.opcode, &mut bytes);
                 if bytes.bytes.len() != 0 {
-                    return Some(PendingRequestResult::ProtocolError(
-                        "message length doesn't match header".to_string(),
-                    ));
+                    return Some(PendingRequestResult::ParseError(ParseError::MessageLength(
+                        header.length + bytes.bytes.len() as u32,
+                        header.length,
+                    )));
                 }
 
                 Some(match request {
@@ -199,10 +200,7 @@ impl Backend {
                         }
                         PendingRequestResult::Request(request)
                     }
-                    Err(err) => PendingRequestResult::ProtocolError(format!(
-                        "failed to parse message: {:?}",
-                        err
-                    )),
+                    Err(err) => PendingRequestResult::ParseError(err),
                 })
             } else {
                 read.buf.drain(0..header.length as usize);

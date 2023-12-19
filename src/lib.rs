@@ -121,7 +121,7 @@ impl<'a> ByteStream<'a> {
 }
 
 #[derive(Debug)]
-enum ParseError {
+pub enum ParseError {
     EndOfMessage,
     Utf8(FromUtf8Error),
     InvalidId(u64),
@@ -129,6 +129,8 @@ enum ParseError {
     InvalidOpcode(&'static str, u32),
     InvalidVariant(&'static str, u32),
     InvalidInterface(String),
+    HeaderLength(u32),
+    MessageLength(u32, u32),
 }
 
 impl fmt::Display for ParseError {
@@ -145,6 +147,10 @@ impl fmt::Display for ParseError {
                 write!(f, "variant '{}' invallid for enum '{}'", var, enum_)
             }
             Self::InvalidInterface(intr) => write!(f, "unknown interface '{}'", intr),
+            Self::HeaderLength(len) => write!(f, "header length {} < 16", len),
+            Self::MessageLength(a, b) => {
+                write!(f, "message length didn't match header ({} != {})", a, b)
+            }
         }
     }
 }
