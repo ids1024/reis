@@ -17,7 +17,7 @@ static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     m.insert("ei_callback", 1);
     m.insert("ei_pingpong", 1);
     m.insert("ei_seat", 1);
-    m.insert("ei_device", 1);
+    m.insert("ei_device", 2);
     m.insert("ei_pointer", 1);
     m.insert("ei_pointer_absolute", 1);
     m.insert("ei_scroll", 1);
@@ -33,7 +33,7 @@ struct SeatData {
     capabilities: HashMap<String, u64>,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct DeviceData {
     name: Option<String>,
     device_type: Option<ei::device::DeviceType>,
@@ -78,6 +78,7 @@ impl State {
                     ei::seat::Event::Done => {
                         let caps = data.capabilities.values().fold(0, |a, b| a | b);
                         seat.bind(caps);
+                        println!("seat added");
                     }
                     ei::seat::Event::Device { device } => {
                         self.devices.insert(device, Default::default());
@@ -98,8 +99,24 @@ impl State {
                         data.interfaces
                             .insert(object.interface().to_string(), object);
                     }
-                    ei::device::Event::Done => {}
+                    ei::device::Event::Dimensions { width, height } => {}
+                    ei::device::Event::Region {
+                        offset_x,
+                        offset_y,
+                        width,
+                        hight,
+                        scale,
+                    } => {}
+                    ei::device::Event::Done => {
+                        println!("device added");
+                    }
                     ei::device::Event::Resumed { serial } => {}
+                    ei::device::Event::Paused { serial } => {}
+                    ei::device::Event::StartEmulating { serial, sequence } => {}
+                    ei::device::Event::StopEmulating { serial } => {}
+                    ei::device::Event::RegionMappingId { mapping_id } => {
+                        dbg!(mapping_id);
+                    }
                     ei::device::Event::Frame { serial, timestamp } => {
                         println!("device frame");
                     }
