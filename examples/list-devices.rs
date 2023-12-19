@@ -196,7 +196,7 @@ async fn main() {
     while let Some(result) = events.next().await {
         let event = match result.unwrap() {
             PendingRequestResult::Request(event) => event,
-            PendingRequestResult::ProtocolError(msg) => {
+            PendingRequestResult::ParseError(msg) => {
                 todo!()
             }
             PendingRequestResult::InvalidObject(object_id) => {
