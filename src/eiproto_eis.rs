@@ -3089,7 +3089,7 @@ impl Request {
                 object.downcast_unchecked(),
                 touchscreen::Request::parse(operand, bytes)?,
             )),
-            _ => Err(crate::ParseError::InvalidInterface),
+            intr => Err(crate::ParseError::InvalidInterface(intr.to_owned())),
         }
     }
 }

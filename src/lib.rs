@@ -6,7 +6,7 @@
 
 use std::{
     collections::{self, VecDeque},
-    env, iter,
+    env, fmt, iter,
     os::unix::io::OwnedFd,
     path::PathBuf,
     string::FromUtf8Error,
@@ -120,22 +120,39 @@ impl<'a> ByteStream<'a> {
     }
 }
 
-// TODO add detail, format for display
 #[derive(Debug)]
 enum ParseError {
     EndOfMessage,
-    Utf8,
-    InvalidId,
+    Utf8(FromUtf8Error),
+    InvalidId(u64),
     NoFd,
     InvalidOpcode(&'static str, u32),
     InvalidVariant(&'static str, u32),
-    InvalidInterface,
-    #[allow(dead_code)] // TODO
-    NoObject,
+    InvalidInterface(String),
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::EndOfMessage => write!(f, "found end of message while parsing argument"),
+            Self::Utf8(e) => write!(f, "invalid UTF-8 string in message: {}", e),
+            Self::InvalidId(id) => write!(f, "new object id '{}' invalid", id),
+            Self::NoFd => write!(f, "expected fd"),
+            Self::InvalidOpcode(intr, op) => {
+                write!(f, "opcode '{}' invallid for interface '{}'", op, intr)
+            }
+            Self::InvalidVariant(enum_, var) => {
+                write!(f, "variant '{}' invallid for enum '{}'", var, enum_)
+            }
+            Self::InvalidInterface(intr) => write!(f, "unknown interface '{}'", intr),
+        }
+    }
 }
 
 impl From<FromUtf8Error> for ParseError {
-    fn from(_err: FromUtf8Error) -> Self {
-        Self::Utf8
+    fn from(err: FromUtf8Error) -> Self {
+        Self::Utf8(err)
     }
 }
+
+impl std::error::Error for ParseError {}

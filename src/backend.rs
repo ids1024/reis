@@ -233,7 +233,7 @@ impl Backend {
         let mut state = self.0.state.lock().unwrap();
 
         if id < state.next_peer_id || (!self.0.client && id >= 0xff00000000000000) {
-            return Err(crate::ParseError::InvalidId);
+            return Err(crate::ParseError::InvalidId(id));
         }
         state.next_peer_id = id + 1;
 

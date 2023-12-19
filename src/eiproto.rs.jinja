@@ -309,7 +309,7 @@ impl {{incoming_enum()}} {
                     {{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)
                 ),
             {% endfor %}
-            _ => Err(crate::ParseError::InvalidInterface),
+            intr => Err(crate::ParseError::InvalidInterface(intr.to_owned())),
         }
     }
 }

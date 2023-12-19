@@ -2,7 +2,13 @@ use ashpd::desktop::input_capture::{Capabilities, InputCapture};
 use futures::stream::StreamExt;
 use once_cell::sync::Lazy;
 use reis::{ei, tokio::EiEventStream, PendingRequestResult};
-use std::{collections::HashMap, os::unix::{io::{AsRawFd, FromRawFd}, net::UnixStream}};
+use std::{
+    collections::HashMap,
+    os::unix::{
+        io::{AsRawFd, FromRawFd},
+        net::UnixStream,
+    },
+};
 use xkbcommon::xkb;
 
 static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
@@ -170,7 +176,8 @@ async fn open_connection() -> ei::Context {
                 (Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen).into(),
             )
             .await
-            .unwrap().0;
+            .unwrap()
+            .0;
         input_capture.enable(&session).await.unwrap();
         let raw_fd = input_capture.connect_to_eis(&session).await.unwrap();
         let stream = unsafe { UnixStream::from_raw_fd(raw_fd) };

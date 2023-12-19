@@ -3252,7 +3252,7 @@ impl Event {
                 object.downcast_unchecked(),
                 touchscreen::Event::parse(operand, bytes)?,
             )),
-            _ => Err(crate::ParseError::InvalidInterface),
+            intr => Err(crate::ParseError::InvalidInterface(intr.to_owned())),
         }
     }
 }
