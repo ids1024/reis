@@ -144,15 +144,23 @@ impl State {
                             if let Some(keyboard) = data.interface::<ei::Keyboard>() {
                                 device.start_emulating(self.sequence, self.last_serial);
                                 self.sequence += 1;
-                                let context = xkb::Context::new(0);
                                 let keymap = self.keymap.as_ref().unwrap();
+                                let all_keycodes =
+                                    keymap.min_keycode().raw()..keymap.max_keycode().raw();
+                                let shift_keycode = all_keycodes
+                                    .clone()
+                                    .find(|i| {
+                                        keymap
+                                            .key_get_syms_by_level(xkb::Keycode::new(*i), 0, 0)
+                                            .contains(&xkb::Keysym::Shift_L)
+                                    })
+                                    .unwrap();
                                 let s = "Hello world!";
                                 for c in s.chars() {
                                     let keysym = xkb::Keysym::from_char(c);
                                     let mut keycode = None;
-                                    'outer: for i in
-                                        keymap.min_keycode().raw()..keymap.max_keycode().raw()
-                                    {
+                                    let mut shift = false;
+                                    'outer: for i in all_keycodes.clone() {
                                         for j in 0..=1 {
                                             let syms = keymap.key_get_syms_by_level(
                                                 xkb::Keycode::new(i),
@@ -161,13 +169,24 @@ impl State {
                                             );
                                             if syms.contains(&keysym) {
                                                 keycode = Some(i);
+                                                shift = j == 1;
                                                 break 'outer;
                                             }
                                         }
                                     }
                                     let keycode = keycode.unwrap();
+                                    if shift {
+                                        keyboard
+                                            .key(shift_keycode - 8, ei::keyboard::KeyState::Press);
+                                    }
                                     keyboard.key(keycode - 8, ei::keyboard::KeyState::Press);
                                     keyboard.key(keycode - 8, ei::keyboard::KeyState::Released);
+                                    if shift {
+                                        keyboard.key(
+                                            shift_keycode - 8,
+                                            ei::keyboard::KeyState::Released,
+                                        );
+                                    }
                                 }
                                 device.stop_emulating(self.last_serial);
                                 self.running = false;
