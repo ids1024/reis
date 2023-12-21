@@ -45,6 +45,8 @@ struct State {
     // XXX association with seat?
     devices: HashMap<ei::Device, DeviceData>,
     running: bool,
+    sequence: u32,
+    last_serial: u32,
 }
 
 impl State {
@@ -90,8 +92,10 @@ impl State {
                     } => {}
                     ei::handshake::Event::Connection {
                         connection: _,
-                        serial: _,
-                    } => {}
+                        serial,
+                    } => {
+                        self.last_serial = serial;
+                    }
                     _ => {}
                 },
                 ei::Event::Connection(connection, request) => match request {
@@ -137,6 +141,8 @@ impl State {
                         }
                         ei::device::Event::Done => {
                             if let Some(keyboard) = data.interface::<ei::Keyboard>() {
+                                device.start_emulating(self.sequence, self.last_serial);
+                                self.sequence += 1;
                                 let context = xkb::Context::new(0);
                                 let keymap =
                                     xkb::Keymap::new_from_names(&context, "", "", "", "", None, 0)
@@ -164,10 +170,13 @@ impl State {
                                     keyboard.key(keycode, ei::keyboard::KeyState::Press);
                                     keyboard.key(keycode, ei::keyboard::KeyState::Released);
                                 }
+                                device.stop_emulating(self.last_serial);
                                 self.running = false;
                             }
                         }
-                        ei::device::Event::Resumed { serial } => {}
+                        ei::device::Event::Resumed { serial } => {
+                            self.last_serial = serial;
+                        }
                         _ => {}
                     }
                 }
@@ -246,6 +255,8 @@ fn main() {
         seats: HashMap::new(),
         devices: HashMap::new(),
         running: true,
+        last_serial: u32::MAX,
+        sequence: 0,
     };
     while state.running {
         event_loop.dispatch(None, &mut state).unwrap();
