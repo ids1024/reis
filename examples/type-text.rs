@@ -47,6 +47,7 @@ struct State {
     running: bool,
     sequence: u32,
     last_serial: u32,
+    keymap: Option<xkb::Keymap>,
 }
 
 impl State {
@@ -144,9 +145,7 @@ impl State {
                                 device.start_emulating(self.sequence, self.last_serial);
                                 self.sequence += 1;
                                 let context = xkb::Context::new(0);
-                                let keymap =
-                                    xkb::Keymap::new_from_names(&context, "", "", "", "", None, 0)
-                                        .unwrap();
+                                let keymap = self.keymap.as_ref().unwrap();
                                 let s = "Hello world!";
                                 for c in s.chars() {
                                     let keysym = xkb::Keysym::from_char(c);
@@ -167,8 +166,8 @@ impl State {
                                         }
                                     }
                                     let keycode = keycode.unwrap();
-                                    keyboard.key(keycode, ei::keyboard::KeyState::Press);
-                                    keyboard.key(keycode, ei::keyboard::KeyState::Released);
+                                    keyboard.key(keycode - 8, ei::keyboard::KeyState::Press);
+                                    keyboard.key(keycode - 8, ei::keyboard::KeyState::Released);
                                 }
                                 device.stop_emulating(self.last_serial);
                                 self.running = false;
@@ -189,18 +188,21 @@ impl State {
                         } => {
                             // XXX format
                             // flags?
+                            // handle multiple keyboard?
                             let context = xkb::Context::new(0);
-                            let keymap = unsafe {
-                                xkb::Keymap::new_from_fd(
-                                    &context,
-                                    keymap,
-                                    size as _,
-                                    xkb::KEYMAP_FORMAT_TEXT_V1,
-                                    0,
-                                )
-                            }
-                            .unwrap()
-                            .unwrap();
+                            self.keymap = Some(
+                                unsafe {
+                                    xkb::Keymap::new_from_fd(
+                                        &context,
+                                        keymap,
+                                        size as _,
+                                        xkb::KEYMAP_FORMAT_TEXT_V1,
+                                        0,
+                                    )
+                                }
+                                .unwrap()
+                                .unwrap(),
+                            );
                         }
                         _ => {}
                     }
@@ -257,6 +259,7 @@ fn main() {
         running: true,
         last_serial: u32::MAX,
         sequence: 0,
+        keymap: None,
     };
     while state.running {
         event_loop.dispatch(None, &mut state).unwrap();
