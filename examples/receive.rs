@@ -249,10 +249,9 @@ async fn open_connection() -> ei::Context {
     } else {
         eprintln!("Unable to find ei socket. Trying xdg desktop portal.");
         let input_capture = InputCapture::new().await.unwrap();
-        // XXX window identifier?
         let session = input_capture
             .create_session(
-                &ashpd::WindowIdentifier::from_xid(0),
+                &ashpd::WindowIdentifier::default(),
                 (Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen).into(),
             )
             .await

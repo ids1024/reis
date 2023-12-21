@@ -161,9 +161,8 @@ async fn open_connection() -> ei::Context {
             )
             .await
             .unwrap();
-        // XXX window identifier?
         remote_desktop
-            .start(&session, &ashpd::WindowIdentifier::from_xid(0))
+            .start(&session, &ashpd::WindowIdentifier::default())
             .await
             .unwrap();
         let raw_fd = remote_desktop.connect_to_eis(&session).await.unwrap();
