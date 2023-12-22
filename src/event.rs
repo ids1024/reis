@@ -4,6 +4,11 @@
 // XXX device_for_interface may be empty if something is sent before done. Can any event be sent
 // then?
 
+// TODO: track last serial? Including destroyed event.
+
+// This uses exhastive matching, so it will have to be updated when generated API is updated for
+// any new events.
+
 #![allow(clippy::single_match)]
 
 use crate::{ei, Interface, Object};
@@ -21,6 +26,7 @@ pub enum Error {
     DeviceSetupEventAfterDone,
     SeatSetupEventAfterDone,
     NoDeviceType,
+    UnexpectedHandshakeEvent,
 }
 
 #[derive(Default)]
@@ -56,6 +62,9 @@ impl EiEventConverter {
 
     pub fn handle_event(&mut self, event: ei::Event) -> Result<(), Error> {
         match event {
+            ei::Event::Handshake(_handshake, _event) => {
+                return Err(Error::UnexpectedHandshakeEvent);
+            }
             ei::Event::Connection(_connection, request) => match request {
                 ei::connection::Event::Seat { seat } => {
                     self.pending_seats.insert(
@@ -70,8 +79,26 @@ impl EiEventConverter {
                 ei::connection::Event::Ping { ping } => {
                     ping.done(0);
                 }
-                _ => {}
+                ei::connection::Event::Disconnected {
+                    last_serial: _,
+                    reason: _,
+                    explanation: _,
+                } => {
+                    // TODO
+                }
+                ei::connection::Event::InvalidObject {
+                    last_serial: _,
+                    invalid_id: _,
+                } => {
+                    // TODO
+                }
             },
+            ei::Event::Callback(_callback, request) => match request {
+                ei::callback::Event::Done { callback_data: _ } => {
+                    // TODO
+                }
+            },
+            ei::Event::Pingpong(_ping_pong, request) => match request {},
             ei::Event::Seat(seat, request) => match request {
                 ei::seat::Event::Name { name } => {
                     let seat = self
@@ -116,7 +143,9 @@ impl EiEventConverter {
                         },
                     );
                 }
-                _ => {}
+                ei::seat::Event::Destroyed { serial: _ } => {
+                    // TODO
+                }
             },
             ei::Event::Device(device, request) => match request {
                 ei::device::Event::Name { name } => {
@@ -243,7 +272,9 @@ impl EiEventConverter {
                         time: timestamp,
                     }));
                 }
-                _ => {}
+                ei::device::Event::Destroyed { serial: _ } => {
+                    // TODO
+                }
             },
             ei::Event::Keyboard(keyboard, request) => match request {
                 ei::keyboard::Event::Keymap {
@@ -294,7 +325,9 @@ impl EiEventConverter {
                         group,
                     }));
                 }
-                _ => {}
+                ei::keyboard::Event::Destroyed { serial: _ } => {
+                    // TODO
+                }
             },
             ei::Event::Pointer(pointer, request) => {
                 let device = self
@@ -310,7 +343,9 @@ impl EiEventConverter {
                             dy: y,
                         }));
                     }
-                    _ => {}
+                    ei::pointer::Event::Destroyed { serial: _ } => {
+                        // TODO
+                    }
                 }
             }
             ei::Event::PointerAbsolute(pointer_absolute, request) => {
@@ -327,7 +362,9 @@ impl EiEventConverter {
                             dy_absolute: y,
                         }));
                     }
-                    _ => {}
+                    ei::pointer_absolute::Event::Destroyed { serial: _ } => {
+                        // TODO
+                    }
                 }
             }
             ei::Event::Scroll(scroll, request) => {
@@ -369,7 +406,9 @@ impl EiEventConverter {
                             }));
                         }
                     }
-                    _ => {}
+                    ei::scroll::Event::Destroyed { serial: _ } => {
+                        // TODO
+                    }
                 }
             }
             ei::Event::Button(button, request) => {
@@ -386,7 +425,9 @@ impl EiEventConverter {
                             state,
                         }));
                     }
-                    _ => {}
+                    ei::button::Event::Destroyed { serial: _ } => {
+                        // TODO
+                    }
                 }
             }
             ei::Event::Touchscreen(touchscreen, request) => {
@@ -420,10 +461,11 @@ impl EiEventConverter {
                             touch_id: touchid,
                         }));
                     }
-                    _ => {}
+                    ei::touchscreen::Event::Destroyed { serial: _ } => {
+                        // TODO
+                    }
                 }
             }
-            _ => {}
         }
         Ok(())
     }
