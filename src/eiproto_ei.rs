@@ -176,7 +176,7 @@ pub mod handshake {
     from the EIS implementation. A context type of sender is a libei context
     sending events to the EIS implementation.
      */
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum ContextType {
         /** this client receives events from the EIS implementation */
         Receiver = 1,
@@ -455,7 +455,7 @@ pub mod connection {
     This enum may be extended in the future, clients must be able to handle
     values that are not in their supported version of this enum.
      */
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum DisconnectReason {
         /** client was purposely disconnected */
         Disconnected = 0,
@@ -1299,7 +1299,7 @@ pub mod device {
     within the device's specified physical size. Physical devices do not have
     regions and no `ei_device.region` events are sent for such devices.
      */
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum DeviceType {
         /** a virtual device */
         Virtual = 1,
@@ -2424,7 +2424,7 @@ pub mod button {
     /**
     The logical state of a button.
      */
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum ButtonState {
         /** the button is logically up */
         Released = 0,
@@ -2632,7 +2632,7 @@ pub mod keyboard {
     /**
     The logical state of a key.
      */
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum KeyState {
         /** the key is logically up */
         Released = 0,
@@ -2673,7 +2673,7 @@ pub mod keyboard {
     The keymap type describes how the keymap in the `ei_keyboard.keymap` event
     should be parsed.
      */
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum KeymapType {
         /** a libxkbcommon-compatible XKB keymap */
         Xkb = 1,
