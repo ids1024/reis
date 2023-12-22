@@ -3,6 +3,8 @@
 // XXX device_for_interface may be empty if something is sent before done. Can any event be sent
 // then?
 
+#![allow(clippy::single_match)]
+
 use crate::{ei, Interface, Object};
 use std::{
     collections::{HashMap, VecDeque},
@@ -163,7 +165,7 @@ impl EiEventConverter {
                         for i in device.0.interfaces.values() {
                             self.device_for_interface.insert(i.clone(), device.clone());
                         }
-                        self.queue_event(EiEvent::DeviceAdded(DeviceAdded { device: device }));
+                        self.queue_event(EiEvent::DeviceAdded(DeviceAdded { device }));
                     }
                     ei::device::Event::Resumed { serial } => {
                         let device = self
