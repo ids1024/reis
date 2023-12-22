@@ -1,4 +1,5 @@
 // libei has user_data for seat, device, etc. Do we need that?
+// Want clarification in ei docs about events before/after done in some places?
 
 // XXX device_for_interface may be empty if something is sent before done. Can any event be sent
 // then?
@@ -17,7 +18,8 @@ use std::{
 #[derive(Debug)]
 pub enum Error {
     DeviceEventBeforeDone,
-    DeviceEventAfterDone,
+    DeviceSetupEventAfterDone,
+    SeatSetupEventAfterDone,
     NoDeviceType,
 }
 
@@ -70,213 +72,235 @@ impl EiEventConverter {
                 }
                 _ => {}
             },
-            ei::Event::Seat(seat, request) => {
-                match request {
-                    ei::seat::Event::Name { name } => {
-                        // XXX error
-                        let seat = self.pending_seats.get_mut(&seat).unwrap();
-                        seat.name = Some(name);
-                    }
-                    ei::seat::Event::Capability { mask, interface } => {
-                        // XXX error
-                        let seat = self.pending_seats.get_mut(&seat).unwrap();
-                        seat.capabilities.insert(interface, mask);
-                    }
-                    ei::seat::Event::Done => {
-                        // let caps = data.capabilities.values().fold(0, |a, b| a | b);
-                        // seat.bind(caps);
-                        // XXX error
-                        let seat = self.pending_seats.remove(&seat).unwrap();
-                        let seat = Seat(Arc::new(seat));
-                        self.seats.insert(seat.0.seat.clone(), seat.clone());
-                        self.queue_event(EiEvent::SeatAdded(SeatAdded { seat }));
-                    }
-                    ei::seat::Event::Device { device } => {
-                        // XXX error
-                        let seat = self.seats.get_mut(&seat).unwrap();
-                        self.pending_devices.insert(
-                            device.clone(),
-                            DeviceInner {
-                                device,
-                                seat: seat.clone(),
-                                name: None,
-                                device_type: None,
-                                interfaces: HashMap::new(),
-                                dimensions: None,
-                                regions: Vec::new(),
-                                next_region_mapping_id: None,
-                                keymap: None,
-                            },
-                        );
-                    }
-                    _ => {}
+            ei::Event::Seat(seat, request) => match request {
+                ei::seat::Event::Name { name } => {
+                    let seat = self
+                        .pending_seats
+                        .get_mut(&seat)
+                        .ok_or(Error::SeatSetupEventAfterDone)?;
+                    seat.name = Some(name);
                 }
-            }
-            ei::Event::Device(device, request) => {
-                match request {
-                    ei::device::Event::Name { name } => {
-                        // XXX error
-                        let device = self.pending_devices.get_mut(&device).unwrap();
-                        device.name = Some(name);
-                    }
-                    ei::device::Event::DeviceType { device_type } => {
-                        // XXX error
-                        let device = self.pending_devices.get_mut(&device).unwrap();
-                        device.device_type = Some(device_type);
-                    }
-                    ei::device::Event::Interface { object } => {
-                        // XXX error
-                        let device = self.pending_devices.get_mut(&device).unwrap();
-                        device
-                            .interfaces
-                            .insert(object.interface().to_string(), object);
-                    }
-                    ei::device::Event::Dimensions { width, height } => {
-                        // XXX error
-                        let device = self.pending_devices.get_mut(&device).unwrap();
-                        device.dimensions = Some((width, height));
-                    }
-                    ei::device::Event::Region {
-                        offset_x,
-                        offset_y,
+                ei::seat::Event::Capability { mask, interface } => {
+                    let seat = self
+                        .pending_seats
+                        .get_mut(&seat)
+                        .ok_or(Error::SeatSetupEventAfterDone)?;
+                    seat.capabilities.insert(interface, mask);
+                }
+                ei::seat::Event::Done => {
+                    let seat = self
+                        .pending_seats
+                        .remove(&seat)
+                        .ok_or(Error::SeatSetupEventAfterDone)?;
+                    let seat = Seat(Arc::new(seat));
+                    self.seats.insert(seat.0.seat.clone(), seat.clone());
+                    self.queue_event(EiEvent::SeatAdded(SeatAdded { seat }));
+                }
+                ei::seat::Event::Device { device } => {
+                    let seat = self
+                        .seats
+                        .get_mut(&seat)
+                        .ok_or(Error::SeatSetupEventAfterDone)?;
+                    self.pending_devices.insert(
+                        device.clone(),
+                        DeviceInner {
+                            device,
+                            seat: seat.clone(),
+                            name: None,
+                            device_type: None,
+                            interfaces: HashMap::new(),
+                            dimensions: None,
+                            regions: Vec::new(),
+                            next_region_mapping_id: None,
+                            keymap: None,
+                        },
+                    );
+                }
+                _ => {}
+            },
+            ei::Event::Device(device, request) => match request {
+                ei::device::Event::Name { name } => {
+                    let device = self
+                        .pending_devices
+                        .get_mut(&device)
+                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                    device.name = Some(name);
+                }
+                ei::device::Event::DeviceType { device_type } => {
+                    let device = self
+                        .pending_devices
+                        .get_mut(&device)
+                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                    device.device_type = Some(device_type);
+                }
+                ei::device::Event::Interface { object } => {
+                    let device = self
+                        .pending_devices
+                        .get_mut(&device)
+                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                    device
+                        .interfaces
+                        .insert(object.interface().to_string(), object);
+                }
+                ei::device::Event::Dimensions { width, height } => {
+                    let device = self
+                        .pending_devices
+                        .get_mut(&device)
+                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                    device.dimensions = Some((width, height));
+                }
+                ei::device::Event::Region {
+                    offset_x,
+                    offset_y,
+                    width,
+                    hight,
+                    scale,
+                } => {
+                    let device = self
+                        .pending_devices
+                        .get_mut(&device)
+                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                    device.regions.push(Region {
+                        x: offset_x,
+                        y: offset_y,
                         width,
-                        hight,
+                        height: hight,
                         scale,
-                    } => {
-                        // XXX error
-                        let device = self.pending_devices.get_mut(&device).unwrap();
-                        device.regions.push(Region {
-                            x: offset_x,
-                            y: offset_y,
-                            width,
-                            height: hight,
-                            scale,
-                            mapping_id: device.next_region_mapping_id.clone(),
-                        });
-                    }
-                    ei::device::Event::Done => {
-                        // XXX error
-                        let device = self.pending_devices.remove(&device).unwrap();
-                        if device.device_type.is_none() {
-                            return Err(Error::NoDeviceType);
-                        }
-                        let device = Device(Arc::new(device));
-                        self.devices.insert(device.0.device.clone(), device.clone());
-                        for i in device.0.interfaces.values() {
-                            self.device_for_interface.insert(i.clone(), device.clone());
-                        }
-                        self.queue_event(EiEvent::DeviceAdded(DeviceAdded { device }));
-                    }
-                    ei::device::Event::Resumed { serial } => {
-                        let device = self
-                            .devices
-                            .get(&device)
-                            .ok_or(Error::DeviceEventBeforeDone)?;
-                        self.queue_event(EiEvent::DeviceResumed(DeviceResumed {
-                            device: device.clone(),
-                            serial,
-                        }));
-                    }
-                    ei::device::Event::Paused { serial } => {
-                        let device = self
-                            .devices
-                            .get(&device)
-                            .ok_or(Error::DeviceEventBeforeDone)?;
-                        self.queue_event(EiEvent::DevicePaused(DevicePaused {
-                            device: device.clone(),
-                            serial,
-                        }));
-                    }
-                    ei::device::Event::StartEmulating { serial, sequence } => {
-                        let device = self
-                            .devices
-                            .get(&device)
-                            .ok_or(Error::DeviceEventBeforeDone)?;
-                        self.queue_event(EiEvent::DeviceStartEmulating(DeviceStartEmulating {
-                            device: device.clone(),
-                            serial,
-                            sequence,
-                        }));
-                    }
-                    ei::device::Event::StopEmulating { serial } => {
-                        let device = self
-                            .devices
-                            .get(&device)
-                            .ok_or(Error::DeviceEventBeforeDone)?;
-                        self.queue_event(EiEvent::DeviceStopEmulating(DeviceStopEmulating {
-                            device: device.clone(),
-                            serial,
-                        }));
-                    }
-                    ei::device::Event::RegionMappingId { mapping_id } => {
-                        // XXX error
-                        let device = self.pending_devices.get_mut(&device).unwrap();
-                        device.next_region_mapping_id = Some(mapping_id);
-                    }
-                    ei::device::Event::Frame { serial, timestamp } => {
-                        let device = self
-                            .devices
-                            .get(&device)
-                            .ok_or(Error::DeviceEventBeforeDone)?;
-                        self.queue_event(EiEvent::Frame(Frame {
-                            device: device.clone(),
-                            serial,
-                            time: timestamp,
-                        }));
-                    }
-                    _ => {}
+                        mapping_id: device.next_region_mapping_id.clone(),
+                    });
                 }
-            }
-            ei::Event::Keyboard(keyboard, request) => {
-                match request {
-                    ei::keyboard::Event::Keymap {
-                        keymap_type,
+                ei::device::Event::Done => {
+                    let device = self
+                        .pending_devices
+                        .remove(&device)
+                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                    if device.device_type.is_none() {
+                        return Err(Error::NoDeviceType);
+                    }
+                    let device = Device(Arc::new(device));
+                    self.devices.insert(device.0.device.clone(), device.clone());
+                    for i in device.0.interfaces.values() {
+                        self.device_for_interface.insert(i.clone(), device.clone());
+                    }
+                    self.queue_event(EiEvent::DeviceAdded(DeviceAdded { device }));
+                }
+                ei::device::Event::Resumed { serial } => {
+                    let device = self
+                        .devices
+                        .get(&device)
+                        .ok_or(Error::DeviceEventBeforeDone)?;
+                    self.queue_event(EiEvent::DeviceResumed(DeviceResumed {
+                        device: device.clone(),
+                        serial,
+                    }));
+                }
+                ei::device::Event::Paused { serial } => {
+                    let device = self
+                        .devices
+                        .get(&device)
+                        .ok_or(Error::DeviceEventBeforeDone)?;
+                    self.queue_event(EiEvent::DevicePaused(DevicePaused {
+                        device: device.clone(),
+                        serial,
+                    }));
+                }
+                ei::device::Event::StartEmulating { serial, sequence } => {
+                    let device = self
+                        .devices
+                        .get(&device)
+                        .ok_or(Error::DeviceEventBeforeDone)?;
+                    self.queue_event(EiEvent::DeviceStartEmulating(DeviceStartEmulating {
+                        device: device.clone(),
+                        serial,
+                        sequence,
+                    }));
+                }
+                ei::device::Event::StopEmulating { serial } => {
+                    let device = self
+                        .devices
+                        .get(&device)
+                        .ok_or(Error::DeviceEventBeforeDone)?;
+                    self.queue_event(EiEvent::DeviceStopEmulating(DeviceStopEmulating {
+                        device: device.clone(),
+                        serial,
+                    }));
+                }
+                ei::device::Event::RegionMappingId { mapping_id } => {
+                    let device = self
+                        .pending_devices
+                        .get_mut(&device)
+                        .ok_or(Error::DeviceEventBeforeDone)?;
+                    device.next_region_mapping_id = Some(mapping_id);
+                }
+                ei::device::Event::Frame { serial, timestamp } => {
+                    let device = self
+                        .devices
+                        .get(&device)
+                        .ok_or(Error::DeviceEventBeforeDone)?;
+                    self.queue_event(EiEvent::Frame(Frame {
+                        device: device.clone(),
+                        serial,
+                        time: timestamp,
+                    }));
+                }
+                _ => {}
+            },
+            ei::Event::Keyboard(keyboard, request) => match request {
+                ei::keyboard::Event::Keymap {
+                    keymap_type,
+                    size,
+                    keymap,
+                } => {
+                    let device = self
+                        .pending_devices
+                        .values_mut()
+                        .find(|i| i.interfaces.values().any(|j| j == &keyboard.0))
+                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                    device.keymap = Some(Keymap {
+                        type_: keymap_type,
                         size,
-                        keymap,
-                    } => {
-                        // XXX
-                        let device = self
-                            .pending_devices
-                            .values_mut()
-                            .find(|i| i.interfaces.values().any(|j| j == &keyboard.0))
-                            .unwrap();
-                        device.keymap = Some(Keymap {
-                            type_: keymap_type,
-                            size,
-                            fd: keymap,
-                        });
-                    }
-                    ei::keyboard::Event::Key { key, state } => {
-                        let device = self.device_for_interface.get(&keyboard.0).unwrap();
-                        self.queue_event(EiEvent::KeyboardKey(KeyboardKey {
-                            device: device.clone(),
-                            time: 0,
-                            key,
-                            state,
-                        }));
-                    }
-                    ei::keyboard::Event::Modifiers {
+                        fd: keymap,
+                    });
+                }
+                ei::keyboard::Event::Key { key, state } => {
+                    let device = self
+                        .device_for_interface
+                        .get(&keyboard.0)
+                        .ok_or(Error::DeviceEventBeforeDone)?;
+                    self.queue_event(EiEvent::KeyboardKey(KeyboardKey {
+                        device: device.clone(),
+                        time: 0,
+                        key,
+                        state,
+                    }));
+                }
+                ei::keyboard::Event::Modifiers {
+                    serial,
+                    depressed,
+                    locked,
+                    latched,
+                    group,
+                } => {
+                    let device = self
+                        .device_for_interface
+                        .get(&keyboard.0)
+                        .ok_or(Error::DeviceEventBeforeDone)?;
+                    self.queue_event(EiEvent::KeyboardModifiers(KeyboardModifiers {
+                        device: device.clone(),
                         serial,
                         depressed,
                         locked,
                         latched,
                         group,
-                    } => {
-                        let device = self.device_for_interface.get(&keyboard.0).unwrap();
-                        self.queue_event(EiEvent::KeyboardModifiers(KeyboardModifiers {
-                            device: device.clone(),
-                            serial,
-                            depressed,
-                            locked,
-                            latched,
-                            group,
-                        }));
-                    }
-                    _ => {}
+                    }));
                 }
-            }
+                _ => {}
+            },
             ei::Event::Pointer(pointer, request) => {
-                let device = self.device_for_interface.get(&pointer.0).unwrap();
+                let device = self
+                    .device_for_interface
+                    .get(&pointer.0)
+                    .ok_or(Error::DeviceEventBeforeDone)?;
                 match request {
                     ei::pointer::Event::MotionRelative { x, y } => {
                         self.queue_event(EiEvent::PointerMotion(PointerMotion {
@@ -290,7 +314,10 @@ impl EiEventConverter {
                 }
             }
             ei::Event::PointerAbsolute(pointer_absolute, request) => {
-                let device = self.device_for_interface.get(&pointer_absolute.0).unwrap();
+                let device = self
+                    .device_for_interface
+                    .get(&pointer_absolute.0)
+                    .ok_or(Error::DeviceEventBeforeDone)?;
                 match request {
                     ei::pointer_absolute::Event::MotionAbsolute { x, y } => {
                         self.queue_event(EiEvent::PointerMotionAbsolute(PointerMotionAbsolute {
@@ -304,7 +331,10 @@ impl EiEventConverter {
                 }
             }
             ei::Event::Scroll(scroll, request) => {
-                let device = self.device_for_interface.get(&scroll.0).unwrap();
+                let device = self
+                    .device_for_interface
+                    .get(&scroll.0)
+                    .ok_or(Error::DeviceEventBeforeDone)?;
                 match request {
                     ei::scroll::Event::Scroll { x, y } => {
                         self.queue_event(EiEvent::ScrollDelta(ScrollDelta {
@@ -343,7 +373,10 @@ impl EiEventConverter {
                 }
             }
             ei::Event::Button(button, request) => {
-                let device = self.device_for_interface.get(&button.0).unwrap();
+                let device = self
+                    .device_for_interface
+                    .get(&button.0)
+                    .ok_or(Error::DeviceEventBeforeDone)?;
                 match request {
                     ei::button::Event::Button { button, state } => {
                         self.queue_event(EiEvent::Button(Button {
@@ -357,7 +390,10 @@ impl EiEventConverter {
                 }
             }
             ei::Event::Touchscreen(touchscreen, request) => {
-                let device = self.device_for_interface.get(&touchscreen.0).unwrap();
+                let device = self
+                    .device_for_interface
+                    .get(&touchscreen.0)
+                    .ok_or(Error::DeviceEventBeforeDone)?;
                 match request {
                     ei::touchscreen::Event::Down { touchid, x, y } => {
                         self.queue_event(EiEvent::TouchDown(TouchDown {
