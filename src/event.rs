@@ -14,6 +14,7 @@
 use crate::{ei, Interface, Object};
 use std::{
     collections::{HashMap, VecDeque},
+    fmt,
     os::unix::io::OwnedFd,
     sync::Arc,
 };
@@ -548,7 +549,6 @@ impl Seat {
     // fn unbind_capabilities() {}
 }
 
-#[derive(Debug)]
 struct DeviceInner {
     device: ei::Device,
     seat: Seat,
@@ -563,8 +563,14 @@ struct DeviceInner {
     keymap: Option<Keymap>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Device(Arc<DeviceInner>);
+
+impl fmt::Debug for Device {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Device(0x{:#x})", self.0.device.0.id())
+    }
+}
 
 impl Device {
     pub fn seat(&self) -> &Seat {
