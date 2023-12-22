@@ -22,6 +22,7 @@ mod eiproto_ei;
 mod eiproto_eis;
 pub mod eis;
 pub mod event; // XXX
+mod handshake;
 mod object;
 pub use object::Object;
 mod util;

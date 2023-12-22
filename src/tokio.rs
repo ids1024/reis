@@ -9,7 +9,8 @@ use std::{
 };
 use tokio::io::unix::AsyncFd;
 
-use crate::{ei, ParseError, PendingRequestResult};
+pub use crate::handshake::{HandshakeError, HandshakeResp};
+use crate::{ei, handshake::EiHandshaker, ParseError, PendingRequestResult};
 
 // XXX make this ei::EventStream?
 pub struct EiEventStream(AsyncFd<ei::Context>);
@@ -127,16 +128,10 @@ pub async fn ei_handshake(
     context_type: ei::handshake::ContextType,
     interfaces: &HashMap<&str, u32>,
 ) -> Result<HandshakeResp, HandshakeError> {
-    let mut interface_versions = HashMap::new();
-
+    let mut handshaker = EiHandshaker::new(name, context_type, interfaces);
     while let Some(result) = events.next().await {
-        let (handshake, request) = match result? {
-            PendingRequestResult::Request(request) => match request {
-                ei::Event::Handshake(handshake, request) => (handshake, request),
-                _ => {
-                    panic!("Event on non-handshake object during handshake. `ei_handshake` called after handshake?");
-                }
-            },
+        let request = match result? {
+            PendingRequestResult::Request(request) => request,
             PendingRequestResult::ParseError(parse_error) => {
                 return Err(HandshakeError::Parse(parse_error));
             }
@@ -145,50 +140,9 @@ pub async fn ei_handshake(
             }
         };
 
-        match request {
-            ei::handshake::Event::HandshakeVersion { version: _ } => {
-                handshake.handshake_version(1);
-                handshake.name(name);
-                handshake.context_type(context_type);
-                for (interface, version) in interfaces.iter() {
-                    handshake.interface_version(interface, *version);
-                }
-                handshake.finish();
-
-                // TODO Handle
-                let _ = events.0.get_ref().flush();
-            }
-            ei::handshake::Event::InterfaceVersion { name, version } => {
-                interface_versions.insert(name, version);
-            }
-            ei::handshake::Event::Connection { connection, serial } => {
-                return Ok(HandshakeResp {
-                    connection,
-                    serial,
-                    interface_versions,
-                });
-            }
+        if let Some(resp) = handshaker.handle_event(request)? {
+            return Ok(resp);
         }
     }
     Err(HandshakeError::UnexpectedEof)
-}
-
-pub struct HandshakeResp {
-    pub connection: ei::Connection,
-    pub serial: u32,
-    pub interface_versions: HashMap<String, u32>,
-}
-
-#[derive(Debug)]
-pub enum HandshakeError {
-    Io(io::Error),
-    UnexpectedEof,
-    Parse(ParseError),
-    InvalidObject(u64),
-}
-
-impl From<io::Error> for HandshakeError {
-    fn from(err: io::Error) -> Self {
-        Self::Io(err)
-    }
 }
