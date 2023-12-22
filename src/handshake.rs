@@ -15,6 +15,7 @@ pub enum HandshakeError {
     UnexpectedEof,
     Parse(ParseError),
     InvalidObject(u64),
+    NonHandshakeEvent,
 }
 
 impl From<io::Error> for HandshakeError {
@@ -48,11 +49,8 @@ impl<'a> EiHandshaker<'a> {
         &mut self,
         event: ei::Event,
     ) -> Result<Option<HandshakeResp>, HandshakeError> {
-        let (handshake, event) = match event {
-            ei::Event::Handshake(handshake, event) => (handshake, event),
-            _ => {
-                panic!("Event on non-handshake object during handshake. `ei_handshake` called after handshake?");
-            }
+        let ei::Event::Handshake(handshake, event) = event else {
+            return Err(HandshakeError::NonHandshakeEvent);
         };
         match event {
             ei::handshake::Event::HandshakeVersion { version: _ } => {
