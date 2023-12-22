@@ -1,7 +1,7 @@
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use futures::stream::StreamExt;
 use once_cell::sync::Lazy;
-use reis::{ei, tokio::EiEventStream, PendingRequestResult};
+use reis::{ei, event::DeviceCapability, tokio::EiEventStream, PendingRequestResult};
 use std::{
     collections::HashMap,
     os::unix::{
@@ -26,222 +26,6 @@ static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     m.insert("ei_touchscreen", 1);
     m
 });
-
-#[derive(Default)]
-struct SeatData {
-    name: Option<String>,
-    capabilities: HashMap<String, u64>,
-}
-
-#[derive(Debug)]
-struct Region {
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-    scale: f32,
-    mapping_id: Option<String>,
-}
-
-#[derive(Debug, Default)]
-struct DeviceData {
-    name: Option<String>,
-    device_type: Option<ei::device::DeviceType>,
-    interfaces: HashMap<String, reis::Object>,
-    dimensions: Option<(u32, u32)>,
-    regions: Vec<Region>,
-    next_region_mapping_id: Option<String>,
-    // keymap?
-}
-
-impl DeviceData {
-    fn interface<T: reis::Interface>(&self) -> Option<T> {
-        self.interfaces.get(T::NAME)?.clone().downcast()
-    }
-}
-
-struct State {
-    context: ei::Context,
-    // XXX best way to handle data associated with object?
-    seats: HashMap<ei::Seat, SeatData>,
-    // XXX association with seat?
-    devices: HashMap<ei::Device, DeviceData>,
-}
-
-impl State {
-    fn handle_event(&mut self, event: ei::Event) {
-        match event {
-            ei::Event::Connection(connection, request) => match request {
-                ei::connection::Event::Seat { seat } => {
-                    self.seats.insert(seat, Default::default());
-                }
-                ei::connection::Event::Ping { ping } => {
-                    ping.done(0);
-                }
-                _ => {}
-            },
-            ei::Event::Seat(seat, request) => {
-                let data = self.seats.get_mut(&seat).unwrap();
-                match request {
-                    ei::seat::Event::Name { name } => {
-                        data.name = Some(name);
-                    }
-                    ei::seat::Event::Capability { mask, interface } => {
-                        data.capabilities.insert(interface, mask);
-                    }
-                    ei::seat::Event::Done => {
-                        let caps = data.capabilities.values().fold(0, |a, b| a | b);
-                        seat.bind(caps);
-                        println!("seat added");
-                        println!("    name: {:?}", data.name);
-                        println!("    capabilities: {:?}", data.capabilities.keys());
-                    }
-                    ei::seat::Event::Device { device } => {
-                        self.devices.insert(device, Default::default());
-                    }
-                    _ => {}
-                }
-            }
-            ei::Event::Device(device, request) => {
-                let data = self.devices.get_mut(&device).unwrap();
-                match request {
-                    ei::device::Event::Name { name } => {
-                        data.name = Some(name);
-                    }
-                    ei::device::Event::DeviceType { device_type } => {
-                        data.device_type = Some(device_type);
-                    }
-                    ei::device::Event::Interface { object } => {
-                        data.interfaces
-                            .insert(object.interface().to_string(), object);
-                    }
-                    ei::device::Event::Dimensions { width, height } => {
-                        data.dimensions = Some((width, height));
-                    }
-                    ei::device::Event::Region {
-                        offset_x,
-                        offset_y,
-                        width,
-                        hight,
-                        scale,
-                    } => {
-                        data.regions.push(Region {
-                            x: offset_x,
-                            y: offset_y,
-                            width,
-                            height: hight,
-                            scale,
-                            mapping_id: data.next_region_mapping_id.clone(),
-                        });
-                    }
-                    ei::device::Event::Done => {
-                        println!("device added");
-                        println!("    name: {:?}", data.name);
-                        println!("    type: {:?}", data.device_type);
-                        println!("    dimensions: {:?}", data.dimensions);
-                        println!("    regions: {:?}", &data.regions);
-                        println!("    interfaces: {:?}", data.interfaces.keys());
-                    }
-                    ei::device::Event::Resumed { serial } => {}
-                    ei::device::Event::Paused { serial } => {}
-                    ei::device::Event::StartEmulating { serial, sequence } => {}
-                    ei::device::Event::StopEmulating { serial } => {}
-                    ei::device::Event::RegionMappingId { mapping_id } => {
-                        data.next_region_mapping_id = Some(mapping_id);
-                    }
-                    ei::device::Event::Frame { serial, timestamp } => {
-                        println!("device frame");
-                    }
-                    _ => {}
-                }
-            }
-            ei::Event::Keyboard(keyboard, request) => {
-                match request {
-                    ei::keyboard::Event::Keymap {
-                        keymap_type,
-                        size,
-                        keymap,
-                    } => {
-                        // XXX format
-                        // flags?
-                        let context = xkb::Context::new(0);
-                        let keymap = unsafe {
-                            xkb::Keymap::new_from_fd(
-                                &context,
-                                keymap,
-                                size as _,
-                                xkb::KEYMAP_FORMAT_TEXT_V1,
-                                0,
-                            )
-                        }
-                        .unwrap()
-                        .unwrap();
-                    }
-                    ei::keyboard::Event::Key { key, state } => {
-                        // Escape key
-                        if key == 1 {
-                            std::process::exit(0);
-                        }
-                        println!("key {key} {state:?}");
-                    }
-                    ei::keyboard::Event::Modifiers {
-                        serial,
-                        depressed,
-                        locked,
-                        latched,
-                        group,
-                    } => {}
-                    _ => {}
-                }
-            }
-            ei::Event::Pointer(pointer, request) => match request {
-                ei::pointer::Event::MotionRelative { x, y } => {
-                    println!("relative motion {x}, {y}");
-                }
-                _ => {}
-            },
-            ei::Event::PointerAbsolute(pointer_absolute, request) => match request {
-                ei::pointer_absolute::Event::MotionAbsolute { x, y } => {
-                    println!("absolute motion {x}, {y}");
-                }
-                _ => {}
-            },
-            ei::Event::Scroll(scroll, request) => match request {
-                ei::scroll::Event::Scroll { x, y } => {
-                    println!("scroll {x}, {y}");
-                }
-                ei::scroll::Event::ScrollDiscrete { x, y } => {
-                    println!("scroll discrete {x}, {y}");
-                }
-                ei::scroll::Event::ScrollStop { x, y, is_cancel } => {
-                    println!("scroll stop {x}, {y}, {is_cancel}");
-                }
-                _ => {}
-            },
-            ei::Event::Button(button, request) => match request {
-                ei::button::Event::Button { button, state } => {
-                    println!("button {button} {state:?}");
-                }
-                _ => {}
-            },
-            ei::Event::Touchscreen(touchscreen, request) => match request {
-                ei::touchscreen::Event::Down { touchid, x, y } => {
-                    println!("touch down {touchid} {x} {y}");
-                }
-                ei::touchscreen::Event::Motion { touchid, x, y } => {
-                    println!("touch motion {touchid} {x} {y}");
-                }
-                ei::touchscreen::Event::Up { touchid } => {
-                    println!("touch up {touchid}");
-                }
-                _ => {}
-            },
-            _ => {}
-        }
-
-        self.context.flush();
-    }
-}
 
 async fn open_connection() -> ei::Context {
     if let Some(context) = ei::Context::connect_to_env().unwrap() {
@@ -305,12 +89,7 @@ async fn main() {
     .await
     .unwrap();
 
-    let mut state = State {
-        context: context.clone(),
-        seats: HashMap::new(),
-        devices: HashMap::new(),
-    };
-
+    let mut converter = reis::event::EiEventConverter::default();
     while let Some(result) = events.next().await {
         let event = match result.unwrap() {
             PendingRequestResult::Request(event) => event,
@@ -323,6 +102,29 @@ async fn main() {
             }
         };
 
-        state.handle_event(event);
+        converter.handle_event(event).unwrap();
+        while let Some(event) = converter.next_event() {
+            println!("{event:?}");
+            match &event {
+                reis::event::EiEvent::SeatAdded(evt) => {
+                    evt.seat.bind_capabilities(&[
+                        DeviceCapability::Pointer,
+                        DeviceCapability::PointerAbsolute,
+                        DeviceCapability::Keyboard,
+                        DeviceCapability::Touch,
+                        DeviceCapability::Scroll,
+                        DeviceCapability::Button,
+                    ]);
+                }
+                reis::event::EiEvent::KeyboardKey(evt) => {
+                    // Escape key
+                    if evt.key == 1 {
+                        std::process::exit(0);
+                    }
+                }
+                _ => {}
+            }
+        }
+        context.flush();
     }
 }

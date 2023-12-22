@@ -21,6 +21,7 @@ pub mod ei;
 mod eiproto_ei;
 mod eiproto_eis;
 pub mod eis;
+pub mod event; // XXX
 mod object;
 pub use object::Object;
 mod util;
