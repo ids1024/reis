@@ -1,7 +1,11 @@
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use futures::stream::StreamExt;
 use once_cell::sync::Lazy;
-use reis::{ei, event::DeviceCapability, tokio::EiEventStream, PendingRequestResult};
+use reis::{
+    ei,
+    event::DeviceCapability,
+    tokio::{EiConvertEventStream, EiEventStream},
+};
 use std::{
     collections::HashMap,
     os::unix::{io::FromRawFd, net::UnixStream},
@@ -86,55 +90,42 @@ async fn main() {
     .await
     .unwrap();
 
-    let mut converter = reis::event::EiEventConverter::default();
-    while let Some(result) = events.next().await {
-        let event = match result.unwrap() {
-            PendingRequestResult::Request(event) => event,
-            PendingRequestResult::ParseError(msg) => {
-                todo!()
+    let mut events = EiConvertEventStream::new(events);
+    while let Some(event) = events.next().await {
+        let event = event.unwrap();
+        println!("{event:?}");
+        match &event {
+            reis::event::EiEvent::SeatAdded(evt) => {
+                // println!("    capabilities: {:?}", evt.seat);
+                evt.seat.bind_capabilities(&[
+                    DeviceCapability::Pointer,
+                    DeviceCapability::PointerAbsolute,
+                    DeviceCapability::Keyboard,
+                    DeviceCapability::Touch,
+                    DeviceCapability::Scroll,
+                    DeviceCapability::Button,
+                ]);
+                context.flush();
             }
-            PendingRequestResult::InvalidObject(object_id) => {
-                // TODO
-                continue;
+            reis::event::EiEvent::DeviceAdded(evt) => {
+                println!("  seat: {:?}", evt.device.seat().name());
+                println!("  type: {:?}", evt.device.device_type());
+                if let Some(dimensions) = evt.device.dimensions() {
+                    println!("  dimensions: {:?}", dimensions);
+                }
+                println!("  regions: {:?}", evt.device.regions());
+                if let Some(keymap) = evt.device.keymap() {
+                    println!("  keymap: {:?}", keymap);
+                }
+                // Interfaces?
             }
-        };
-
-        converter.handle_event(event).unwrap();
-        while let Some(event) = converter.next_event() {
-            println!("{event:?}");
-            match &event {
-                reis::event::EiEvent::SeatAdded(evt) => {
-                    // println!("    capabilities: {:?}", evt.seat);
-                    evt.seat.bind_capabilities(&[
-                        DeviceCapability::Pointer,
-                        DeviceCapability::PointerAbsolute,
-                        DeviceCapability::Keyboard,
-                        DeviceCapability::Touch,
-                        DeviceCapability::Scroll,
-                        DeviceCapability::Button,
-                    ]);
+            reis::event::EiEvent::KeyboardKey(evt) => {
+                // Escape key
+                if evt.key == 1 {
+                    std::process::exit(0);
                 }
-                reis::event::EiEvent::DeviceAdded(evt) => {
-                    println!("  seat: {:?}", evt.device.seat().name());
-                    println!("  type: {:?}", evt.device.device_type());
-                    if let Some(dimensions) = evt.device.dimensions() {
-                        println!("  dimensions: {:?}", dimensions);
-                    }
-                    println!("  regions: {:?}", evt.device.regions());
-                    if let Some(keymap) = evt.device.keymap() {
-                        println!("  keymap: {:?}", keymap);
-                    }
-                    // Interfaces?
-                }
-                reis::event::EiEvent::KeyboardKey(evt) => {
-                    // Escape key
-                    if evt.key == 1 {
-                        std::process::exit(0);
-                    }
-                }
-                _ => {}
             }
+            _ => {}
         }
-        context.flush();
     }
 }

@@ -5,9 +5,12 @@
 // then?
 
 // TODO: track last serial? Including destroyed event.
+// - look at how libei handles it.
 
 // This uses exhastive matching, so it will have to be updated when generated API is updated for
 // any new events.
+
+// WIP disconnected event? EOF?
 
 #![allow(clippy::single_match)]
 
@@ -79,6 +82,10 @@ impl EiEventConverter {
                 }
                 ei::connection::Event::Ping { ping } => {
                     ping.done(0);
+                    if let Some(backend) = ping.0.backend() {
+                        // XXX Error?
+                        let _ = backend.flush();
+                    }
                 }
                 ei::connection::Event::Disconnected {
                     last_serial: _,

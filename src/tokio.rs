@@ -59,6 +59,68 @@ impl Stream for EiEventStream {
     }
 }
 
+#[derive(Debug)]
+pub enum EiConvertEventStreamError {
+    Io(io::Error),
+    Parse(ParseError),
+    // TODO better error type here?
+    Event(crate::event::Error),
+}
+
+// TODO rename EiProtoEventStream
+pub struct EiConvertEventStream {
+    inner: EiEventStream,
+    converter: crate::event::EiEventConverter,
+}
+
+impl EiConvertEventStream {
+    pub fn new(inner: EiEventStream) -> Self {
+        Self {
+            inner,
+            converter: Default::default(),
+        }
+    }
+}
+
+impl Stream for EiConvertEventStream {
+    type Item = Result<crate::event::EiEvent, EiConvertEventStreamError>;
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+    ) -> Poll<Option<<Self as Stream>::Item>> {
+        if let Some(event) = self.converter.next_event() {
+            return Poll::Ready(Some(Ok(event)));
+        }
+        while let Poll::Ready(res) = Pin::new(&mut self.inner).poll_next(context) {
+            match res {
+                Some(Ok(res)) => match res {
+                    PendingRequestResult::Request(event) => {
+                        if let Err(err) = self.converter.handle_event(event) {
+                            return Poll::Ready(Some(Err(EiConvertEventStreamError::Event(err))));
+                        }
+                        if let Some(event) = self.converter.next_event() {
+                            return Poll::Ready(Some(Ok(event)));
+                        }
+                    }
+                    PendingRequestResult::ParseError(err) => {
+                        return Poll::Ready(Some(Err(EiConvertEventStreamError::Parse(err))));
+                    }
+                    // TODO log?
+                    PendingRequestResult::InvalidObject(_object_id) => {}
+                },
+                Some(Err(err)) => {
+                    return Poll::Ready(Some(Err(EiConvertEventStreamError::Io(err))));
+                }
+                None => {
+                    return Poll::Ready(None);
+                }
+            }
+        }
+        Poll::Pending
+    }
+}
+
 pub async fn ei_handshake(
     events: &mut EiEventStream,
     name: &str,
