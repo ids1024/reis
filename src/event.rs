@@ -504,15 +504,24 @@ pub enum DeviceCapability {
     Button,
 }
 
-#[derive(Debug)]
 struct SeatInner {
     seat: ei::Seat,
     name: Option<String>,
     capabilities: HashMap<String, u64>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Seat(Arc<SeatInner>);
+
+impl fmt::Debug for Seat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(name) = self.name() {
+            write!(f, "Seat(\"{}\")", name)
+        } else {
+            write!(f, "Seat(None)")
+        }
+    }
+}
 
 impl PartialEq for Seat {
     fn eq(&self, rhs: &Seat) -> bool {
@@ -568,7 +577,11 @@ pub struct Device(Arc<DeviceInner>);
 
 impl fmt::Debug for Device {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Device(0x{:#x})", self.0.device.0.id())
+        if let Some(name) = self.name() {
+            write!(f, "Device(\"{}\")", name)
+        } else {
+            write!(f, "Device(None)")
+        }
     }
 }
 

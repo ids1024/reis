@@ -4,10 +4,7 @@ use once_cell::sync::Lazy;
 use reis::{ei, event::DeviceCapability, tokio::EiEventStream, PendingRequestResult};
 use std::{
     collections::HashMap,
-    os::unix::{
-        io::{AsRawFd, FromRawFd},
-        net::UnixStream,
-    },
+    os::unix::{io::FromRawFd, net::UnixStream},
 };
 use xkbcommon::xkb;
 
@@ -107,6 +104,7 @@ async fn main() {
             println!("{event:?}");
             match &event {
                 reis::event::EiEvent::SeatAdded(evt) => {
+                    // println!("    capabilities: {:?}", evt.seat);
                     evt.seat.bind_capabilities(&[
                         DeviceCapability::Pointer,
                         DeviceCapability::PointerAbsolute,
@@ -115,6 +113,18 @@ async fn main() {
                         DeviceCapability::Scroll,
                         DeviceCapability::Button,
                     ]);
+                }
+                reis::event::EiEvent::DeviceAdded(evt) => {
+                    println!("  seat: {:?}", evt.device.seat().name());
+                    println!("  type: {:?}", evt.device.device_type());
+                    if let Some(dimensions) = evt.device.dimensions() {
+                        println!("  dimensions: {:?}", dimensions);
+                    }
+                    println!("  regions: {:?}", evt.device.regions());
+                    if let Some(keymap) = evt.device.keymap() {
+                        println!("  keymap: {:?}", keymap);
+                    }
+                    // Interfaces?
                 }
                 reis::event::EiEvent::KeyboardKey(evt) => {
                     // Escape key
