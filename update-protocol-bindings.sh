@@ -20,5 +20,12 @@ fi
 	"$1/proto/protocol.xml" \
 	src/eiproto.rs.jinja
 
+"$1/proto/ei-scanner" \
+	--component=ei \
+	--output=src/eiproto_enum.rs \
+	"$1/proto/protocol.xml" \
+	src/eiproto_enum.rs.jinja
+
 rustfmt src/eiproto_eis.rs
 rustfmt src/eiproto_ei.rs
+rustfmt src/eiproto_enum.rs

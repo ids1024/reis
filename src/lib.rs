@@ -20,6 +20,7 @@ pub use backend::{ConnectionReadResult, PendingRequestResult}; // XXX types? nam
 pub mod ei;
 mod eiproto_ei;
 mod eiproto_eis;
+mod eiproto_enum;
 pub mod eis;
 pub mod event; // XXX
 mod handshake;
