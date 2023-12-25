@@ -4,8 +4,7 @@
 // GENERATED FILE
 
 {% for interface in interfaces %}
-/** {{interface.description.text|ei_escape_names}} */
-pub mod {{interface.plainname}} {
+pub(crate) mod {{interface.plainname}} {
     {% for enum in interface.enums %}
      /** {{enum.description.text|ei_escape_names}} */
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
