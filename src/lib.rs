@@ -22,8 +22,8 @@ mod eiproto_ei;
 mod eiproto_eis;
 mod eiproto_enum;
 pub mod eis;
-pub mod event; // XXX
-mod handshake;
+pub mod event; // XXX reorganize?
+pub mod handshake; // XXX ^
 mod object;
 pub use object::Object;
 mod util;

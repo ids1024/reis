@@ -1,12 +1,12 @@
 // Generic `EiHandshaker` can be used in async or sync code
 
-use crate::{ei, ParseError};
+use crate::{ei, eis, ParseError};
 use std::{collections::HashMap, io, mem};
 
 pub struct HandshakeResp {
     pub connection: ei::Connection,
     pub serial: u32,
-    pub interface_versions: HashMap<String, u32>,
+    pub negotiated_interfaces: HashMap<String, u32>,
 }
 
 #[derive(Debug)]
@@ -16,6 +16,7 @@ pub enum HandshakeError {
     Parse(ParseError),
     InvalidObject(u64),
     NonHandshakeEvent,
+    MissingInterface,
 }
 
 impl From<io::Error> for HandshakeError {
@@ -28,7 +29,7 @@ pub struct EiHandshaker<'a> {
     name: &'a str,
     context_type: ei::handshake::ContextType,
     interfaces: &'a HashMap<&'a str, u32>,
-    interface_versions: HashMap<String, u32>,
+    negotiated_interfaces: HashMap<String, u32>,
 }
 
 impl<'a> EiHandshaker<'a> {
@@ -41,7 +42,7 @@ impl<'a> EiHandshaker<'a> {
             name,
             context_type,
             interfaces,
-            interface_versions: HashMap::new(),
+            negotiated_interfaces: HashMap::new(),
         }
     }
 
@@ -70,14 +71,104 @@ impl<'a> EiHandshaker<'a> {
                 Ok(None)
             }
             ei::handshake::Event::InterfaceVersion { name, version } => {
-                self.interface_versions.insert(name, version);
+                self.negotiated_interfaces.insert(name, version);
                 Ok(None)
             }
             ei::handshake::Event::Connection { connection, serial } => Ok(Some(HandshakeResp {
                 connection,
                 serial,
-                interface_versions: mem::take(&mut self.interface_versions),
+                negotiated_interfaces: mem::take(&mut self.negotiated_interfaces),
             })),
         }
     }
 }
+
+pub struct EisHandshakeResp {
+    pub connection: eis::Connection,
+    pub name: Option<String>,
+    // XXX required?
+    pub context_type: Option<eis::handshake::ContextType>,
+    pub negotiated_interfaces: HashMap<String, u32>,
+}
+
+pub struct EisHandshaker<'a> {
+    interfaces: &'a HashMap<&'a str, u32>,
+    name: Option<String>,
+    context_type: Option<eis::handshake::ContextType>,
+    negotiated_interfaces: HashMap<String, u32>,
+    initial_serial: u32,
+}
+
+impl<'a> EisHandshaker<'a> {
+    pub fn new(
+        context: &eis::Context,
+        interfaces: &'a HashMap<&'a str, u32>,
+        initial_serial: u32,
+    ) -> Self {
+        let handshake = context.handshake();
+        handshake.handshake_version(1);
+        // XXX error handling?
+        let _ = context.flush();
+
+        Self {
+            interfaces,
+            initial_serial,
+            name: None,
+            context_type: None,
+            negotiated_interfaces: HashMap::new(),
+        }
+    }
+
+    pub fn handle_request(
+        &mut self,
+        request: eis::Request,
+    ) -> Result<Option<EisHandshakeResp>, HandshakeError> {
+        let eis::Request::Handshake(handshake, request) = request else {
+            return Err(HandshakeError::NonHandshakeEvent);
+        };
+        match request {
+            eis::handshake::Request::HandshakeVersion { version: _ } => {}
+            eis::handshake::Request::Name { name } => {
+                // TODO error if is_some
+                self.name = Some(name);
+            }
+            eis::handshake::Request::ContextType { context_type } => {
+                // TODO error if is_some
+                self.context_type = Some(context_type);
+            }
+            eis::handshake::Request::InterfaceVersion { name, version } => {
+                if let Some((interface, server_version)) =
+                    self.interfaces.get_key_value(name.as_str())
+                {
+                    self.negotiated_interfaces
+                        .insert(interface.to_string(), version.min(*server_version));
+                }
+            }
+            eis::handshake::Request::Finish => {
+                for (interface, version) in self.negotiated_interfaces.iter() {
+                    handshake.interface_version(interface, *version);
+                }
+
+                if !self.negotiated_interfaces.contains_key("ei_connection")
+                    || !self.negotiated_interfaces.contains_key("ei_pingpong")
+                    || !self.negotiated_interfaces.contains_key("ei_callback")
+                {
+                    return Err(HandshakeError::MissingInterface);
+                }
+
+                let connection = handshake.connection(self.initial_serial, 1);
+
+                return Ok(Some(EisHandshakeResp {
+                    connection,
+                    name: self.name.clone(),
+                    context_type: self.context_type,
+                    negotiated_interfaces: mem::take(&mut self.negotiated_interfaces),
+                }));
+            }
+        }
+        Ok(None)
+    }
+}
+
+// Does handshake always succeed? When does it prompt, if needed?
+// Look at libei, improve any documentation.
