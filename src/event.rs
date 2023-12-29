@@ -69,7 +69,7 @@ impl EiEventConverter {
             ei::Event::Handshake(_handshake, _event) => {
                 return Err(Error::UnexpectedHandshakeEvent);
             }
-            ei::Event::Connection(_connection, request) => match request {
+            ei::Event::Connection(_connection, event) => match event {
                 ei::connection::Event::Seat { seat } => {
                     self.pending_seats.insert(
                         seat.clone(),
@@ -101,13 +101,13 @@ impl EiEventConverter {
                     // TODO
                 }
             },
-            ei::Event::Callback(_callback, request) => match request {
+            ei::Event::Callback(_callback, event) => match event {
                 ei::callback::Event::Done { callback_data: _ } => {
                     // TODO
                 }
             },
-            ei::Event::Pingpong(_ping_pong, request) => match request {},
-            ei::Event::Seat(seat, request) => match request {
+            ei::Event::Pingpong(_ping_pong, event) => match event {},
+            ei::Event::Seat(seat, event) => match event {
                 ei::seat::Event::Name { name } => {
                     let seat = self
                         .pending_seats
@@ -155,7 +155,7 @@ impl EiEventConverter {
                     // TODO
                 }
             },
-            ei::Event::Device(device, request) => match request {
+            ei::Event::Device(device, event) => match event {
                 ei::device::Event::Name { name } => {
                     let device = self
                         .pending_devices
@@ -284,7 +284,7 @@ impl EiEventConverter {
                     // TODO
                 }
             },
-            ei::Event::Keyboard(keyboard, request) => match request {
+            ei::Event::Keyboard(keyboard, event) => match event {
                 ei::keyboard::Event::Keymap {
                     keymap_type,
                     size,
@@ -337,12 +337,12 @@ impl EiEventConverter {
                     // TODO
                 }
             },
-            ei::Event::Pointer(pointer, request) => {
+            ei::Event::Pointer(pointer, event) => {
                 let device = self
                     .device_for_interface
                     .get(&pointer.0)
                     .ok_or(Error::DeviceEventBeforeDone)?;
-                match request {
+                match event {
                     ei::pointer::Event::MotionRelative { x, y } => {
                         self.queue_event(EiEvent::PointerMotion(PointerMotion {
                             device: device.clone(),
@@ -356,12 +356,12 @@ impl EiEventConverter {
                     }
                 }
             }
-            ei::Event::PointerAbsolute(pointer_absolute, request) => {
+            ei::Event::PointerAbsolute(pointer_absolute, event) => {
                 let device = self
                     .device_for_interface
                     .get(&pointer_absolute.0)
                     .ok_or(Error::DeviceEventBeforeDone)?;
-                match request {
+                match event {
                     ei::pointer_absolute::Event::MotionAbsolute { x, y } => {
                         self.queue_event(EiEvent::PointerMotionAbsolute(PointerMotionAbsolute {
                             device: device.clone(),
@@ -375,12 +375,12 @@ impl EiEventConverter {
                     }
                 }
             }
-            ei::Event::Scroll(scroll, request) => {
+            ei::Event::Scroll(scroll, event) => {
                 let device = self
                     .device_for_interface
                     .get(&scroll.0)
                     .ok_or(Error::DeviceEventBeforeDone)?;
-                match request {
+                match event {
                     ei::scroll::Event::Scroll { x, y } => {
                         self.queue_event(EiEvent::ScrollDelta(ScrollDelta {
                             device: device.clone(),
@@ -419,12 +419,12 @@ impl EiEventConverter {
                     }
                 }
             }
-            ei::Event::Button(button, request) => {
+            ei::Event::Button(button, event) => {
                 let device = self
                     .device_for_interface
                     .get(&button.0)
                     .ok_or(Error::DeviceEventBeforeDone)?;
-                match request {
+                match event {
                     ei::button::Event::Button { button, state } => {
                         self.queue_event(EiEvent::Button(Button {
                             device: device.clone(),
@@ -438,12 +438,12 @@ impl EiEventConverter {
                     }
                 }
             }
-            ei::Event::Touchscreen(touchscreen, request) => {
+            ei::Event::Touchscreen(touchscreen, event) => {
                 let device = self
                     .device_for_interface
                     .get(&touchscreen.0)
                     .ok_or(Error::DeviceEventBeforeDone)?;
-                match request {
+                match event {
                     ei::touchscreen::Event::Down { touchid, x, y } => {
                         self.queue_event(EiEvent::TouchDown(TouchDown {
                             device: device.clone(),
