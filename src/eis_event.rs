@@ -2,19 +2,60 @@
 #![allow(dead_code)]
 
 use crate::eis;
-use std::{collections::VecDeque, fmt, sync::Arc};
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt,
+    sync::Arc,
+};
 
 pub enum Error {
     UnexpectedHandshakeEvent,
 }
 
-#[derive(Default)]
+// need way to add seat/device?
 pub struct EisRequestConverter {
+    connection: eis::Connection,
     requests: VecDeque<EisRequest>,
     pending_requests: VecDeque<EisRequest>,
+    seats: HashMap<eis::Seat, Seat>,
+    devices: HashMap<eis::Device, Device>,
 }
 
 impl EisRequestConverter {
+    // Based on behavior of `eis_queue_request` in libeis
+    fn queue_request(&mut self, mut request: EisRequest) {
+        if request.time_mut().is_some() {
+            self.pending_requests.push_back(request);
+        } else if let EisRequest::Frame(Frame { time, .. }) = &request {
+            if self.pending_requests.is_empty() {
+                return;
+            }
+            for mut pending_request in self.pending_requests.drain(..) {
+                *pending_request.time_mut().unwrap() = *time;
+                self.requests.push_back(pending_request);
+            }
+            self.requests.push_back(request);
+        } else {
+            // TODO: If a device request, queue a frame if anything is pending
+            self.requests.push_back(request);
+        }
+    }
+
+    pub fn add_seat(&mut self, name: Option<&str>) -> Seat {
+        let seat = self.connection.seat(1);
+        if let Some(name) = name {
+            seat.name(name);
+        }
+        // TODO capabilities
+        seat.done();
+        let seat = Seat(Arc::new(SeatInner {
+            seat,
+            name: name.map(|x| x.to_owned()),
+        }));
+        self.seats.insert(seat.0.seat.clone(), seat.clone());
+        seat
+    }
+
     pub fn handle_request(&mut self, request: eis::Request) -> Result<(), Error> {
         match request {
             eis::Request::Handshake(_handshake, _request) => {
@@ -105,9 +146,35 @@ struct SeatInner {
     name: Option<String>,
     //capabilities: HashMap<String, u64>,
 }
+// Method to add device to seat?
+// eis_seat_new_device
 
 #[derive(Clone)]
 pub struct Seat(Arc<SeatInner>);
+
+impl Seat {
+    // builder pattern?
+    pub fn add_device(&self, name: Option<&str>, device_type: eis::device::DeviceType) -> Device {
+        let device = self.0.seat.device(1);
+        if let Some(name) = name {
+            device.name(name);
+        }
+        device.device_type(device_type);
+        // TODO
+        // dimensions
+        // regions; region_mapping_id
+        device.done();
+
+        let device = Device(Arc::new(DeviceInner {
+            device,
+            seat: self.clone(),
+            name: name.map(|x| x.to_string()),
+        }));
+        // TODO insert into device list used in converter
+        // self.devices.insert(device.0.device.clone(), device.clone());
+        device
+    }
+}
 
 struct DeviceInner {
     device: eis::Device,
@@ -166,6 +233,27 @@ pub enum EisRequest {
     TouchDown(TouchDown),
     TouchUp(TouchUp),
     TouchMotion(TouchMotion),
+}
+
+impl EisRequest {
+    // Requests that are grouped by frames need their times set when the
+    // frame request occurs.
+    fn time_mut(&mut self) -> Option<&mut u64> {
+        match self {
+            Self::PointerMotion(evt) => Some(&mut evt.time),
+            Self::PointerMotionAbsolute(evt) => Some(&mut evt.time),
+            Self::Button(evt) => Some(&mut evt.time),
+            Self::ScrollDelta(evt) => Some(&mut evt.time),
+            Self::ScrollStop(evt) => Some(&mut evt.time),
+            Self::ScrollCancel(evt) => Some(&mut evt.time),
+            Self::ScrollDiscrete(evt) => Some(&mut evt.time),
+            Self::KeyboardKey(evt) => Some(&mut evt.time),
+            Self::TouchDown(evt) => Some(&mut evt.time),
+            Self::TouchUp(evt) => Some(&mut evt.time),
+            Self::TouchMotion(evt) => Some(&mut evt.time),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -294,3 +382,38 @@ impl<T: DeviceEvent> SeatEvent for T {
         &self.device().0.seat
     }
 }
+
+macro_rules! impl_device_trait {
+    ($ty:ty) => {
+        impl DeviceEvent for $ty {
+            fn device(&self) -> &Device {
+                &self.device
+            }
+        }
+    };
+
+    ($ty:ty; time) => {
+        impl_device_trait!($ty);
+
+        impl EventTime for $ty {
+            fn time(&self) -> u64 {
+                self.time
+            }
+        }
+    };
+}
+
+impl_device_trait!(Frame; time);
+impl_device_trait!(DeviceStartEmulating);
+impl_device_trait!(DeviceStopEmulating);
+impl_device_trait!(PointerMotion; time);
+impl_device_trait!(PointerMotionAbsolute; time);
+impl_device_trait!(Button; time);
+impl_device_trait!(ScrollDelta; time);
+impl_device_trait!(ScrollStop; time);
+impl_device_trait!(ScrollCancel; time);
+impl_device_trait!(ScrollDiscrete; time);
+impl_device_trait!(KeyboardKey; time);
+impl_device_trait!(TouchDown; time);
+impl_device_trait!(TouchUp; time);
+impl_device_trait!(TouchMotion; time);

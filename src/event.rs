@@ -29,6 +29,7 @@ pub enum Error {
     DeviceEventBeforeDone,
     DeviceSetupEventAfterDone,
     SeatSetupEventAfterDone,
+    SeatEventBeforeDone,
     NoDeviceType,
     UnexpectedHandshakeEvent,
 }
@@ -135,7 +136,7 @@ impl EiEventConverter {
                     let seat = self
                         .seats
                         .get_mut(&seat)
-                        .ok_or(Error::SeatSetupEventAfterDone)?;
+                        .ok_or(Error::SeatEventBeforeDone)?;
                     self.pending_devices.insert(
                         device.clone(),
                         DeviceInner {
