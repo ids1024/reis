@@ -20,31 +20,81 @@ impl EisRequestConverter {
             eis::Request::Handshake(_handshake, _request) => {
                 return Err(Error::UnexpectedHandshakeEvent);
             }
-            eis::Request::Connection(_connection, _request) => {
+            eis::Request::Connection(_connection, request) => match request {
+                eis::connection::Request::Sync { callback } => {
+                    callback.done(0);
+                    if let Some(backend) = callback.0.backend() {
+                        // XXX Error?
+                        let _ = backend.flush();
+                    }
+                }
+                eis::connection::Request::Disconnect => {}
             },
-            eis::Request::Callback(_callback, request) => match request {
-            },
+            eis::Request::Callback(_callback, request) => match request {},
             eis::Request::Pingpong(_ping_pong, request) => match request {
                 eis::pingpong::Request::Done { callback_data: _ } => {
                     // TODO
                 }
             },
-            eis::Request::Seat(_seat, _request) => {
+            eis::Request::Seat(_seat, request) => match request {
+                eis::seat::Request::Release => {}
+                eis::seat::Request::Bind { capabilities: _ } => {}
             },
-            eis::Request::Device(_device, _request) => {
+            eis::Request::Device(_device, request) => match request {
+                eis::device::Request::Release => {}
+                eis::device::Request::StartEmulating {
+                    last_serial: _,
+                    sequence: _,
+                } => {}
+                eis::device::Request::StopEmulating { last_serial: _ } => {}
+                eis::device::Request::Frame {
+                    last_serial: _,
+                    timestamp: _,
+                } => {}
             },
-            eis::Request::Keyboard(_keyboard, _request) => {
+            eis::Request::Keyboard(_keyboard, request) => match request {
+                eis::keyboard::Request::Release => {}
+                eis::keyboard::Request::Key { key: _, state: _ } => {}
             },
-            eis::Request::Pointer(_pointer, _request) => {
-            }
-            eis::Request::PointerAbsolute(_pointer_absolute, _request) => {
-            }
-            eis::Request::Scroll(_scroll, _request) => {
-            }
-            eis::Request::Button(_button, _request) => {
-            }
-            eis::Request::Touchscreen(_touchscreen, _request) => {
-            }
+            eis::Request::Pointer(_pointer, request) => match request {
+                eis::pointer::Request::Release => {}
+                eis::pointer::Request::MotionRelative { x: _, y: _ } => {}
+            },
+            eis::Request::PointerAbsolute(_pointer_absolute, request) => match request {
+                eis::pointer_absolute::Request::Release => {}
+                eis::pointer_absolute::Request::MotionAbsolute { x: _, y: _ } => {}
+            },
+            eis::Request::Scroll(_scroll, request) => match request {
+                eis::scroll::Request::Release => {}
+                eis::scroll::Request::Scroll { x: _, y: _ } => {}
+                eis::scroll::Request::ScrollDiscrete { x: _, y: _ } => {}
+                eis::scroll::Request::ScrollStop {
+                    x: _,
+                    y: _,
+                    is_cancel: _,
+                } => {}
+            },
+            eis::Request::Button(_button, request) => match request {
+                eis::button::Request::Release => {}
+                eis::button::Request::Button {
+                    button: _,
+                    state: _,
+                } => {}
+            },
+            eis::Request::Touchscreen(_touchscreen, request) => match request {
+                eis::touchscreen::Request::Release => {}
+                eis::touchscreen::Request::Down {
+                    touchid: _,
+                    x: _,
+                    y: _,
+                } => {}
+                eis::touchscreen::Request::Motion {
+                    touchid: _,
+                    x: _,
+                    y: _,
+                } => {}
+                eis::touchscreen::Request::Up { touchid: _ } => {}
+            },
         }
         Ok(())
     }
