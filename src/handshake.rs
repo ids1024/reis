@@ -17,6 +17,8 @@ pub enum HandshakeError {
     InvalidObject(u64),
     NonHandshakeEvent,
     MissingInterface,
+    DuplicateEvent,
+    NoContextType,
 }
 
 impl From<io::Error> for HandshakeError {
@@ -86,8 +88,7 @@ impl<'a> EiHandshaker<'a> {
 pub struct EisHandshakeResp {
     pub connection: eis::Connection,
     pub name: Option<String>,
-    // XXX required?
-    pub context_type: Option<eis::handshake::ContextType>,
+    pub context_type: eis::handshake::ContextType,
     pub negotiated_interfaces: HashMap<String, u32>,
 }
 
@@ -129,11 +130,15 @@ impl<'a> EisHandshaker<'a> {
         match request {
             eis::handshake::Request::HandshakeVersion { version: _ } => {}
             eis::handshake::Request::Name { name } => {
-                // TODO error if is_some
+                if self.name.is_some() {
+                    return Err(HandshakeError::DuplicateEvent);
+                }
                 self.name = Some(name);
             }
             eis::handshake::Request::ContextType { context_type } => {
-                // TODO error if is_some
+                if self.context_type.is_some() {
+                    return Err(HandshakeError::DuplicateEvent);
+                }
                 self.context_type = Some(context_type);
             }
             eis::handshake::Request::InterfaceVersion { name, version } => {
@@ -158,10 +163,14 @@ impl<'a> EisHandshaker<'a> {
 
                 let connection = handshake.connection(self.initial_serial, 1);
 
+                let Some(context_type) = self.context_type else {
+                    return Err(HandshakeError::NoContextType);
+                };
+
                 return Ok(Some(EisHandshakeResp {
                     connection,
                     name: self.name.clone(),
-                    context_type: self.context_type,
+                    context_type,
                     negotiated_interfaces: mem::take(&mut self.negotiated_interfaces),
                 }));
             }

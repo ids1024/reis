@@ -49,7 +49,7 @@ struct ConnectedContextState {
     connection: eis::Connection,
     last_serial: u32,
     name: Option<String>,
-    context_type: Option<eis::handshake::ContextType>,
+    context_type: eis::handshake::ContextType,
     seat: eis::Seat,
     negotiated_interfaces: HashMap<String, u32>,
 }
