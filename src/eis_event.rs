@@ -1,15 +1,21 @@
 // TODO unfinished and unused
 #![allow(dead_code)]
 
-use crate::eis;
+// TODO: rename/reorganize things; doc comments on public types/methods
+
+use crate::{eis, Object};
 use std::{
     collections::{HashMap, VecDeque},
     fmt,
     sync::Arc,
 };
 
+pub use crate::event::DeviceCapability;
+
 pub enum Error {
     UnexpectedHandshakeEvent,
+    UnrecognizedSeat,
+    UnrecognizedDevice,
 }
 
 // need way to add seat/device?
@@ -19,6 +25,7 @@ pub struct EisRequestConverter {
     pending_requests: VecDeque<EisRequest>,
     seats: HashMap<eis::Seat, Seat>,
     devices: HashMap<eis::Device, Device>,
+    device_for_interface: HashMap<Object, Device>,
 }
 
 impl EisRequestConverter {
@@ -77,22 +84,47 @@ impl EisRequestConverter {
                     // TODO
                 }
             },
-            eis::Request::Seat(_seat, request) => match request {
+            eis::Request::Seat(seat, request) => match request {
                 eis::seat::Request::Release => {}
-                eis::seat::Request::Bind { capabilities: _ } => {}
+                eis::seat::Request::Bind { capabilities: _ } => {
+                    let _seat = self.seats.get(&seat).ok_or(Error::UnrecognizedSeat)?;
+                    // TODO bind event
+                }
             },
-            eis::Request::Device(_device, request) => match request {
-                eis::device::Request::Release => {}
-                eis::device::Request::StartEmulating {
-                    last_serial: _,
-                    sequence: _,
-                } => {}
-                eis::device::Request::StopEmulating { last_serial: _ } => {}
-                eis::device::Request::Frame {
-                    last_serial: _,
-                    timestamp: _,
-                } => {}
-            },
+            eis::Request::Device(device, request) => {
+                let device = self.devices.get(&device).ok_or(Error::UnrecognizedDevice)?;
+                match request {
+                    eis::device::Request::Release => {}
+                    eis::device::Request::StartEmulating {
+                        last_serial,
+                        sequence,
+                    } => {
+                        self.queue_request(EisRequest::DeviceStartEmulating(
+                            DeviceStartEmulating {
+                                device: device.clone(),
+                                last_serial,
+                                sequence,
+                            },
+                        ));
+                    }
+                    eis::device::Request::StopEmulating { last_serial } => {
+                        self.queue_request(EisRequest::DeviceStopEmulating(DeviceStopEmulating {
+                            device: device.clone(),
+                            last_serial,
+                        }));
+                    }
+                    eis::device::Request::Frame {
+                        last_serial,
+                        timestamp,
+                    } => {
+                        self.queue_request(EisRequest::Frame(Frame {
+                            device: device.clone(),
+                            last_serial,
+                            time: timestamp,
+                        }));
+                    }
+                }
+            }
             eis::Request::Keyboard(_keyboard, request) => match request {
                 eis::keyboard::Request::Release => {}
                 eis::keyboard::Request::Key { key: _, state: _ } => {}
@@ -154,7 +186,12 @@ pub struct Seat(Arc<SeatInner>);
 
 impl Seat {
     // builder pattern?
-    pub fn add_device(&self, name: Option<&str>, device_type: eis::device::DeviceType) -> Device {
+    pub fn add_device(
+        &self,
+        name: Option<&str>,
+        device_type: eis::device::DeviceType,
+        capabilities: &[DeviceCapability],
+    ) -> Device {
         let device = self.0.seat.device(1);
         if let Some(name) = name {
             device.name(name);
@@ -163,12 +200,27 @@ impl Seat {
         // TODO
         // dimensions
         // regions; region_mapping_id
+        // TODO add interfaces for capabilities
+        // - `eis_device_configure_capability`; only if seat has capability
+        let mut interfaces = HashMap::new();
+        for capability in capabilities {
+            let object = match capability {
+                DeviceCapability::Pointer => device.interface::<eis::Pointer>(1).0,
+                DeviceCapability::PointerAbsolute => device.interface::<eis::PointerAbsolute>(1).0,
+                DeviceCapability::Keyboard => device.interface::<eis::Keyboard>(1).0,
+                DeviceCapability::Touch => device.interface::<eis::Touchscreen>(1).0,
+                DeviceCapability::Scroll => device.interface::<eis::Scroll>(1).0,
+                DeviceCapability::Button => device.interface::<eis::Button>(1).0,
+            };
+            interfaces.insert(object.interface().to_string(), object);
+        }
         device.done();
 
         let device = Device(Arc::new(DeviceInner {
             device,
             seat: self.clone(),
             name: name.map(|x| x.to_string()),
+            interfaces,
         }));
         // TODO insert into device list used in converter
         // self.devices.insert(device.0.device.clone(), device.clone());
@@ -180,6 +232,7 @@ struct DeviceInner {
     device: eis::Device,
     seat: Seat,
     name: Option<String>,
+    interfaces: HashMap<String, crate::Object>,
 }
 
 #[derive(Clone)]
@@ -259,21 +312,21 @@ impl EisRequest {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Frame {
     pub device: Device,
-    pub serial: u32,
+    pub last_serial: u32,
     pub time: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceStartEmulating {
     pub device: Device,
-    pub serial: u32,
+    pub last_serial: u32,
     pub sequence: u32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceStopEmulating {
     pub device: Device,
-    pub serial: u32,
+    pub last_serial: u32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
