@@ -2,7 +2,11 @@
 
 use calloop::generic::Generic;
 use once_cell::sync::Lazy;
-use reis::{eis, PendingRequestResult};
+use reis::{
+    eis::{self, device::DeviceType},
+    eis_event::{DeviceCapability, EisRequest, EisRequestConverter},
+    PendingRequestResult,
+};
 use std::{
     collections::HashMap,
     io,
@@ -47,26 +51,21 @@ impl ContextState {
 struct ConnectedContextState {
     context: eis::Context,
     connection: eis::Connection,
-    last_serial: u32,
     name: Option<String>,
     context_type: eis::handshake::ContextType,
-    seat: eis::Seat,
+    seat: reis::eis_event::Seat,
     negotiated_interfaces: HashMap<String, u32>,
+    request_converter: EisRequestConverter,
 }
 
 impl ConnectedContextState {
-    fn next_serial(&mut self) -> u32 {
-        self.last_serial += 1;
-        self.last_serial
-    }
-
     fn disconnected(
         &self,
         reason: eis::connection::DisconnectReason,
         explaination: &str,
     ) -> calloop::PostAction {
         self.connection
-            .disconnected(self.last_serial, reason, explaination);
+            .disconnected(self.request_converter.last_serial(), reason, explaination);
         self.context.flush();
         calloop::PostAction::Remove
     }
@@ -80,67 +79,71 @@ impl ConnectedContextState {
         self.negotiated_interfaces.contains_key(interface)
     }
 
-    fn handle_request(&mut self, request: eis::Request) -> calloop::PostAction {
+    fn handle_request(&mut self, request: EisRequest) -> calloop::PostAction {
         match request {
-            eis::Request::Handshake(handshake, request) => {}
-            eis::Request::Connection(_connection, request) => match request {
-                eis::connection::Request::Disconnect => {
-                    // Do not send `disconnected` in response
-                    return calloop::PostAction::Remove;
+            EisRequest::Disconnect => {
+                return calloop::PostAction::Remove;
+            }
+            EisRequest::Bind(request) => {
+                let capabilities = request.capabilities;
+
+                // TODO Handle in converter
+                if capabilities & 0x7e != capabilities {
+                    let serial = self.request_converter.next_serial();
+                    request.seat.eis_seat().destroyed(serial);
+                    return self.disconnected(
+                        eis::connection::DisconnectReason::Value,
+                        "Invalid capabilities",
+                    );
                 }
-                eis::connection::Request::Sync { callback } => {
-                    if callback.version() != 1 {
-                        return self.protocol_error("Invalid protocol object version");
-                    }
-                    callback.done(0);
+
+                if self.has_interface("ei_keyboard")
+                    && capabilities & 2 << DeviceCapability::Keyboard as u64 != 0
+                {
+                    self.request_converter.add_device(
+                        &self.seat,
+                        Some("keyboard"),
+                        DeviceType::Virtual,
+                        &[DeviceCapability::Keyboard],
+                    );
                 }
-                _ => {}
-            },
-            eis::Request::Seat(seat, request) => match request {
-                eis::seat::Request::Bind { capabilities } => {
-                    if capabilities & 0x7e != capabilities {
-                        let serial = self.next_serial();
-                        seat.destroyed(serial);
-                        return self.disconnected(
-                            eis::connection::DisconnectReason::Value,
-                            "Invalid capabilities",
-                        );
-                    }
 
-                    fn add_device<T: eis::Interface>(seat: &eis::Seat, name: &str) {
-                        let device = seat.device(1);
-                        device.name(name);
-                        device.device_type(eis::device::DeviceType::Virtual);
-                        device.interface::<T>(1);
-                        device.done();
-                    }
-
-                    if self.has_interface("ei_keyboard") && capabilities & 0x20 != 0 {
-                        add_device::<eis::Keyboard>(&seat, "keyboard");
-                    }
-
-                    // XXX button/etc should be on same object
-                    if self.has_interface("ei_pointer") && capabilities & 0x2 != 0 {
-                        add_device::<eis::Pointer>(&seat, "pointer");
-                    }
-
-                    if self.has_interface("ei_touchscreen") && capabilities & 0x40 != 0 {
-                        add_device::<eis::Touchscreen>(&seat, "touch");
-                    }
-
-                    if self.has_interface("ei_pointer_absolute") && capabilities & 0x4 != 0 {
-                        add_device::<eis::PointerAbsolute>(&seat, "pointer-abs");
-                    }
-
-                    // TODO create devices; compare against current bitflag
+                // XXX button/etc should be on same object
+                if self.has_interface("ei_pointer")
+                    && capabilities & 2 << DeviceCapability::Pointer as u64 != 0
+                {
+                    self.request_converter.add_device(
+                        &self.seat,
+                        Some("pointer"),
+                        DeviceType::Virtual,
+                        &[DeviceCapability::Pointer],
+                    );
                 }
-                eis::seat::Request::Release => {
-                    // XXX
-                    let serial = self.next_serial();
-                    seat.destroyed(serial);
+
+                if self.has_interface("ei_touchscreen")
+                    && capabilities & 2 << DeviceCapability::Touch as u64 != 0
+                {
+                    self.request_converter.add_device(
+                        &self.seat,
+                        Some("touch"),
+                        DeviceType::Virtual,
+                        &[DeviceCapability::Touch],
+                    );
                 }
-                _ => {}
-            },
+
+                if self.has_interface("ei_pointer_absolute")
+                    && capabilities & 2 << DeviceCapability::PointerAbsolute as u64 != 0
+                {
+                    self.request_converter.add_device(
+                        &self.seat,
+                        Some("pointer-abs"),
+                        DeviceType::Virtual,
+                        &[DeviceCapability::PointerAbsolute],
+                    );
+                }
+
+                // TODO create devices; compare against current bitflag
+            }
             _ => {}
         }
 
@@ -206,9 +209,10 @@ impl State {
                 PendingRequestResult::InvalidObject(object_id) => {
                     if let ContextState::Connected(connected_state) = context_state {
                         // Only send if object ID is in range?
-                        connected_state
-                            .connection
-                            .invalid_object(connected_state.last_serial, object_id);
+                        connected_state.connection.invalid_object(
+                            connected_state.request_converter.last_serial(),
+                            object_id,
+                        );
                     }
                     continue;
                 }
@@ -230,24 +234,28 @@ impl State {
                                 return calloop::PostAction::Remove;
                             }
 
-                            let seat = resp.connection.seat(1);
-                            seat.name("default");
-                            seat.capability(0x2, "ei_pointer");
-                            seat.capability(0x4, "ei_pointer_absolute");
-                            seat.capability(0x8, "ei_button");
-                            seat.capability(0x10, "ei_scroll");
-                            seat.capability(0x20, "ei_keyboard");
-                            seat.capability(0x40, "ei_touchscreen");
-                            seat.done();
+                            let mut request_converter =
+                                EisRequestConverter::new(&resp.connection, 1);
+                            let seat = request_converter.add_seat(
+                                Some("default"),
+                                &[
+                                    DeviceCapability::Pointer,
+                                    DeviceCapability::PointerAbsolute,
+                                    DeviceCapability::Keyboard,
+                                    DeviceCapability::Touch,
+                                    DeviceCapability::Scroll,
+                                    DeviceCapability::Button,
+                                ],
+                            );
 
                             let connected_state = ConnectedContextState {
                                 context: context.clone(),
                                 connection: resp.connection,
-                                last_serial: 1,
                                 name: resp.name,
                                 context_type: resp.context_type,
-                                seat: seat,
+                                seat,
                                 negotiated_interfaces: resp.negotiated_interfaces.clone(),
+                                request_converter,
                             };
                             *context_state = ContextState::Connected(connected_state);
                         }
@@ -258,9 +266,16 @@ impl State {
                     }
                 }
                 ContextState::Connected(connected_state) => {
-                    let res = connected_state.handle_request(request);
-                    if res != calloop::PostAction::Continue {
-                        return res;
+                    if let Err(err) = connected_state.request_converter.handle_request(request) {
+                        // TODO
+                        return connected_state
+                            .protocol_error(&format!("request error: {:?}", err));
+                    }
+                    while let Some(request) = connected_state.request_converter.next_request() {
+                        let res = connected_state.handle_request(request);
+                        if res != calloop::PostAction::Continue {
+                            return res;
+                        }
                     }
                 }
             }

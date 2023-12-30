@@ -12,10 +12,12 @@ use std::{
 
 pub use crate::event::DeviceCapability;
 
+#[derive(Debug)]
 pub enum Error {
     UnexpectedHandshakeEvent,
     UnrecognizedSeat,
     UnrecognizedDevice,
+    InvalidCallbackVersion,
 }
 
 // need way to add seat/device?
@@ -26,18 +28,29 @@ pub struct EisRequestConverter {
     seats: HashMap<eis::Seat, Seat>,
     devices: HashMap<eis::Device, Device>,
     device_for_interface: HashMap<Object, Device>,
+    last_serial: u32,
 }
 
 impl EisRequestConverter {
-    pub fn new(connection: &eis::Connection) -> Self {
+    pub fn new(connection: &eis::Connection, initial_serial: u32) -> Self {
         Self {
             connection: connection.clone(),
+            last_serial: initial_serial,
             requests: VecDeque::new(),
             pending_requests: VecDeque::new(),
             seats: HashMap::new(),
             devices: HashMap::new(),
             device_for_interface: HashMap::new(),
         }
+    }
+
+    pub fn last_serial(&self) -> u32 {
+        self.last_serial
+    }
+
+    pub fn next_serial(&mut self) -> u32 {
+        self.last_serial += 1;
+        self.last_serial
     }
 }
 
@@ -59,6 +72,10 @@ impl EisRequestConverter {
             // TODO: If a device request, queue a frame if anything is pending
             self.requests.push_back(request);
         }
+    }
+
+    pub fn next_request(&mut self) -> Option<EisRequest> {
+        self.requests.pop_front()
     }
 
     pub fn add_seat(&mut self, name: Option<&str>, capabilities: &[DeviceCapability]) -> Seat {
@@ -132,13 +149,18 @@ impl EisRequestConverter {
             }
             eis::Request::Connection(_connection, request) => match request {
                 eis::connection::Request::Sync { callback } => {
+                    if callback.version() != 1 {
+                        return Err(Error::InvalidCallbackVersion);
+                    }
                     callback.done(0);
                     if let Some(backend) = callback.0.backend() {
                         // XXX Error?
                         let _ = backend.flush();
                     }
                 }
-                eis::connection::Request::Disconnect => {}
+                eis::connection::Request::Disconnect => {
+                    self.queue_request(EisRequest::Disconnect);
+                }
             },
             eis::Request::Callback(_callback, request) => match request {},
             eis::Request::Pingpong(_ping_pong, request) => match request {
@@ -147,7 +169,11 @@ impl EisRequestConverter {
                 }
             },
             eis::Request::Seat(seat, request) => match request {
-                eis::seat::Request::Release => {}
+                eis::seat::Request::Release => {
+                    // XXX
+                    let serial = self.next_serial();
+                    seat.destroyed(serial);
+                }
                 eis::seat::Request::Bind { capabilities } => {
                     let seat = self.seats.get(&seat).ok_or(Error::UnrecognizedSeat)?;
                     self.queue_request(EisRequest::Bind(Bind {
@@ -350,6 +376,12 @@ struct SeatInner {
 #[derive(Clone)]
 pub struct Seat(Arc<SeatInner>);
 
+impl Seat {
+    pub fn eis_seat(&self) -> &eis::Seat {
+        &self.0.seat
+    }
+}
+
 impl fmt::Debug for Seat {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(name) = &self.0.name {
@@ -409,6 +441,7 @@ impl PartialEq for Device {
 #[derive(Clone, Debug, PartialEq)]
 pub enum EisRequest {
     // TODO connect, disconnect, device closed
+    Disconnect,
     Bind(Bind),
     // Only for sender context
     Frame(Frame),
