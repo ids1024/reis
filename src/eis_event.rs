@@ -61,12 +61,15 @@ impl EisRequestConverter {
         }
     }
 
-    pub fn add_seat(&mut self, name: Option<&str>) -> Seat {
+    pub fn add_seat(&mut self, name: Option<&str>, capabilities: &[DeviceCapability]) -> Seat {
         let seat = self.connection.seat(1);
         if let Some(name) = name {
             seat.name(name);
         }
-        // TODO capabilities
+        for capability in capabilities {
+            // TODO only send negotiated interfaces
+            seat.capability(2 << *capability as u64, capability.name());
+        }
         seat.done();
         let seat = Seat(Arc::new(SeatInner {
             seat,
@@ -343,8 +346,6 @@ struct SeatInner {
     name: Option<String>,
     //capabilities: HashMap<String, u64>,
 }
-// Method to add device to seat?
-// eis_seat_new_device
 
 #[derive(Clone)]
 pub struct Seat(Arc<SeatInner>);

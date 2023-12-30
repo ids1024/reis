@@ -503,6 +503,7 @@ pub struct Keymap {
 
 // bitflags?
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+#[repr(u64)]
 pub enum DeviceCapability {
     Pointer,
     PointerAbsolute,
@@ -510,6 +511,19 @@ pub enum DeviceCapability {
     Touch,
     Scroll,
     Button,
+}
+
+impl DeviceCapability {
+    pub(crate) fn name(self) -> &'static str {
+        match self {
+            DeviceCapability::Pointer => ei::Pointer::NAME,
+            DeviceCapability::PointerAbsolute => ei::PointerAbsolute::NAME,
+            DeviceCapability::Keyboard => ei::Keyboard::NAME,
+            DeviceCapability::Touch => ei::Touchscreen::NAME,
+            DeviceCapability::Scroll => ei::Scroll::NAME,
+            DeviceCapability::Button => ei::Button::NAME,
+        }
+    }
 }
 
 struct SeatInner {
@@ -547,15 +561,7 @@ impl Seat {
     pub fn bind_capabilities(&self, capabilities: &[DeviceCapability]) {
         let mut caps = 0;
         for i in capabilities {
-            let name = match i {
-                DeviceCapability::Pointer => ei::Pointer::NAME,
-                DeviceCapability::PointerAbsolute => ei::PointerAbsolute::NAME,
-                DeviceCapability::Keyboard => ei::Keyboard::NAME,
-                DeviceCapability::Touch => ei::Touchscreen::NAME,
-                DeviceCapability::Scroll => ei::Scroll::NAME,
-                DeviceCapability::Button => ei::Button::NAME,
-            };
-            if let Some(value) = self.0.capabilities.get(name) {
+            if let Some(value) = self.0.capabilities.get(i.name()) {
                 caps |= value;
             }
         }
