@@ -29,6 +29,19 @@ pub struct EisRequestConverter {
 }
 
 impl EisRequestConverter {
+    pub fn new(connection: &eis::Connection) -> Self {
+        Self {
+            connection: connection.clone(),
+            requests: VecDeque::new(),
+            pending_requests: VecDeque::new(),
+            seats: HashMap::new(),
+            devices: HashMap::new(),
+            device_for_interface: HashMap::new(),
+        }
+    }
+}
+
+impl EisRequestConverter {
     // Based on behavior of `eis_queue_request` in libeis
     fn queue_request(&mut self, mut request: EisRequest) {
         if request.time_mut().is_some() {
@@ -63,6 +76,52 @@ impl EisRequestConverter {
         seat
     }
 
+    // builder pattern?
+    pub fn add_device(
+        &mut self,
+        seat: &Seat,
+        name: Option<&str>,
+        device_type: eis::device::DeviceType,
+        capabilities: &[DeviceCapability],
+    ) -> Device {
+        let device = seat.0.seat.device(1);
+        if let Some(name) = name {
+            device.name(name);
+        }
+        device.device_type(device_type);
+        // TODO
+        // dimensions
+        // regions; region_mapping_id
+        // TODO add interfaces for capabilities
+        // - `eis_device_configure_capability`; only if seat has capability
+        let mut interfaces = HashMap::new();
+        for capability in capabilities {
+            let object = match capability {
+                DeviceCapability::Pointer => device.interface::<eis::Pointer>(1).0,
+                DeviceCapability::PointerAbsolute => device.interface::<eis::PointerAbsolute>(1).0,
+                DeviceCapability::Keyboard => device.interface::<eis::Keyboard>(1).0,
+                DeviceCapability::Touch => device.interface::<eis::Touchscreen>(1).0,
+                DeviceCapability::Scroll => device.interface::<eis::Scroll>(1).0,
+                DeviceCapability::Button => device.interface::<eis::Button>(1).0,
+            };
+            interfaces.insert(object.interface().to_string(), object);
+        }
+        device.done();
+
+        let device = Device(Arc::new(DeviceInner {
+            device,
+            seat: seat.clone(),
+            name: name.map(|x| x.to_string()),
+            interfaces,
+        }));
+        for interface in device.0.interfaces.values() {
+            self.device_for_interface
+                .insert(interface.clone(), device.clone());
+        }
+        self.devices.insert(device.0.device.clone(), device.clone());
+        device
+    }
+
     pub fn handle_request(&mut self, request: eis::Request) -> Result<(), Error> {
         match request {
             eis::Request::Handshake(_handshake, _request) => {
@@ -86,9 +145,12 @@ impl EisRequestConverter {
             },
             eis::Request::Seat(seat, request) => match request {
                 eis::seat::Request::Release => {}
-                eis::seat::Request::Bind { capabilities: _ } => {
-                    let _seat = self.seats.get(&seat).ok_or(Error::UnrecognizedSeat)?;
-                    // TODO bind event
+                eis::seat::Request::Bind { capabilities } => {
+                    let seat = self.seats.get(&seat).ok_or(Error::UnrecognizedSeat)?;
+                    self.queue_request(EisRequest::Bind(Bind {
+                        seat: seat.clone(),
+                        capabilities,
+                    }));
                 }
             },
             eis::Request::Device(device, request) => {
@@ -125,49 +187,152 @@ impl EisRequestConverter {
                     }
                 }
             }
-            eis::Request::Keyboard(_keyboard, request) => match request {
-                eis::keyboard::Request::Release => {}
-                eis::keyboard::Request::Key { key: _, state: _ } => {}
-            },
-            eis::Request::Pointer(_pointer, request) => match request {
-                eis::pointer::Request::Release => {}
-                eis::pointer::Request::MotionRelative { x: _, y: _ } => {}
-            },
-            eis::Request::PointerAbsolute(_pointer_absolute, request) => match request {
-                eis::pointer_absolute::Request::Release => {}
-                eis::pointer_absolute::Request::MotionAbsolute { x: _, y: _ } => {}
-            },
-            eis::Request::Scroll(_scroll, request) => match request {
-                eis::scroll::Request::Release => {}
-                eis::scroll::Request::Scroll { x: _, y: _ } => {}
-                eis::scroll::Request::ScrollDiscrete { x: _, y: _ } => {}
-                eis::scroll::Request::ScrollStop {
-                    x: _,
-                    y: _,
-                    is_cancel: _,
-                } => {}
-            },
-            eis::Request::Button(_button, request) => match request {
-                eis::button::Request::Release => {}
-                eis::button::Request::Button {
-                    button: _,
-                    state: _,
-                } => {}
-            },
-            eis::Request::Touchscreen(_touchscreen, request) => match request {
-                eis::touchscreen::Request::Release => {}
-                eis::touchscreen::Request::Down {
-                    touchid: _,
-                    x: _,
-                    y: _,
-                } => {}
-                eis::touchscreen::Request::Motion {
-                    touchid: _,
-                    x: _,
-                    y: _,
-                } => {}
-                eis::touchscreen::Request::Up { touchid: _ } => {}
-            },
+            eis::Request::Keyboard(keyboard, request) => {
+                let device = self
+                    .device_for_interface
+                    .get(&keyboard.0)
+                    .ok_or(Error::UnrecognizedDevice)?;
+                match request {
+                    eis::keyboard::Request::Release => {}
+                    eis::keyboard::Request::Key { key, state } => {
+                        self.queue_request(EisRequest::KeyboardKey(KeyboardKey {
+                            device: device.clone(),
+                            key,
+                            state,
+                            time: 0,
+                        }));
+                    }
+                }
+            }
+            eis::Request::Pointer(pointer, request) => {
+                let device = self
+                    .device_for_interface
+                    .get(&pointer.0)
+                    .ok_or(Error::UnrecognizedDevice)?;
+                match request {
+                    eis::pointer::Request::Release => {}
+                    eis::pointer::Request::MotionRelative { x, y } => {
+                        self.queue_request(EisRequest::PointerMotion(PointerMotion {
+                            device: device.clone(),
+                            dx: x,
+                            dy: y,
+                            time: 0,
+                        }));
+                    }
+                }
+            }
+            eis::Request::PointerAbsolute(pointer_absolute, request) => {
+                let device = self
+                    .device_for_interface
+                    .get(&pointer_absolute.0)
+                    .ok_or(Error::UnrecognizedDevice)?;
+                match request {
+                    eis::pointer_absolute::Request::Release => {}
+                    eis::pointer_absolute::Request::MotionAbsolute { x, y } => {
+                        self.queue_request(EisRequest::PointerMotionAbsolute(
+                            PointerMotionAbsolute {
+                                device: device.clone(),
+                                dx_absolute: x,
+                                dy_absolute: y,
+                                time: 0,
+                            },
+                        ));
+                    }
+                }
+            }
+            eis::Request::Scroll(scroll, request) => {
+                let device = self
+                    .device_for_interface
+                    .get(&scroll.0)
+                    .ok_or(Error::UnrecognizedDevice)?;
+                match request {
+                    eis::scroll::Request::Release => {}
+                    eis::scroll::Request::Scroll { x, y } => {
+                        self.queue_request(EisRequest::ScrollDelta(ScrollDelta {
+                            device: device.clone(),
+                            dx: x,
+                            dy: y,
+                            time: 0,
+                        }));
+                    }
+                    eis::scroll::Request::ScrollDiscrete { x, y } => {
+                        self.queue_request(EisRequest::ScrollDiscrete(ScrollDiscrete {
+                            device: device.clone(),
+                            discrete_dx: x,
+                            discrete_dy: y,
+                            time: 0,
+                        }));
+                    }
+                    eis::scroll::Request::ScrollStop { x, y, is_cancel } => {
+                        if is_cancel != 0 {
+                            self.queue_request(EisRequest::ScrollCancel(ScrollCancel {
+                                device: device.clone(),
+                                time: 0,
+                                x: x != 0,
+                                y: y != 0,
+                            }));
+                        } else {
+                            self.queue_request(EisRequest::ScrollStop(ScrollStop {
+                                device: device.clone(),
+                                time: 0,
+                                x: x != 0,
+                                y: y != 0,
+                            }));
+                        }
+                    }
+                }
+            }
+            eis::Request::Button(button, request) => {
+                let device = self
+                    .device_for_interface
+                    .get(&button.0)
+                    .ok_or(Error::UnrecognizedDevice)?;
+                match request {
+                    eis::button::Request::Release => {}
+                    eis::button::Request::Button { button, state } => {
+                        self.queue_request(EisRequest::Button(Button {
+                            device: device.clone(),
+                            button,
+                            state,
+                            time: 0,
+                        }));
+                    }
+                }
+            }
+            eis::Request::Touchscreen(touchscreen, request) => {
+                let device = self
+                    .device_for_interface
+                    .get(&touchscreen.0)
+                    .ok_or(Error::UnrecognizedDevice)?;
+                match request {
+                    eis::touchscreen::Request::Release => {}
+                    eis::touchscreen::Request::Down { touchid, x, y } => {
+                        self.queue_request(EisRequest::TouchDown(TouchDown {
+                            device: device.clone(),
+                            touch_id: touchid,
+                            x,
+                            y,
+                            time: 0,
+                        }));
+                    }
+                    eis::touchscreen::Request::Motion { touchid, x, y } => {
+                        self.queue_request(EisRequest::TouchMotion(TouchMotion {
+                            device: device.clone(),
+                            touch_id: touchid,
+                            x,
+                            y,
+                            time: 0,
+                        }));
+                    }
+                    eis::touchscreen::Request::Up { touchid } => {
+                        self.queue_request(EisRequest::TouchUp(TouchUp {
+                            device: device.clone(),
+                            touch_id: touchid,
+                            time: 0,
+                        }));
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -184,47 +349,19 @@ struct SeatInner {
 #[derive(Clone)]
 pub struct Seat(Arc<SeatInner>);
 
-impl Seat {
-    // builder pattern?
-    pub fn add_device(
-        &self,
-        name: Option<&str>,
-        device_type: eis::device::DeviceType,
-        capabilities: &[DeviceCapability],
-    ) -> Device {
-        let device = self.0.seat.device(1);
-        if let Some(name) = name {
-            device.name(name);
+impl fmt::Debug for Seat {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(name) = &self.0.name {
+            write!(f, "Seat(\"{}\")", name)
+        } else {
+            write!(f, "Seat(None)")
         }
-        device.device_type(device_type);
-        // TODO
-        // dimensions
-        // regions; region_mapping_id
-        // TODO add interfaces for capabilities
-        // - `eis_device_configure_capability`; only if seat has capability
-        let mut interfaces = HashMap::new();
-        for capability in capabilities {
-            let object = match capability {
-                DeviceCapability::Pointer => device.interface::<eis::Pointer>(1).0,
-                DeviceCapability::PointerAbsolute => device.interface::<eis::PointerAbsolute>(1).0,
-                DeviceCapability::Keyboard => device.interface::<eis::Keyboard>(1).0,
-                DeviceCapability::Touch => device.interface::<eis::Touchscreen>(1).0,
-                DeviceCapability::Scroll => device.interface::<eis::Scroll>(1).0,
-                DeviceCapability::Button => device.interface::<eis::Button>(1).0,
-            };
-            interfaces.insert(object.interface().to_string(), object);
-        }
-        device.done();
+    }
+}
 
-        let device = Device(Arc::new(DeviceInner {
-            device,
-            seat: self.clone(),
-            name: name.map(|x| x.to_string()),
-            interfaces,
-        }));
-        // TODO insert into device list used in converter
-        // self.devices.insert(device.0.device.clone(), device.clone());
-        device
+impl PartialEq for Seat {
+    fn eq(&self, rhs: &Seat) -> bool {
+        Arc::ptr_eq(&self.0, &rhs.0)
     }
 }
 
@@ -270,7 +407,8 @@ impl PartialEq for Device {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EisRequest {
-    // TODO connect, disconnect, seat bind, device closed
+    // TODO connect, disconnect, device closed
+    Bind(Bind),
     // Only for sender context
     Frame(Frame),
     DeviceStartEmulating(DeviceStartEmulating),
@@ -307,6 +445,12 @@ impl EisRequest {
             _ => None,
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Bind {
+    pub seat: Seat,
+    pub capabilities: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
