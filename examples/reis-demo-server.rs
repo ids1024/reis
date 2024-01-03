@@ -4,7 +4,7 @@ use calloop::generic::Generic;
 use once_cell::sync::Lazy;
 use reis::{
     eis::{self, device::DeviceType},
-    eis_event::{DeviceCapability, EisRequest, EisRequestConverter},
+    request::{DeviceCapability, EisRequest, EisRequestConverter},
     PendingRequestResult,
 };
 use std::{
@@ -53,7 +53,7 @@ struct ConnectedContextState {
     connection: eis::Connection,
     name: Option<String>,
     context_type: eis::handshake::ContextType,
-    seat: reis::eis_event::Seat,
+    seat: reis::request::Seat,
     negotiated_interfaces: HashMap<String, u32>,
     request_converter: EisRequestConverter,
 }
