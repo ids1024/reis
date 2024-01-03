@@ -551,6 +551,14 @@ impl PartialEq for Seat {
     }
 }
 
+impl Eq for Seat {}
+
+impl std::hash::Hash for Seat {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.seat.0.id().hash(state);
+    }
+}
+
 impl Seat {
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
@@ -636,6 +644,14 @@ impl Device {
 impl PartialEq for Device {
     fn eq(&self, rhs: &Device) -> bool {
         Arc::ptr_eq(&self.0, &rhs.0)
+    }
+}
+
+impl Eq for Device {}
+
+impl std::hash::Hash for Device {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.device.0.id().hash(state);
     }
 }
 
