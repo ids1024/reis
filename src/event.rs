@@ -12,7 +12,7 @@
 
 // WIP disconnected event? EOF?
 
-#![allow(clippy::single_match)]
+#![allow(clippy::derive_partial_eq_without_eq)]
 
 use crate::{ei, Interface, Object};
 use std::{

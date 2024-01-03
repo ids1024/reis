@@ -1,5 +1,4 @@
-// TODO unfinished and unused
-#![allow(dead_code)]
+#![allow(clippy::derive_partial_eq_without_eq)]
 
 // TODO: rename/reorganize things; doc comments on public types/methods
 
