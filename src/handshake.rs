@@ -102,10 +102,7 @@ pub fn ei_handshake_blocking(
             )
         })
         .map_err(io::Error::from)?;
-        match context.read() {
-            Err(err) => return Err(err.into()),
-            Ok(_) => {}
-        };
+        context.read()?;
         while let Some(result) = context.pending_event() {
             let request = match result {
                 PendingRequestResult::Request(request) => request,
