@@ -1,7 +1,7 @@
 // Generic `EiHandshaker` can be used in async or sync code
 
 use crate::{ei, eis, ParseError, PendingRequestResult};
-use std::{collections::HashMap, io, mem};
+use std::{collections::HashMap, error, fmt, io, mem};
 
 pub struct HandshakeResp {
     pub connection: ei::Connection,
@@ -19,6 +19,22 @@ pub enum HandshakeError {
     DuplicateEvent,
     NoContextType,
 }
+
+impl fmt::Display for HandshakeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::Io(err) => write!(f, "IO error: {}", err),
+            Self::Parse(err) => write!(f, "parse error: {}", err),
+            Self::InvalidObject(id) => write!(f, "invalid object {} during handshake", id),
+            Self::NonHandshakeEvent => write!(f, "non-handshake event during handshake"),
+            Self::MissingInterface => write!(f, "missing required interface"),
+            Self::DuplicateEvent => write!(f, "duplicate event during handshake"),
+            Self::NoContextType => write!(f, "no `context_type` sent in handshake"),
+        }
+    }
+}
+
+impl error::Error for HandshakeError {}
 
 impl From<io::Error> for HandshakeError {
     fn from(err: io::Error) -> Self {
