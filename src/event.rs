@@ -34,6 +34,21 @@ pub enum Error {
     UnexpectedHandshakeEvent,
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::DeviceEventBeforeDone => write!(f, "device event before done"),
+            Self::DeviceSetupEventAfterDone => write!(f, "device setup event after done"),
+            Self::SeatSetupEventAfterDone => write!(f, "seat setup event after done"),
+            Self::SeatEventBeforeDone => write!(f, "seat event before done"),
+            Self::NoDeviceType => write!(f, "no device"),
+            Self::UnexpectedHandshakeEvent => write!(f, "unexpected handshake event"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
 #[derive(Default)]
 pub struct EiEventConverter {
     pending_seats: HashMap<ei::Seat, SeatInner>,

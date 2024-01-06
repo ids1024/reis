@@ -19,6 +19,19 @@ pub enum Error {
     InvalidCallbackVersion,
 }
 
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::UnexpectedHandshakeEvent => write!(f, "unexpected handshake event"),
+            Self::UnrecognizedSeat => write!(f, "unrecognized seat"),
+            Self::UnrecognizedDevice => write!(f, "unrecognized device"),
+            Self::InvalidCallbackVersion => write!(f, "invalid callback version"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
+
 // need way to add seat/device?
 pub struct EisRequestConverter {
     connection: eis::Connection,
