@@ -1,6 +1,6 @@
 // Generic `EiHandshaker` can be used in async or sync code
 
-use crate::{ei, eis, ParseError};
+use crate::{ei, eis, ParseError, PendingRequestResult};
 use std::{collections::HashMap, io, mem};
 
 pub struct HandshakeResp {
@@ -81,6 +81,47 @@ impl<'a> EiHandshaker<'a> {
                 serial,
                 negotiated_interfaces: mem::take(&mut self.negotiated_interfaces),
             })),
+        }
+    }
+}
+
+pub fn ei_handshake_blocking(
+    context: &ei::Context,
+    name: &str,
+    context_type: ei::handshake::ContextType,
+    interfaces: &HashMap<&str, u32>,
+) -> Result<HandshakeResp, HandshakeError> {
+    let mut handshaker = EiHandshaker::new(name, context_type, interfaces);
+    loop {
+        rustix::io::retry_on_intr(|| {
+            rustix::event::poll(
+                &mut [rustix::event::PollFd::new(
+                    context,
+                    rustix::event::PollFlags::IN,
+                )],
+                0,
+            )
+        })
+        .map_err(io::Error::from)?;
+        match context.read() {
+            Ok(res) if res.is_eof() => return Err(HandshakeError::UnexpectedEof),
+            Err(err) => return Err(err.into()),
+            Ok(_) => {}
+        };
+        while let Some(result) = context.pending_event() {
+            let request = match result {
+                PendingRequestResult::Request(request) => request,
+                PendingRequestResult::ParseError(parse_error) => {
+                    return Err(HandshakeError::Parse(parse_error));
+                }
+                PendingRequestResult::InvalidObject(invalid_object) => {
+                    return Err(HandshakeError::InvalidObject(invalid_object));
+                }
+            };
+
+            if let Some(resp) = handshaker.handle_event(request)? {
+                return Ok(resp);
+            }
         }
     }
 }

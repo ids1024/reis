@@ -14,10 +14,10 @@
 
 #![allow(clippy::derive_partial_eq_without_eq)]
 
-use crate::{ei, Interface, Object};
+use crate::{ei, Interface, Object, ParseError, PendingRequestResult};
 use std::{
     collections::{HashMap, VecDeque},
-    fmt,
+    fmt, io,
     os::unix::io::OwnedFd,
     sync::Arc,
 };
@@ -925,3 +925,68 @@ impl_device_trait!(KeyboardKey; time);
 impl_device_trait!(TouchDown; time);
 impl_device_trait!(TouchUp; time);
 impl_device_trait!(TouchMotion; time);
+
+#[derive(Debug)]
+pub enum EiConvertEventIteratorError {
+    Io(io::Error),
+    Parse(ParseError),
+    Event(crate::event::Error),
+}
+
+pub struct EiConvertEventIterator {
+    context: ei::Context,
+    converter: crate::event::EiEventConverter,
+}
+
+impl EiConvertEventIterator {
+    pub fn new(context: ei::Context) -> Self {
+        Self {
+            context,
+            converter: Default::default(),
+        }
+    }
+}
+
+impl Iterator for EiConvertEventIterator {
+    type Item = Result<crate::event::EiEvent, EiConvertEventIteratorError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(event) = self.converter.next_event() {
+                return Some(Ok(event));
+            }
+            if let Err(err) = rustix::io::retry_on_intr(|| {
+                rustix::event::poll(
+                    &mut [rustix::event::PollFd::new(
+                        &self.context,
+                        rustix::event::PollFlags::IN,
+                    )],
+                    0,
+                )
+            }) {
+                return Some(Err(EiConvertEventIteratorError::Io(err.into())));
+            }
+            match self.context.read() {
+                Ok(res) if res.is_eof() => return None,
+                Err(err) => return Some(Err(EiConvertEventIteratorError::Io(err))),
+                Ok(_) => {}
+            };
+            while let Some(result) = self.context.pending_event() {
+                let request = match result {
+                    PendingRequestResult::Request(request) => request,
+                    PendingRequestResult::ParseError(parse_error) => {
+                        return Some(Err(EiConvertEventIteratorError::Parse(parse_error)))
+                    }
+                    PendingRequestResult::InvalidObject(_invalid_object) => {
+                        // Log?
+                        continue;
+                    }
+                };
+
+                if let Err(err) = self.converter.handle_event(request) {
+                    return Some(Err(EiConvertEventIteratorError::Event(err)));
+                }
+            }
+        }
+    }
+}
