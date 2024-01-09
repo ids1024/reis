@@ -14,8 +14,8 @@ use crate::Object;
 mod arg;
 pub(crate) use arg::{Arg, OwnedArg};
 mod backend;
+pub use backend::PendingRequestResult;
 pub(crate) use backend::{Backend, BackendWeak};
-pub use backend::{ConnectionReadResult, PendingRequestResult};
 
 #[derive(Debug)]
 pub(crate) struct Header {

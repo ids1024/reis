@@ -55,14 +55,8 @@ impl State {
         &mut self,
         context: &mut ei::Context,
     ) -> io::Result<calloop::PostAction> {
-        match context.read() {
-            Ok(res) if res.is_eof() => {
-                return Ok(calloop::PostAction::Remove);
-            }
-            Err(_) => {
-                return Ok(calloop::PostAction::Remove);
-            }
-            _ => {}
+        if let Err(_) = context.read() {
+            return Ok(calloop::PostAction::Remove);
         }
 
         while let Some(result) = context.pending_event() {

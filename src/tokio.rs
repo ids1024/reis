@@ -46,7 +46,7 @@ impl Stream for EiEventStream {
                 }
             };
             match guard.get_inner().read() {
-                Ok(res) if res.is_eof() => Poll::Ready(None),
+                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => Poll::Ready(None),
                 Err(err) => Poll::Ready(Some(Err(err))),
                 Ok(_) => {
                     // `Backend::read()` reads until `WouldBlock`, EOF, or error
@@ -144,5 +144,9 @@ pub async fn ei_handshake(
             return Ok(resp);
         }
     }
-    Err(HandshakeError::UnexpectedEof)
+    Err(io::Error::new(
+        io::ErrorKind::UnexpectedEof,
+        "unexpected EOF reading ei socket",
+    )
+    .into())
 }

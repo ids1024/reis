@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use crate::{wire::Backend, ConnectionReadResult, PendingRequestResult};
+use crate::{wire::Backend, PendingRequestResult};
 
 // Re-export generate bindings
 pub use crate::eiproto_ei::*;
@@ -42,7 +42,7 @@ impl Context {
     }
 
     /// Read any pending data on socket into buffer
-    pub fn read(&self) -> io::Result<ConnectionReadResult> {
+    pub fn read(&self) -> io::Result<usize> {
         self.0.read()
     }
 

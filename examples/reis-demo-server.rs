@@ -187,14 +187,8 @@ impl State {
         &mut self,
         context_state: &mut ContextState,
     ) -> calloop::PostAction {
-        match context_state.context().read() {
-            Ok(res) if res.is_eof() => {
-                return calloop::PostAction::Remove;
-            }
-            Err(_) => {
-                return calloop::PostAction::Remove;
-            }
-            _ => {}
+        if let Err(_) = context_state.context().read() {
+            return calloop::PostAction::Remove;
         }
 
         while let Some(result) = context_state.context().pending_request() {

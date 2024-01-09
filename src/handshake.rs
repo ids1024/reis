@@ -12,7 +12,6 @@ pub struct HandshakeResp {
 #[derive(Debug)]
 pub enum HandshakeError {
     Io(io::Error),
-    UnexpectedEof,
     Parse(ParseError),
     InvalidObject(u64),
     NonHandshakeEvent,
@@ -104,7 +103,6 @@ pub fn ei_handshake_blocking(
         })
         .map_err(io::Error::from)?;
         match context.read() {
-            Ok(res) if res.is_eof() => return Err(HandshakeError::UnexpectedEof),
             Err(err) => return Err(err.into()),
             Ok(_) => {}
         };

@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{util, wire::Backend, ConnectionReadResult, PendingRequestResult};
+use crate::{util, wire::Backend, PendingRequestResult};
 
 // Re-export generate bindings
 pub use crate::eiproto_eis::*;
@@ -101,7 +101,7 @@ impl Context {
     }
 
     /// Read any pending data on socket into buffer
-    pub fn read(&self) -> io::Result<ConnectionReadResult> {
+    pub fn read(&self) -> io::Result<usize> {
         self.0.read()
     }
 

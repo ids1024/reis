@@ -967,7 +967,7 @@ impl Iterator for EiConvertEventIterator {
                 return Some(Err(EiConvertEventIteratorError::Io(err.into())));
             }
             match self.context.read() {
-                Ok(res) if res.is_eof() => return None,
+                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return None,
                 Err(err) => return Some(Err(EiConvertEventIteratorError::Io(err))),
                 Ok(_) => {}
             };

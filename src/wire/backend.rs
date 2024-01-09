@@ -4,7 +4,6 @@
 /// serialization code to send/receive discrete typed message.
 ///
 /// Also implements debug printing to stderr when `REIS_DEBUG` is set.
-
 use rustix::io::{Errno, IoSlice};
 use std::{
     collections::{HashMap, VecDeque},
@@ -94,22 +93,11 @@ impl AsFd for Backend {
     }
 }
 
-pub enum ConnectionReadResult {
-    Read(usize),
-    EOF,
-}
-
 #[derive(Debug)]
 pub enum PendingRequestResult<T> {
     Request(T),
     ParseError(ParseError),
     InvalidObject(u64),
-}
-
-impl ConnectionReadResult {
-    pub fn is_eof(&self) -> bool {
-        matches!(self, Self::EOF)
-    }
 }
 
 impl Backend {
@@ -145,7 +133,9 @@ impl Backend {
     }
 
     /// Read any pending data on socket into buffer
-    pub fn read(&self) -> io::Result<ConnectionReadResult> {
+    ///
+    /// Returns `UnexpectedEof` if end-of-file is reached.
+    pub fn read(&self) -> io::Result<usize> {
         let mut read = self.0.read.lock().unwrap();
 
         // TODO read into read.buf with iov?
@@ -154,10 +144,13 @@ impl Backend {
         loop {
             match util::recv_with_fds(&self.0.socket, &mut buf, &mut read.fds) {
                 Ok(0) if total_count == 0 => {
-                    return Ok(ConnectionReadResult::EOF);
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "unexpected EOF reading ei socket",
+                    ));
                 }
                 Ok(0) => {
-                    return Ok(ConnectionReadResult::Read(total_count));
+                    return Ok(total_count);
                 }
                 Ok(count) => {
                     read.buf.extend(&buf[0..count]);
@@ -165,7 +158,7 @@ impl Backend {
                 }
                 #[allow(unreachable_patterns)] // `WOULDBLOCK` and `AGAIN` typically equal
                 Err(Errno::WOULDBLOCK | Errno::AGAIN) => {
-                    return Ok(ConnectionReadResult::Read(total_count));
+                    return Ok(total_count);
                 }
                 Err(err) => return Err(err.into()),
             };
