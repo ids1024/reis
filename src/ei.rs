@@ -6,7 +6,7 @@ use std::{
     },
 };
 
-use crate::{Backend, ConnectionReadResult, PendingRequestResult};
+use crate::{wire::Backend, ConnectionReadResult, PendingRequestResult};
 
 // Re-export generate bindings
 pub use crate::eiproto_ei::*;

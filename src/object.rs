@@ -1,6 +1,9 @@
 use std::{fmt, hash, sync::Arc};
 
-use crate::{backend::BackendWeak, wire::Arg, Backend, Interface};
+use crate::{
+    wire::{Arg, Backend, BackendWeak},
+    Interface,
+};
 
 #[derive(Clone)]
 pub struct Object(Arc<ObjectInner>);

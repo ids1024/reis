@@ -9,10 +9,13 @@ use std::{
     string::FromUtf8Error,
 };
 
-use crate::{Backend, Object};
+use crate::Object;
 
 mod arg;
 pub(crate) use arg::{Arg, OwnedArg};
+mod backend;
+pub(crate) use backend::{Backend, BackendWeak};
+pub use backend::{ConnectionReadResult, PendingRequestResult};
 
 #[derive(Debug)]
 pub(crate) struct Header {

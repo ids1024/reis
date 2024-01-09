@@ -6,9 +6,7 @@
 
 use std::{env, path::PathBuf};
 
-mod backend;
-use backend::Backend;
-pub use backend::{ConnectionReadResult, PendingRequestResult}; // XXX types? names?
+pub use wire::{ConnectionReadResult, PendingRequestResult}; // XXX types? names?
 pub mod ei;
 mod eiproto_ei;
 mod eiproto_eis;

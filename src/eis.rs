@@ -12,7 +12,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::{util, Backend, ConnectionReadResult, PendingRequestResult};
+use crate::{util, wire::Backend, ConnectionReadResult, PendingRequestResult};
 
 // Re-export generate bindings
 pub use crate::eiproto_eis::*;
