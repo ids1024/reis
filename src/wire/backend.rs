@@ -1,3 +1,10 @@
+/// Backend
+///
+/// Handles socket reads/writes, byte/fd buffering, and calls into
+/// serialization code to send/receive discrete typed message.
+///
+/// Also implements debug printing to stderr when `REIS_DEBUG` is set.
+
 use rustix::io::{Errno, IoSlice};
 use std::{
     collections::{HashMap, VecDeque},
