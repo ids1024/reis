@@ -1,10 +1,12 @@
 {# ei-scanner jinja template, for `` #}
-#![allow(unused_parens, clippy::useless_conversion, clippy::double_parens, clippy::match_single_binding, clippy::unused_unit)]
+#![allow(unused_imports, unused_parens, clippy::useless_conversion, clippy::double_parens, clippy::match_single_binding, clippy::unused_unit)]
 
 // GENERATED FILE
 
 {% for interface in interfaces %}
 pub(crate) mod {{interface.plainname}} {
+    use crate::wire;
+
     {% for enum in interface.enums %}
      /** {{enum.description.text|ei_escape_names}} */
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -21,18 +23,18 @@ pub(crate) mod {{interface.plainname}} {
         }
     }
 
-    impl crate::OwnedArg for {{enum.camel_name}} {
-        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+    impl wire::OwnedArg for {{enum.camel_name}} {
+        fn parse(buf: &mut wire::ByteStream) -> Result<Self, wire::ParseError> {
             match u32::parse(buf)? {
             {% for entry in enum.entries %}
                 {{entry.value}} => Ok(Self::{{entry.name|camel}}),
             {% endfor %}
-        variant => Err(crate::ParseError::InvalidVariant("{{enum.camel_name}}", variant)),
+        variant => Err(wire::ParseError::InvalidVariant("{{enum.camel_name}}", variant)),
             }
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
-            crate::Arg::Uint32(*self as u32)
+        fn as_arg(&self) -> wire::Arg<'_> {
+            wire::Arg::Uint32(*self as u32)
         }
 
         fn enum_name(&self) -> Option<(&'static str, &'static str)> {

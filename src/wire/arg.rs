@@ -7,7 +7,7 @@ use std::{
     os::unix::io::{AsFd, AsRawFd, BorrowedFd, OwnedFd},
 };
 
-use crate::{ByteStream, ParseError};
+use super::{ByteStream, ParseError};
 
 #[allow(dead_code)]
 #[derive(Debug)]

@@ -9,7 +9,11 @@ use std::{
     sync::{Arc, Mutex, Weak},
 };
 
-use crate::{ei, eis, util, Arg, ByteStream, Header, Object, ParseError};
+use crate::{
+    ei, eis, util,
+    wire::{self, Arg, ByteStream, Header, ParseError},
+    Object,
+};
 
 #[derive(Debug, Default)]
 struct Buffer {
@@ -161,9 +165,9 @@ impl Backend {
         }
     }
 
-    pub(crate) fn pending<T: crate::MessageEnum>(
+    pub(crate) fn pending<T: wire::MessageEnum>(
         &self,
-        parse: fn(Object, u32, &mut crate::ByteStream) -> Result<T, crate::ParseError>,
+        parse: fn(Object, u32, &mut ByteStream) -> Result<T, ParseError>,
     ) -> Option<PendingRequestResult<T>> {
         let mut read = self.0.read.lock().unwrap();
         if read.buf.len() >= 16 {
@@ -227,11 +231,11 @@ impl Backend {
         id: u64,
         interface: String,
         version: u32,
-    ) -> Result<crate::Object, crate::ParseError> {
+    ) -> Result<crate::Object, ParseError> {
         let mut state = self.0.state.lock().unwrap();
 
         if id < state.next_peer_id || (!self.0.client && id >= 0xff00000000000000) {
-            return Err(crate::ParseError::InvalidId(id));
+            return Err(ParseError::InvalidId(id));
         }
         state.next_peer_id = id + 1;
 
@@ -241,11 +245,11 @@ impl Backend {
         Ok(object)
     }
 
-    pub(crate) fn new_peer_interface<T: crate::Interface>(
+    pub(crate) fn new_peer_interface<T: crate::wire::Interface>(
         &self,
         id: u64,
         version: u32,
-    ) -> Result<T, crate::ParseError> {
+    ) -> Result<T, ParseError> {
         Ok(self
             .new_peer_object(id, T::NAME.to_string(), version)?
             .downcast_unchecked())

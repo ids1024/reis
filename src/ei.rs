@@ -61,4 +61,4 @@ impl Context {
 }
 
 #[doc(hidden)]
-pub trait Interface: crate::Interface {}
+pub trait Interface: crate::wire::Interface {}

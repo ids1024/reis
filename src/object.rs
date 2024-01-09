@@ -1,6 +1,6 @@
 use std::{fmt, hash, sync::Arc};
 
-use crate::{backend::BackendWeak, Arg, Backend, Interface};
+use crate::{backend::BackendWeak, wire::Arg, Backend, Interface};
 
 #[derive(Clone)]
 pub struct Object(Arc<ObjectInner>);
@@ -82,8 +82,8 @@ impl Object {
         T::new_unchecked(self)
     }
 
-    pub(crate) fn as_arg(&self) -> crate::Arg<'_> {
-        crate::Arg::Id(self.0.id)
+    pub(crate) fn as_arg(&self) -> Arg<'_> {
+        Arg::Id(self.0.id)
     }
 
     pub fn downcast<T: Interface>(self) -> Option<T> {

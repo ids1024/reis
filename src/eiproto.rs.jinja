@@ -1,10 +1,12 @@
 {# ei-scanner jinja template, for `` #}
-#![allow(unused_parens, clippy::useless_conversion, clippy::double_parens, clippy::match_single_binding, clippy::unused_unit)]
+#![allow(unused_imports, unused_parens, clippy::useless_conversion, clippy::double_parens, clippy::match_single_binding, clippy::unused_unit)]
 
 // GENERATED FILE
 
 {# TODO handle destructor #}
 {# TODO handle context_type #}
+
+use crate::wire;
 
 {% macro interface_type(interface) -%}
     super::{{interface.plainname}}::{{interface.plainname|camel}}
@@ -49,6 +51,8 @@
 {% for interface in interfaces %}
 /** {{interface.description.text|ei_escape_names}} */
 pub mod {{interface.plainname}} {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct {{interface.plainname|camel}}(pub(crate) crate::Object);
 
@@ -60,7 +64,7 @@ pub mod {{interface.plainname}} {
 
     impl crate::private::Sealed for {{interface.plainname|camel}} {}
 
-    impl crate::Interface for {{interface.plainname|camel}} {
+    impl wire::Interface for {{interface.plainname|camel}} {
         const NAME: &'static str = "{{interface.protocol_name}}";
         const VERSION: u32 = {{interface.version}};
         {% if extra.eis %}
@@ -74,7 +78,7 @@ pub mod {{interface.plainname}} {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -115,9 +119,9 @@ pub mod {{interface.plainname}} {
             let args = &[
             {%- for arg in outgoing.arguments %}
             {% if arg.interface_arg_for %}
-                crate::Arg::{{arg.protocol_type|camel}}({{arg.name|camel}}::NAME),
+                wire::Arg::{{arg.protocol_type|camel}}({{arg.name|camel}}::NAME),
             {% else %}
-                crate::Arg::{{arg.protocol_type|camel}}({{arg.name}}
+                wire::Arg::{{arg.protocol_type|camel}}({{arg.name}}
                 {% if arg.protocol_type == 'new_id' %}
                 .id()
                 {% endif %}
@@ -180,7 +184,7 @@ pub mod {{interface.plainname}} {
             }
         }
 
-        pub(super) fn parse(operand: u32, _bytes: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+        pub(super) fn parse(operand: u32, _bytes: &mut wire::ByteStream) -> Result<Self, wire::ParseError> {
             match operand {
             {% for incoming in interface.incoming %}
                 {{incoming.opcode}} => {
@@ -203,13 +207,13 @@ pub mod {{interface.plainname}} {
                     {% endif %} )
                 }
             {% endfor %}
-         opcode => Err(crate::ParseError::InvalidOpcode("{{interface.plainname}}", opcode)),
+         opcode => Err(wire::ParseError::InvalidOpcode("{{interface.plainname}}", opcode)),
             }
         }
 
         #[allow(unused_imports, unused_mut, unused_variables, unreachable_code, unreachable_patterns)]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
             {% for incoming in interface.incoming %}
@@ -261,7 +265,7 @@ impl {{incoming_enum()}} {
         }
     }
 
-    pub(crate) fn parse(object: crate::Object, operand: u32, bytes: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+    pub(crate) fn parse(object: crate::Object, operand: u32, bytes: &mut wire::ByteStream) -> Result<Self, wire::ParseError> {
         match object.interface() {
             {% for interface in interfaces %}
                 "{{interface.protocol_name}}" => Ok(Self::{{interface.plainname|camel}}(
@@ -269,13 +273,13 @@ impl {{incoming_enum()}} {
                     {{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)
                 ),
             {% endfor %}
-            intr => Err(crate::ParseError::InvalidInterface(intr.to_owned())),
+            intr => Err(wire::ParseError::InvalidInterface(intr.to_owned())),
         }
     }
 }
 
-impl crate::MessageEnum for {{incoming_enum()}} {
-    fn args(&self) -> Vec<crate::Arg<'_>> {
+impl wire::MessageEnum for {{incoming_enum()}} {
+    fn args(&self) -> Vec<wire::Arg<'_>> {
         match self {
             {% for interface in interfaces %}
             Self::{{interface.plainname|camel}}(_, x) => x.args(),

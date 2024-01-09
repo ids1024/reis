@@ -1,4 +1,5 @@
 #![allow(
+    unused_imports,
     unused_parens,
     clippy::useless_conversion,
     clippy::double_parens,
@@ -9,6 +10,8 @@
 // GENERATED FILE
 
 pub(crate) mod handshake {
+    use crate::wire;
+
     /**
     This enum denotes context types for the libei context.
 
@@ -30,17 +33,17 @@ pub(crate) mod handshake {
         }
     }
 
-    impl crate::OwnedArg for ContextType {
-        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+    impl wire::OwnedArg for ContextType {
+        fn parse(buf: &mut wire::ByteStream) -> Result<Self, wire::ParseError> {
             match u32::parse(buf)? {
                 1 => Ok(Self::Receiver),
                 2 => Ok(Self::Sender),
-                variant => Err(crate::ParseError::InvalidVariant("ContextType", variant)),
+                variant => Err(wire::ParseError::InvalidVariant("ContextType", variant)),
             }
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
-            crate::Arg::Uint32(*self as u32)
+        fn as_arg(&self) -> wire::Arg<'_> {
+            wire::Arg::Uint32(*self as u32)
         }
 
         fn enum_name(&self) -> Option<(&'static str, &'static str)> {
@@ -56,6 +59,8 @@ pub(crate) mod handshake {
 }
 
 pub(crate) mod connection {
+    use crate::wire;
+
     /**
     A reason why a client was disconnected. This enum is intended to
     provide information to the client on whether it was disconnected as
@@ -90,8 +95,8 @@ pub(crate) mod connection {
         }
     }
 
-    impl crate::OwnedArg for DisconnectReason {
-        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+    impl wire::OwnedArg for DisconnectReason {
+        fn parse(buf: &mut wire::ByteStream) -> Result<Self, wire::ParseError> {
             match u32::parse(buf)? {
                 0 => Ok(Self::Disconnected),
                 1 => Ok(Self::Error),
@@ -99,15 +104,15 @@ pub(crate) mod connection {
                 3 => Ok(Self::Protocol),
                 4 => Ok(Self::Value),
                 5 => Ok(Self::Transport),
-                variant => Err(crate::ParseError::InvalidVariant(
+                variant => Err(wire::ParseError::InvalidVariant(
                     "DisconnectReason",
                     variant,
                 )),
             }
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
-            crate::Arg::Uint32(*self as u32)
+        fn as_arg(&self) -> wire::Arg<'_> {
+            wire::Arg::Uint32(*self as u32)
         }
 
         fn enum_name(&self) -> Option<(&'static str, &'static str)> {
@@ -126,13 +131,21 @@ pub(crate) mod connection {
     }
 }
 
-pub(crate) mod callback {}
+pub(crate) mod callback {
+    use crate::wire;
+}
 
-pub(crate) mod pingpong {}
+pub(crate) mod pingpong {
+    use crate::wire;
+}
 
-pub(crate) mod seat {}
+pub(crate) mod seat {
+    use crate::wire;
+}
 
 pub(crate) mod device {
+    use crate::wire;
+
     /**
     If the device type is `ei_device.device_type.virtual`, the device is a
     virtual device representing input as applied on the EIS implementation's
@@ -162,17 +175,17 @@ pub(crate) mod device {
         }
     }
 
-    impl crate::OwnedArg for DeviceType {
-        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+    impl wire::OwnedArg for DeviceType {
+        fn parse(buf: &mut wire::ByteStream) -> Result<Self, wire::ParseError> {
             match u32::parse(buf)? {
                 1 => Ok(Self::Virtual),
                 2 => Ok(Self::Physical),
-                variant => Err(crate::ParseError::InvalidVariant("DeviceType", variant)),
+                variant => Err(wire::ParseError::InvalidVariant("DeviceType", variant)),
             }
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
-            crate::Arg::Uint32(*self as u32)
+        fn as_arg(&self) -> wire::Arg<'_> {
+            wire::Arg::Uint32(*self as u32)
         }
 
         fn enum_name(&self) -> Option<(&'static str, &'static str)> {
@@ -187,13 +200,21 @@ pub(crate) mod device {
     }
 }
 
-pub(crate) mod pointer {}
+pub(crate) mod pointer {
+    use crate::wire;
+}
 
-pub(crate) mod pointer_absolute {}
+pub(crate) mod pointer_absolute {
+    use crate::wire;
+}
 
-pub(crate) mod scroll {}
+pub(crate) mod scroll {
+    use crate::wire;
+}
 
 pub(crate) mod button {
+    use crate::wire;
+
     /**
     The logical state of a button.
      */
@@ -211,17 +232,17 @@ pub(crate) mod button {
         }
     }
 
-    impl crate::OwnedArg for ButtonState {
-        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+    impl wire::OwnedArg for ButtonState {
+        fn parse(buf: &mut wire::ByteStream) -> Result<Self, wire::ParseError> {
             match u32::parse(buf)? {
                 0 => Ok(Self::Released),
                 1 => Ok(Self::Press),
-                variant => Err(crate::ParseError::InvalidVariant("ButtonState", variant)),
+                variant => Err(wire::ParseError::InvalidVariant("ButtonState", variant)),
             }
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
-            crate::Arg::Uint32(*self as u32)
+        fn as_arg(&self) -> wire::Arg<'_> {
+            wire::Arg::Uint32(*self as u32)
         }
 
         fn enum_name(&self) -> Option<(&'static str, &'static str)> {
@@ -237,6 +258,8 @@ pub(crate) mod button {
 }
 
 pub(crate) mod keyboard {
+    use crate::wire;
+
     /**
     The logical state of a key.
      */
@@ -254,17 +277,17 @@ pub(crate) mod keyboard {
         }
     }
 
-    impl crate::OwnedArg for KeyState {
-        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+    impl wire::OwnedArg for KeyState {
+        fn parse(buf: &mut wire::ByteStream) -> Result<Self, wire::ParseError> {
             match u32::parse(buf)? {
                 0 => Ok(Self::Released),
                 1 => Ok(Self::Press),
-                variant => Err(crate::ParseError::InvalidVariant("KeyState", variant)),
+                variant => Err(wire::ParseError::InvalidVariant("KeyState", variant)),
             }
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
-            crate::Arg::Uint32(*self as u32)
+        fn as_arg(&self) -> wire::Arg<'_> {
+            wire::Arg::Uint32(*self as u32)
         }
 
         fn enum_name(&self) -> Option<(&'static str, &'static str)> {
@@ -293,16 +316,16 @@ pub(crate) mod keyboard {
         }
     }
 
-    impl crate::OwnedArg for KeymapType {
-        fn parse(buf: &mut crate::ByteStream) -> Result<Self, crate::ParseError> {
+    impl wire::OwnedArg for KeymapType {
+        fn parse(buf: &mut wire::ByteStream) -> Result<Self, wire::ParseError> {
             match u32::parse(buf)? {
                 1 => Ok(Self::Xkb),
-                variant => Err(crate::ParseError::InvalidVariant("KeymapType", variant)),
+                variant => Err(wire::ParseError::InvalidVariant("KeymapType", variant)),
             }
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
-            crate::Arg::Uint32(*self as u32)
+        fn as_arg(&self) -> wire::Arg<'_> {
+            wire::Arg::Uint32(*self as u32)
         }
 
         fn enum_name(&self) -> Option<(&'static str, &'static str)> {
@@ -316,4 +339,6 @@ pub(crate) mod keyboard {
     }
 }
 
-pub(crate) mod touchscreen {}
+pub(crate) mod touchscreen {
+    use crate::wire;
+}

@@ -1,4 +1,5 @@
 #![allow(
+    unused_imports,
     unused_parens,
     clippy::useless_conversion,
     clippy::double_parens,
@@ -7,6 +8,8 @@
 )]
 
 // GENERATED FILE
+
+use crate::wire;
 
 /**
 This is a special interface to setup the client as seen by the EIS
@@ -27,6 +30,8 @@ Once the `ei_connection.connection` event has been sent the handshake
 is destroyed by the EIS implementation.
  */
 pub mod handshake {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Handshake(pub(crate) crate::Object);
 
@@ -38,7 +43,7 @@ pub mod handshake {
 
     impl crate::private::Sealed for Handshake {}
 
-    impl crate::Interface for Handshake {
+    impl wire::Interface for Handshake {
         const NAME: &'static str = "ei_handshake";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -48,7 +53,7 @@ pub mod handshake {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -71,7 +76,7 @@ pub mod handshake {
         the client sends.
          */
         pub fn handshake_version(&self, version: u32) -> () {
-            let args = &[crate::Arg::Uint32(version.into())];
+            let args = &[wire::Arg::Uint32(version.into())];
 
             self.0.request(0, args);
 
@@ -105,7 +110,7 @@ pub mod handshake {
         `ei_handshake.finish.`
          */
         pub fn context_type(&self, context_type: ContextType) -> () {
-            let args = &[crate::Arg::Uint32(context_type.into())];
+            let args = &[wire::Arg::Uint32(context_type.into())];
 
             self.0.request(2, args);
 
@@ -129,7 +134,7 @@ pub mod handshake {
         `ei_handshake.finish.`
          */
         pub fn name(&self, name: &str) -> () {
-            let args = &[crate::Arg::String(name.into())];
+            let args = &[wire::Arg::String(name.into())];
 
             self.0.request(3, args);
 
@@ -159,8 +164,8 @@ pub mod handshake {
          */
         pub fn interface_version(&self, name: &str, version: u32) -> () {
             let args = &[
-                crate::Arg::String(name.into()),
-                crate::Arg::Uint32(version.into()),
+                wire::Arg::String(name.into()),
+                wire::Arg::Uint32(version.into()),
             ];
 
             self.0.request(4, args);
@@ -249,8 +254,8 @@ pub mod handshake {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let version = _bytes.read_arg()?;
@@ -273,7 +278,7 @@ pub mod handshake {
                         connection: _bytes.backend().new_peer_interface(connection, version)?,
                     })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("handshake", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("handshake", opcode)),
             }
         }
 
@@ -284,8 +289,8 @@ pub mod handshake {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::HandshakeVersion { version } => {
@@ -316,6 +321,8 @@ Note that for a client to receive this object, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod connection {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Connection(pub(crate) crate::Object);
 
@@ -327,7 +334,7 @@ pub mod connection {
 
     impl crate::private::Sealed for Connection {}
 
-    impl crate::Interface for Connection {
+    impl wire::Interface for Connection {
         const NAME: &'static str = "ei_connection";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -337,7 +344,7 @@ pub mod connection {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -370,8 +377,8 @@ pub mod connection {
                 .backend_weak()
                 .new_object("ei_callback".to_string(), version);
             let args = &[
-                crate::Arg::NewId(callback.id().into()),
-                crate::Arg::Uint32(version.into()),
+                wire::Arg::NewId(callback.id().into()),
+                wire::Arg::Uint32(version.into()),
             ];
 
             self.0.request(0, args);
@@ -510,8 +517,8 @@ pub mod connection {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let last_serial = _bytes.read_arg()?;
@@ -549,7 +556,7 @@ pub mod connection {
                         ping: _bytes.backend().new_peer_interface(ping, version)?,
                     })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("connection", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("connection", opcode)),
             }
         }
 
@@ -560,8 +567,8 @@ pub mod connection {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::Disconnected {
@@ -604,6 +611,8 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod callback {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Callback(pub(crate) crate::Object);
 
@@ -615,7 +624,7 @@ pub mod callback {
 
     impl crate::private::Sealed for Callback {}
 
-    impl crate::Interface for Callback {
+    impl wire::Interface for Callback {
         const NAME: &'static str = "ei_callback";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -625,7 +634,7 @@ pub mod callback {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -658,15 +667,15 @@ pub mod callback {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let callback_data = _bytes.read_arg()?;
 
                     Ok(Self::Done { callback_data })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("callback", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("callback", opcode)),
             }
         }
 
@@ -677,8 +686,8 @@ pub mod callback {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::Done { callback_data } => {
@@ -702,6 +711,8 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod pingpong {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Pingpong(pub(crate) crate::Object);
 
@@ -713,7 +724,7 @@ pub mod pingpong {
 
     impl crate::private::Sealed for Pingpong {}
 
-    impl crate::Interface for Pingpong {
+    impl wire::Interface for Pingpong {
         const NAME: &'static str = "ei_pingpong";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -723,7 +734,7 @@ pub mod pingpong {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -737,7 +748,7 @@ pub mod pingpong {
         any further.
          */
         pub fn done(&self, callback_data: u64) -> () {
-            let args = &[crate::Arg::Uint64(callback_data.into())];
+            let args = &[wire::Arg::Uint64(callback_data.into())];
 
             self.0.request(0, args);
             self.0.backend_weak().remove_id(self.0.id());
@@ -759,10 +770,10 @@ pub mod pingpong {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
-                opcode => Err(crate::ParseError::InvalidOpcode("pingpong", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("pingpong", opcode)),
             }
         }
 
@@ -773,8 +784,8 @@ pub mod pingpong {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 _ => unreachable!(),
@@ -803,6 +814,8 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod seat {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Seat(pub(crate) crate::Object);
 
@@ -814,7 +827,7 @@ pub mod seat {
 
     impl crate::private::Sealed for Seat {}
 
-    impl crate::Interface for Seat {
+    impl wire::Interface for Seat {
         const NAME: &'static str = "ei_seat";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -824,7 +837,7 @@ pub mod seat {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -862,7 +875,7 @@ pub mod seat {
         the EIS implementation may `ei_device.remove` devices that have these capabilities.
          */
         pub fn bind(&self, capabilities: u64) -> () {
-            let args = &[crate::Arg::Uint64(capabilities.into())];
+            let args = &[wire::Arg::Uint64(capabilities.into())];
 
             self.0.request(1, args);
 
@@ -966,8 +979,8 @@ pub mod seat {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
@@ -994,7 +1007,7 @@ pub mod seat {
                         device: _bytes.backend().new_peer_interface(device, version)?,
                     })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("seat", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("seat", opcode)),
             }
         }
 
@@ -1005,8 +1018,8 @@ pub mod seat {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::Destroyed { serial } => {
@@ -1047,6 +1060,8 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod device {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Device(pub(crate) crate::Object);
 
@@ -1058,7 +1073,7 @@ pub mod device {
 
     impl crate::private::Sealed for Device {}
 
-    impl crate::Interface for Device {
+    impl wire::Interface for Device {
         const NAME: &'static str = "ei_device";
         const VERSION: u32 = 2;
         const CLIENT_SIDE: bool = true;
@@ -1068,7 +1083,7 @@ pub mod device {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -1121,8 +1136,8 @@ pub mod device {
          */
         pub fn start_emulating(&self, last_serial: u32, sequence: u32) -> () {
             let args = &[
-                crate::Arg::Uint32(last_serial.into()),
-                crate::Arg::Uint32(sequence.into()),
+                wire::Arg::Uint32(last_serial.into()),
+                wire::Arg::Uint32(sequence.into()),
             ];
 
             self.0.request(1, args);
@@ -1138,7 +1153,7 @@ pub mod device {
         of an `ei_handshake.context_type` other than sender.
          */
         pub fn stop_emulating(&self, last_serial: u32) -> () {
-            let args = &[crate::Arg::Uint32(last_serial.into())];
+            let args = &[wire::Arg::Uint32(last_serial.into())];
 
             self.0.request(2, args);
 
@@ -1164,8 +1179,8 @@ pub mod device {
          */
         pub fn frame(&self, last_serial: u32, timestamp: u64) -> () {
             let args = &[
-                crate::Arg::Uint32(last_serial.into()),
-                crate::Arg::Uint64(timestamp.into()),
+                wire::Arg::Uint32(last_serial.into()),
+                wire::Arg::Uint64(timestamp.into()),
             ];
 
             self.0.request(3, args);
@@ -1428,8 +1443,8 @@ pub mod device {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
@@ -1513,7 +1528,7 @@ pub mod device {
 
                     Ok(Self::RegionMappingId { mapping_id })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("device", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("device", opcode)),
             }
         }
 
@@ -1524,8 +1539,8 @@ pub mod device {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::Destroyed { serial } => {
@@ -1600,6 +1615,8 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod pointer {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Pointer(pub(crate) crate::Object);
 
@@ -1611,7 +1628,7 @@ pub mod pointer {
 
     impl crate::private::Sealed for Pointer {}
 
-    impl crate::Interface for Pointer {
+    impl wire::Interface for Pointer {
         const NAME: &'static str = "ei_pointer";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -1621,7 +1638,7 @@ pub mod pointer {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -1655,7 +1672,7 @@ pub mod pointer {
         of an `ei_handshake.context_type` other than sender.
          */
         pub fn motion_relative(&self, x: f32, y: f32) -> () {
-            let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
+            let args = &[wire::Arg::Float(x.into()), wire::Arg::Float(y.into())];
 
             self.0.request(1, args);
 
@@ -1703,8 +1720,8 @@ pub mod pointer {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
@@ -1717,7 +1734,7 @@ pub mod pointer {
 
                     Ok(Self::MotionRelative { x, y })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("pointer", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("pointer", opcode)),
             }
         }
 
@@ -1728,8 +1745,8 @@ pub mod pointer {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::Destroyed { serial } => {
@@ -1761,6 +1778,8 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod pointer_absolute {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct PointerAbsolute(pub(crate) crate::Object);
 
@@ -1772,7 +1791,7 @@ pub mod pointer_absolute {
 
     impl crate::private::Sealed for PointerAbsolute {}
 
-    impl crate::Interface for PointerAbsolute {
+    impl wire::Interface for PointerAbsolute {
         const NAME: &'static str = "ei_pointer_absolute";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -1782,7 +1801,7 @@ pub mod pointer_absolute {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -1818,7 +1837,7 @@ pub mod pointer_absolute {
         of an `ei_handshake.context_type` other than sender.
          */
         pub fn motion_absolute(&self, x: f32, y: f32) -> () {
-            let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
+            let args = &[wire::Arg::Float(x.into()), wire::Arg::Float(y.into())];
 
             self.0.request(1, args);
 
@@ -1866,8 +1885,8 @@ pub mod pointer_absolute {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
@@ -1880,7 +1899,7 @@ pub mod pointer_absolute {
 
                     Ok(Self::MotionAbsolute { x, y })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("pointer_absolute", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("pointer_absolute", opcode)),
             }
         }
 
@@ -1891,8 +1910,8 @@ pub mod pointer_absolute {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::Destroyed { serial } => {
@@ -1924,6 +1943,8 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod scroll {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Scroll(pub(crate) crate::Object);
 
@@ -1935,7 +1956,7 @@ pub mod scroll {
 
     impl crate::private::Sealed for Scroll {}
 
-    impl crate::Interface for Scroll {
+    impl wire::Interface for Scroll {
         const NAME: &'static str = "ei_scroll";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -1945,7 +1966,7 @@ pub mod scroll {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -1979,7 +2000,7 @@ pub mod scroll {
         of an `ei_handshake.context_type` other than sender.
          */
         pub fn scroll(&self, x: f32, y: f32) -> () {
-            let args = &[crate::Arg::Float(x.into()), crate::Arg::Float(y.into())];
+            let args = &[wire::Arg::Float(x.into()), wire::Arg::Float(y.into())];
 
             self.0.request(1, args);
 
@@ -2003,7 +2024,7 @@ pub mod scroll {
         of an `ei_handshake.context_type` other than sender.
          */
         pub fn scroll_discrete(&self, x: i32, y: i32) -> () {
-            let args = &[crate::Arg::Int32(x.into()), crate::Arg::Int32(y.into())];
+            let args = &[wire::Arg::Int32(x.into()), wire::Arg::Int32(y.into())];
 
             self.0.request(2, args);
 
@@ -2036,9 +2057,9 @@ pub mod scroll {
          */
         pub fn scroll_stop(&self, x: u32, y: u32, is_cancel: u32) -> () {
             let args = &[
-                crate::Arg::Uint32(x.into()),
-                crate::Arg::Uint32(y.into()),
-                crate::Arg::Uint32(is_cancel.into()),
+                wire::Arg::Uint32(x.into()),
+                wire::Arg::Uint32(y.into()),
+                wire::Arg::Uint32(is_cancel.into()),
             ];
 
             self.0.request(3, args);
@@ -2115,8 +2136,8 @@ pub mod scroll {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
@@ -2142,7 +2163,7 @@ pub mod scroll {
 
                     Ok(Self::ScrollStop { x, y, is_cancel })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("scroll", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("scroll", opcode)),
             }
         }
 
@@ -2153,8 +2174,8 @@ pub mod scroll {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::Destroyed { serial } => {
@@ -2195,6 +2216,8 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod button {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Button(pub(crate) crate::Object);
 
@@ -2206,7 +2229,7 @@ pub mod button {
 
     impl crate::private::Sealed for Button {}
 
-    impl crate::Interface for Button {
+    impl wire::Interface for Button {
         const NAME: &'static str = "ei_button";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -2216,7 +2239,7 @@ pub mod button {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -2250,8 +2273,8 @@ pub mod button {
          */
         pub fn button(&self, button: u32, state: ButtonState) -> () {
             let args = &[
-                crate::Arg::Uint32(button.into()),
-                crate::Arg::Uint32(state.into()),
+                wire::Arg::Uint32(button.into()),
+                wire::Arg::Uint32(state.into()),
             ];
 
             self.0.request(1, args);
@@ -2305,8 +2328,8 @@ pub mod button {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
@@ -2319,7 +2342,7 @@ pub mod button {
 
                     Ok(Self::Button { button, state })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("button", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("button", opcode)),
             }
         }
 
@@ -2330,8 +2353,8 @@ pub mod button {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::Destroyed { serial } => {
@@ -2363,6 +2386,8 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod keyboard {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Keyboard(pub(crate) crate::Object);
 
@@ -2374,7 +2399,7 @@ pub mod keyboard {
 
     impl crate::private::Sealed for Keyboard {}
 
-    impl crate::Interface for Keyboard {
+    impl wire::Interface for Keyboard {
         const NAME: &'static str = "ei_keyboard";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -2384,7 +2409,7 @@ pub mod keyboard {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -2419,8 +2444,8 @@ pub mod keyboard {
          */
         pub fn key(&self, key: u32, state: KeyState) -> () {
             let args = &[
-                crate::Arg::Uint32(key.into()),
-                crate::Arg::Uint32(state.into()),
+                wire::Arg::Uint32(key.into()),
+                wire::Arg::Uint32(state.into()),
             ];
 
             self.0.request(1, args);
@@ -2530,8 +2555,8 @@ pub mod keyboard {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
@@ -2570,7 +2595,7 @@ pub mod keyboard {
                         group,
                     })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("keyboard", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("keyboard", opcode)),
             }
         }
 
@@ -2581,8 +2606,8 @@ pub mod keyboard {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::Destroyed { serial } => {
@@ -2636,6 +2661,8 @@ Note that for a client to receive objects of this type, it must announce
 support for this interface in `ei_handshake.interface_version.`
  */
 pub mod touchscreen {
+    use crate::wire;
+
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Touchscreen(pub(crate) crate::Object);
 
@@ -2647,7 +2674,7 @@ pub mod touchscreen {
 
     impl crate::private::Sealed for Touchscreen {}
 
-    impl crate::Interface for Touchscreen {
+    impl wire::Interface for Touchscreen {
         const NAME: &'static str = "ei_touchscreen";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
@@ -2657,7 +2684,7 @@ pub mod touchscreen {
             Self(object)
         }
 
-        fn as_arg(&self) -> crate::Arg<'_> {
+        fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
     }
@@ -2691,9 +2718,9 @@ pub mod touchscreen {
          */
         pub fn down(&self, touchid: u32, x: f32, y: f32) -> () {
             let args = &[
-                crate::Arg::Uint32(touchid.into()),
-                crate::Arg::Float(x.into()),
-                crate::Arg::Float(y.into()),
+                wire::Arg::Uint32(touchid.into()),
+                wire::Arg::Float(x.into()),
+                wire::Arg::Float(y.into()),
             ];
 
             self.0.request(1, args);
@@ -2714,9 +2741,9 @@ pub mod touchscreen {
          */
         pub fn motion(&self, touchid: u32, x: f32, y: f32) -> () {
             let args = &[
-                crate::Arg::Uint32(touchid.into()),
-                crate::Arg::Float(x.into()),
-                crate::Arg::Float(y.into()),
+                wire::Arg::Uint32(touchid.into()),
+                wire::Arg::Float(x.into()),
+                wire::Arg::Float(y.into()),
             ];
 
             self.0.request(2, args);
@@ -2735,7 +2762,7 @@ pub mod touchscreen {
         frame as a touch motion or touch down.
          */
         pub fn up(&self, touchid: u32) -> () {
-            let args = &[crate::Arg::Uint32(touchid.into())];
+            let args = &[wire::Arg::Uint32(touchid.into())];
 
             self.0.request(3, args);
 
@@ -2820,8 +2847,8 @@ pub mod touchscreen {
 
         pub(super) fn parse(
             operand: u32,
-            _bytes: &mut crate::ByteStream,
-        ) -> Result<Self, crate::ParseError> {
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
             match operand {
                 0 => {
                     let serial = _bytes.read_arg()?;
@@ -2847,7 +2874,7 @@ pub mod touchscreen {
 
                     Ok(Self::Up { touchid })
                 }
-                opcode => Err(crate::ParseError::InvalidOpcode("touchscreen", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("touchscreen", opcode)),
             }
         }
 
@@ -2858,8 +2885,8 @@ pub mod touchscreen {
             unreachable_code,
             unreachable_patterns
         )]
-        pub(super) fn args(&self) -> Vec<crate::Arg<'_>> {
-            use crate::{arg::OwnedArg, Interface};
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
             let mut args = Vec::new();
             match self {
                 Self::Destroyed { serial } => {
@@ -2926,8 +2953,8 @@ impl Event {
     pub(crate) fn parse(
         object: crate::Object,
         operand: u32,
-        bytes: &mut crate::ByteStream,
-    ) -> Result<Self, crate::ParseError> {
+        bytes: &mut wire::ByteStream,
+    ) -> Result<Self, wire::ParseError> {
         match object.interface() {
             "ei_handshake" => Ok(Self::Handshake(
                 object.downcast_unchecked(),
@@ -2977,13 +3004,13 @@ impl Event {
                 object.downcast_unchecked(),
                 touchscreen::Event::parse(operand, bytes)?,
             )),
-            intr => Err(crate::ParseError::InvalidInterface(intr.to_owned())),
+            intr => Err(wire::ParseError::InvalidInterface(intr.to_owned())),
         }
     }
 }
 
-impl crate::MessageEnum for Event {
-    fn args(&self) -> Vec<crate::Arg<'_>> {
+impl wire::MessageEnum for Event {
+    fn args(&self) -> Vec<wire::Arg<'_>> {
         match self {
             Self::Handshake(_, x) => x.args(),
             Self::Connection(_, x) => x.args(),
