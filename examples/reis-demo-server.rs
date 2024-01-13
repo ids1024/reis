@@ -3,6 +3,7 @@
 use calloop::generic::Generic;
 use once_cell::sync::Lazy;
 use reis::{
+    calloop::EisListenerSource,
     eis::{self, device::DeviceType},
     request::{DeviceCapability, EisRequest, EisRequestConverter},
     PendingRequestResult,
@@ -162,23 +163,18 @@ struct State {
 }
 
 impl State {
-    fn handle_listener_readable(
-        &mut self,
-        listener: &mut eis::Listener,
-    ) -> io::Result<calloop::PostAction> {
-        while let Some(context) = listener.accept()? {
-            println!("New connection: {:?}", context);
+    fn handle_new_connection(&mut self, context: eis::Context) -> io::Result<calloop::PostAction> {
+        println!("New connection: {:?}", context);
 
-            let handshaker = reis::handshake::EisHandshaker::new(&context, &SERVER_INTERFACES, 1);
-            let context_state = ContextState::Handshake(context, handshaker);
-            let source = Generic::new(context_state, calloop::Interest::READ, calloop::Mode::Level);
-            self.handle
-                .insert_source(source, |_event, context_state, state| {
-                    // XXX How can calloop avoid unsafe here?
-                    Ok(state.handle_connection_readable(unsafe { context_state.get_mut() }))
-                })
-                .unwrap();
-        }
+        let handshaker = reis::handshake::EisHandshaker::new(&context, &SERVER_INTERFACES, 1);
+        let context_state = ContextState::Handshake(context, handshaker);
+        let source = Generic::new(context_state, calloop::Interest::READ, calloop::Mode::Level);
+        self.handle
+            .insert_source(source, |_event, context_state, state| {
+                // XXX How can calloop avoid unsafe here?
+                Ok(state.handle_connection_readable(unsafe { context_state.get_mut() }))
+            })
+            .unwrap();
 
         Ok(calloop::PostAction::Continue)
     }
@@ -289,10 +285,10 @@ fn main() {
     let path = reis::default_socket_path().unwrap();
     std::fs::remove_file(&path); // XXX in use?
     let listener = eis::Listener::bind(&path).unwrap();
-    let listener_source = Generic::new(listener, calloop::Interest::READ, calloop::Mode::Level);
+    let listener_source = EisListenerSource::new(listener);
     handle
-        .insert_source(listener_source, |_event, listener, state: &mut State| {
-            state.handle_listener_readable(unsafe { listener.get_mut() })
+        .insert_source(listener_source, |context, (), state: &mut State| {
+            state.handle_new_connection(context)
         })
         .unwrap();
 

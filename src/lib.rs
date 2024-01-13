@@ -21,6 +21,8 @@ mod util;
 mod wire;
 pub use wire::{Interface, ParseError};
 
+#[cfg(feature = "calloop")]
+pub mod calloop;
 #[cfg(feature = "tokio")]
 pub mod tokio;
 
