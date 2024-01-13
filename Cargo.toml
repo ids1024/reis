@@ -14,9 +14,7 @@ futures = { version = "0.3.28", optional = true }
 tokio = { version = "1.31.0", features = ["net"], optional = true }
 
 [dev-dependencies]
-# Update when ashpd releases with input capture portal fixes
-# ashpd = "0.6"
-ashpd = { git = "https://github.com/bilelmoussaoui/ashpd" }
+ashpd = "0.6.8"
 calloop = { version = "0.12.2" }
 futures-executor = "0.3.29"
 once_cell = "1.17.1"
