@@ -11,7 +11,6 @@ use reis::{
 use std::{
     collections::HashMap,
     io,
-    os::unix::io::{AsFd, BorrowedFd},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -152,12 +151,6 @@ impl ConnectedContextState {
     }
 }
 
-impl AsFd for ContextState {
-    fn as_fd(&self) -> BorrowedFd<'_> {
-        self.context().as_fd()
-    }
-}
-
 struct State {
     handle: calloop::LoopHandle<'static, Self>,
 }
@@ -167,12 +160,11 @@ impl State {
         println!("New connection: {:?}", context);
 
         let handshaker = reis::handshake::EisHandshaker::new(&context, &SERVER_INTERFACES, 1);
-        let context_state = ContextState::Handshake(context, handshaker);
-        let source = Generic::new(context_state, calloop::Interest::READ, calloop::Mode::Level);
+        let mut context_state = ContextState::Handshake(context.clone(), handshaker);
+        let source = Generic::new(context, calloop::Interest::READ, calloop::Mode::Level);
         self.handle
-            .insert_source(source, |_event, context_state, state| {
-                // XXX How can calloop avoid unsafe here?
-                Ok(state.handle_connection_readable(unsafe { context_state.get_mut() }))
+            .insert_source(source, move |_event, _context, state| {
+                Ok(state.handle_connection_readable(&mut context_state))
             })
             .unwrap();
 
