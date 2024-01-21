@@ -74,6 +74,7 @@ pub struct ConnectedContextState {
     pub request_converter: crate::request::EisRequestConverter,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum ContextState {
     Handshake(crate::handshake::EisHandshaker<'static>),
     Connected(ConnectedContextState),
