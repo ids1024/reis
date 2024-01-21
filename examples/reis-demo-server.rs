@@ -66,12 +66,6 @@ impl ContextState {
         )
     }
 
-    // Use type instead of string?
-    fn has_interface(&self, interface: &str) -> bool {
-        // self.negotiated_interfaces.contains_key(interface)
-        true // TODO
-    }
-
     fn handle_request(
         &mut self,
         connected_state: &mut ConnectedContextState,
@@ -95,7 +89,7 @@ impl ContextState {
                     );
                 }
 
-                if self.has_interface("ei_keyboard")
+                if connected_state.has_interface("ei_keyboard")
                     && capabilities & 2 << DeviceCapability::Keyboard as u64 != 0
                 {
                     connected_state.request_converter.add_device(
@@ -107,7 +101,7 @@ impl ContextState {
                 }
 
                 // XXX button/etc should be on same object
-                if self.has_interface("ei_pointer")
+                if connected_state.has_interface("ei_pointer")
                     && capabilities & 2 << DeviceCapability::Pointer as u64 != 0
                 {
                     connected_state.request_converter.add_device(
@@ -118,7 +112,7 @@ impl ContextState {
                     );
                 }
 
-                if self.has_interface("ei_touchscreen")
+                if connected_state.has_interface("ei_touchscreen")
                     && capabilities & 2 << DeviceCapability::Touch as u64 != 0
                 {
                     connected_state.request_converter.add_device(
@@ -129,7 +123,7 @@ impl ContextState {
                     );
                 }
 
-                if self.has_interface("ei_pointer_absolute")
+                if connected_state.has_interface("ei_pointer_absolute")
                     && capabilities & 2 << DeviceCapability::PointerAbsolute as u64 != 0
                 {
                     connected_state.request_converter.add_device(
@@ -204,6 +198,8 @@ impl State {
                         DeviceCapability::Button,
                     ],
                 );
+
+                context_state.seat = Some(seat);
             }
             EisRequestSourceEvent::Request(request) => {
                 return context_state.handle_request(connected_state, request);
@@ -212,8 +208,16 @@ impl State {
                 return context_state
                     .protocol_error(connected_state, &format!("request error: {:?}", err));
             }
-            _ => {}
+            EisRequestSourceEvent::InvalidObject(object_id) => {
+                // Only send if object ID is in range?
+                connected_state
+                    .connection
+                    .invalid_object(connected_state.request_converter.last_serial(), object_id);
+            }
         }
+
+        connected_state.context.flush();
+
         calloop::PostAction::Continue
     }
 }

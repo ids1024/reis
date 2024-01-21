@@ -74,6 +74,13 @@ pub struct ConnectedContextState {
     pub request_converter: crate::request::EisRequestConverter,
 }
 
+impl ConnectedContextState {
+    // Use type instead of string?
+    pub fn has_interface(&self, interface: &str) -> bool {
+        self.negotiated_interfaces.contains_key(interface)
+    }
+}
+
 #[allow(clippy::large_enum_variant)]
 enum ContextState {
     Handshake(crate::handshake::EisHandshaker<'static>),
@@ -176,6 +183,8 @@ impl calloop::EventSource for EisRequestSource {
                                     return Ok(calloop::PostAction::Remove);
                                 }
                             }
+                            // XXX
+                            let _ = context.flush();
                         }
                         ContextState::Connected(ref mut connected_state) => {
                             if let Err(err) =
