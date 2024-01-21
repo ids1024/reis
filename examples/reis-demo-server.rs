@@ -202,7 +202,10 @@ impl State {
                 context_state.seat = Some(seat);
             }
             EisRequestSourceEvent::Request(request) => {
-                return context_state.handle_request(connected_state, request);
+                let res = context_state.handle_request(connected_state, request);
+                if res != calloop::PostAction::Continue {
+                    return res;
+                }
             }
             EisRequestSourceEvent::RequestError(err) => {
                 return context_state
