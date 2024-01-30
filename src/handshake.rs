@@ -103,11 +103,9 @@ impl<'a> EiHandshaker<'a> {
 pub(crate) fn request_result<T>(result: PendingRequestResult<T>) -> Result<T, HandshakeError> {
     match result {
         PendingRequestResult::Request(request) => Ok(request),
-        PendingRequestResult::ParseError(parse_error) => {
-            return Err(HandshakeError::Parse(parse_error));
-        }
+        PendingRequestResult::ParseError(parse_error) => Err(HandshakeError::Parse(parse_error)),
         PendingRequestResult::InvalidObject(invalid_object) => {
-            return Err(HandshakeError::InvalidObject(invalid_object));
+            Err(HandshakeError::InvalidObject(invalid_object))
         }
     }
 }

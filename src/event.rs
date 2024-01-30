@@ -971,7 +971,7 @@ impl Iterator for EiConvertEventIterator {
                 return Some(Ok(event));
             }
             if let Err(err) = util::poll_readable(&self.context) {
-                return Some(Err(EiConvertEventIteratorError::Io(err.into())));
+                return Some(Err(EiConvertEventIteratorError::Io(err)));
             }
             match self.context.read() {
                 Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return None,

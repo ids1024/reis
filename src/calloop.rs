@@ -159,6 +159,7 @@ fn process_handshake(
     Ok(None)
 }
 
+#[allow(clippy::large_enum_variant)]
 enum State {
     Handshake(crate::handshake::EisHandshaker<'static>),
     Connected(ConnectedContextState),
