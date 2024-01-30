@@ -127,7 +127,7 @@ impl calloop::EventSource for EisHandshakeSource {
                     let request = match crate::handshake::request_result(result) {
                         Ok(request) => request,
                         Err(err) => {
-                            cb(Err(err), &mut ());
+                            cb(Err(err), &mut ())?;
                             return Ok(calloop::PostAction::Remove);
                         }
                     };

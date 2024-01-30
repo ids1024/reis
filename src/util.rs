@@ -8,7 +8,7 @@ use std::{
     fs, io, ops,
     os::unix::{
         fs::OpenOptionsExt,
-        io::{BorrowedFd, OwnedFd},
+        io::{AsFd, BorrowedFd, OwnedFd},
         net::UnixStream,
     },
     path::PathBuf,
@@ -115,4 +115,14 @@ impl LockFile {
             rustix::fs::flock(&inner.inner, FlockOperation::NonBlockingLockExclusive).is_ok();
         Ok(Some(inner).filter(|_| locked).map(Self))
     }
+}
+
+pub fn poll_readable<T: AsFd>(fd: &T) -> io::Result<()> {
+    rustix::io::retry_on_intr(|| {
+        rustix::event::poll(
+            &mut [rustix::event::PollFd::new(fd, rustix::event::PollFlags::IN)],
+            0,
+        )
+    })?;
+    Ok(())
 }

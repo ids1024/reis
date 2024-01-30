@@ -14,7 +14,7 @@
 
 #![allow(clippy::derive_partial_eq_without_eq)]
 
-use crate::{ei, Interface, Object, ParseError, PendingRequestResult};
+use crate::{ei, util, Interface, Object, ParseError, PendingRequestResult};
 use std::{
     collections::{HashMap, VecDeque},
     fmt, io,
@@ -970,15 +970,7 @@ impl Iterator for EiConvertEventIterator {
             if let Some(event) = self.converter.next_event() {
                 return Some(Ok(event));
             }
-            if let Err(err) = rustix::io::retry_on_intr(|| {
-                rustix::event::poll(
-                    &mut [rustix::event::PollFd::new(
-                        &self.context,
-                        rustix::event::PollFlags::IN,
-                    )],
-                    0,
-                )
-            }) {
+            if let Err(err) = util::poll_readable(&self.context) {
                 return Some(Err(EiConvertEventIteratorError::Io(err.into())));
             }
             match self.context.read() {

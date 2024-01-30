@@ -1,6 +1,6 @@
 // Generic `EiHandshaker` can be used in async or sync code
 
-use crate::{ei, eis, ParseError, PendingRequestResult};
+use crate::{ei, eis, util, ParseError, PendingRequestResult};
 use std::{collections::HashMap, error, fmt, io, mem};
 
 pub struct HandshakeResp {
@@ -120,16 +120,7 @@ pub fn ei_handshake_blocking(
 ) -> Result<HandshakeResp, HandshakeError> {
     let mut handshaker = EiHandshaker::new(name, context_type, interfaces);
     loop {
-        rustix::io::retry_on_intr(|| {
-            rustix::event::poll(
-                &mut [rustix::event::PollFd::new(
-                    context,
-                    rustix::event::PollFlags::IN,
-                )],
-                0,
-            )
-        })
-        .map_err(io::Error::from)?;
+        util::poll_readable(context)?;
         context.read()?;
         while let Some(result) = context.pending_event() {
             let request = request_result(result)?;
