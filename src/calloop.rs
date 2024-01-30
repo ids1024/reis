@@ -127,7 +127,10 @@ impl calloop::EventSource for EisRequestSource {
     {
         self.source
             .process_events(readiness, token, |_readiness, context| {
-                context.read()?;
+                // XXX?
+                if let Err(err) = context.read() {
+                    return Ok(calloop::PostAction::Remove);
+                }
 
                 while let Some(result) = context.pending_request() {
                     let request = match result {
