@@ -1,12 +1,14 @@
 // TODO: Require context_type
 
-use calloop::generic::Generic;
 use once_cell::sync::Lazy;
 use reis::{
-    calloop::{ConnectedContextState, EisListenerSource, EisRequestSource, EisRequestSourceEvent},
+    calloop::{
+        ConnectedContextState, EisHandshakeSource, EisListenerSource, EisRequestSource,
+        EisRequestSourceEvent,
+    },
     eis::{self, device::DeviceType},
-    request::{DeviceCapability, EisRequest, EisRequestConverter},
-    PendingRequestResult,
+    handshake::EisHandshakeResp,
+    request::{DeviceCapability, EisRequest},
 };
 use std::{
     collections::HashMap,
@@ -35,7 +37,7 @@ static SERVER_INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
 });
 
 struct ContextState {
-    seat: Option<reis::request::Seat>,
+    seat: reis::request::Seat,
 }
 
 impl ContextState {
@@ -93,7 +95,7 @@ impl ContextState {
                     && capabilities & 2 << DeviceCapability::Keyboard as u64 != 0
                 {
                     connected_state.request_converter.add_device(
-                        self.seat.as_ref().unwrap(),
+                        &self.seat,
                         Some("keyboard"),
                         DeviceType::Virtual,
                         &[DeviceCapability::Keyboard],
@@ -105,7 +107,7 @@ impl ContextState {
                     && capabilities & 2 << DeviceCapability::Pointer as u64 != 0
                 {
                     connected_state.request_converter.add_device(
-                        self.seat.as_ref().unwrap(),
+                        &self.seat,
                         Some("pointer"),
                         DeviceType::Virtual,
                         &[DeviceCapability::Pointer],
@@ -116,7 +118,7 @@ impl ContextState {
                     && capabilities & 2 << DeviceCapability::Touch as u64 != 0
                 {
                     connected_state.request_converter.add_device(
-                        self.seat.as_ref().unwrap(),
+                        &self.seat,
                         Some("touch"),
                         DeviceType::Virtual,
                         &[DeviceCapability::Touch],
@@ -127,7 +129,7 @@ impl ContextState {
                     && capabilities & 2 << DeviceCapability::PointerAbsolute as u64 != 0
                 {
                     connected_state.request_converter.add_device(
-                        self.seat.as_ref().unwrap(),
+                        &self.seat,
                         Some("pointer-abs"),
                         DeviceType::Virtual,
                         &[DeviceCapability::PointerAbsolute],
@@ -151,16 +153,62 @@ impl State {
     fn handle_new_connection(&mut self, context: eis::Context) -> io::Result<calloop::PostAction> {
         println!("New connection: {:?}", context);
 
-        // TODO
-        let mut context_state = ContextState { seat: None };
-        let source = EisRequestSource::new(context, &SERVER_INTERFACES, 1);
+        let context_clone = context.clone();
+        let source = EisHandshakeSource::new(context, &SERVER_INTERFACES, 1);
+        self.handle
+            .insert_source(source, move |res, &mut (), state| {
+                match res {
+                    Ok(resp) => {
+                        state.connected(context_clone.clone(), resp);
+                    }
+                    Err(err) => {
+                        eprintln!("Client handshake failed: {}", err);
+                    }
+                }
+                Ok(())
+            })
+            .unwrap();
+
+        Ok(calloop::PostAction::Continue)
+    }
+
+    fn connected(&mut self, context: eis::Context, resp: EisHandshakeResp) {
+        let mut source = EisRequestSource::new(context, resp);
+        let connected_state = &mut source.state;
+
+        if !connected_state
+            .negotiated_interfaces
+            .contains_key("ei_seat")
+            || !connected_state
+                .negotiated_interfaces
+                .contains_key("ei_device")
+        {
+            connected_state.connection.disconnected(
+                1,
+                eis::connection::DisconnectReason::Protocol,
+                "Need `ei_seat` and `ei_device`",
+            );
+            connected_state.context.flush();
+        }
+
+        let seat = connected_state.request_converter.add_seat(
+            Some("default"),
+            &[
+                DeviceCapability::Pointer,
+                DeviceCapability::PointerAbsolute,
+                DeviceCapability::Keyboard,
+                DeviceCapability::Touch,
+                DeviceCapability::Scroll,
+                DeviceCapability::Button,
+            ],
+        );
+
+        let mut context_state = ContextState { seat };
         self.handle
             .insert_source(source, move |event, connected_state, state| {
                 Ok(state.handle_request_source_event(&mut context_state, connected_state, event))
             })
             .unwrap();
-
-        Ok(calloop::PostAction::Continue)
     }
 
     fn handle_request_source_event(
@@ -170,37 +218,6 @@ impl State {
         event: EisRequestSourceEvent,
     ) -> calloop::PostAction {
         match event {
-            EisRequestSourceEvent::Connected => {
-                if !connected_state
-                    .negotiated_interfaces
-                    .contains_key("ei_seat")
-                    || !connected_state
-                        .negotiated_interfaces
-                        .contains_key("ei_device")
-                {
-                    connected_state.connection.disconnected(
-                        1,
-                        eis::connection::DisconnectReason::Protocol,
-                        "Need `ei_seat` and `ei_device`",
-                    );
-                    connected_state.context.flush();
-                    return calloop::PostAction::Remove;
-                }
-
-                let seat = connected_state.request_converter.add_seat(
-                    Some("default"),
-                    &[
-                        DeviceCapability::Pointer,
-                        DeviceCapability::PointerAbsolute,
-                        DeviceCapability::Keyboard,
-                        DeviceCapability::Touch,
-                        DeviceCapability::Scroll,
-                        DeviceCapability::Button,
-                    ],
-                );
-
-                context_state.seat = Some(seat);
-            }
             EisRequestSourceEvent::Request(request) => {
                 let res = context_state.handle_request(connected_state, request);
                 if res != calloop::PostAction::Continue {
@@ -214,6 +231,9 @@ impl State {
             EisRequestSourceEvent::ParseError(err) => {
                 return context_state
                     .protocol_error(connected_state, &format!("parse error: {:?}", err));
+            }
+            EisRequestSourceEvent::IoError(err) => {
+                eprintln!("IO error: {}", err);
             }
             EisRequestSourceEvent::InvalidObject(object_id) => {
                 // Only send if object ID is in range?

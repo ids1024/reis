@@ -5,7 +5,12 @@
 use calloop::{generic::Generic, Interest, Mode, PostAction, Readiness, Token, TokenFactory};
 use std::{collections::HashMap, io};
 
-use crate::{eis, request::EisRequestConverter, ParseError, PendingRequestResult};
+use crate::{
+    eis,
+    handshake::{EisHandshakeResp, HandshakeError},
+    request::EisRequestConverter,
+    ParseError, PendingRequestResult,
+};
 
 pub struct EisListenerSource {
     source: Generic<eis::Listener>,
@@ -81,30 +86,119 @@ impl ConnectedContextState {
     }
 }
 
-#[allow(clippy::large_enum_variant)]
-enum ContextState {
-    Handshake(crate::handshake::EisHandshaker<'static>),
-    Connected(ConnectedContextState),
-}
-
-pub struct EisRequestSource {
+pub struct EisHandshakeSource {
+    handshaker: crate::handshake::EisHandshaker<'static>,
     source: Generic<eis::Context>,
-    state: ContextState,
 }
 
-impl EisRequestSource {
+impl EisHandshakeSource {
     pub fn new(
         context: eis::Context,
         interfaces: &'static HashMap<&'static str, u32>,
         initial_serial: u32,
     ) -> Self {
         Self {
-            state: ContextState::Handshake(crate::handshake::EisHandshaker::new(
-                &context,
-                interfaces,
-                initial_serial,
-            )),
+            handshaker: crate::handshake::EisHandshaker::new(&context, interfaces, initial_serial),
             source: Generic::new(context, Interest::READ, Mode::Level),
+        }
+    }
+}
+
+impl calloop::EventSource for EisHandshakeSource {
+    type Event = Result<EisHandshakeResp, HandshakeError>;
+    type Metadata = ();
+    type Ret = io::Result<()>;
+    type Error = io::Error;
+
+    fn process_events<F>(
+        &mut self,
+        readiness: Readiness,
+        token: Token,
+        mut cb: F,
+    ) -> io::Result<PostAction>
+    where
+        F: FnMut(Result<EisHandshakeResp, HandshakeError>, &mut ()) -> io::Result<()>,
+    {
+        self.source
+            .process_events(readiness, token, |_readiness, context| {
+                if let Err(err) = context.read() {
+                    cb(Err(HandshakeError::Io(err)), &mut ())?;
+                    return Ok(calloop::PostAction::Remove);
+                }
+
+                while let Some(result) = context.pending_request() {
+                    let request = match result {
+                        PendingRequestResult::Request(request) => request,
+                        PendingRequestResult::ParseError(err) => {
+                            cb(Err(HandshakeError::Parse(err)), &mut ())?;
+                            return Ok(calloop::PostAction::Remove);
+                        }
+                        PendingRequestResult::InvalidObject(object_id) => {
+                            cb(Err(HandshakeError::InvalidObject(object_id)), &mut ())?;
+                            return Ok(calloop::PostAction::Remove);
+                        }
+                    };
+                    match self.handshaker.handle_request(request) {
+                        Ok(Some(resp)) => {
+                            cb(Ok(resp), &mut ())?;
+                            return Ok(calloop::PostAction::Remove);
+                        }
+                        Ok(None) => {}
+                        Err(err) => {
+                            cb(Err(err), &mut ())?;
+                            return Ok(calloop::PostAction::Remove);
+                        }
+                    }
+                    // XXX
+                    let _ = context.flush();
+                }
+
+                Ok(calloop::PostAction::Continue)
+            })
+    }
+
+    fn register(
+        &mut self,
+        poll: &mut calloop::Poll,
+        token_factory: &mut TokenFactory,
+    ) -> Result<(), calloop::Error> {
+        self.source.register(poll, token_factory)
+    }
+
+    fn reregister(
+        &mut self,
+        poll: &mut calloop::Poll,
+        token_factory: &mut TokenFactory,
+    ) -> Result<(), calloop::Error> {
+        self.source.reregister(poll, token_factory)
+    }
+
+    fn unregister(&mut self, poll: &mut calloop::Poll) -> Result<(), calloop::Error> {
+        self.source.unregister(poll)
+    }
+}
+
+pub struct EisRequestSource {
+    source: Generic<eis::Context>,
+    pub state: ConnectedContextState,
+}
+
+impl EisRequestSource {
+    pub fn new(context: eis::Context, resp: EisHandshakeResp) -> Self {
+        let request_converter = EisRequestConverter::new(&resp.connection, 1);
+
+        let connected_state = ConnectedContextState {
+            context: context.clone(),
+            connection: resp.connection,
+            name: resp.name,
+            context_type: resp.context_type,
+            negotiated_interfaces: resp.negotiated_interfaces.clone(),
+            request_converter,
+        };
+
+        Self {
+            source: Generic::new(context, Interest::READ, Mode::Level),
+            state: connected_state,
         }
     }
 }
@@ -127,8 +221,8 @@ impl calloop::EventSource for EisRequestSource {
     {
         self.source
             .process_events(readiness, token, |_readiness, context| {
-                // XXX?
-                if let Err(_err) = context.read() {
+                if let Err(err) = context.read() {
+                    cb(EisRequestSourceEvent::IoError(err), &mut self.state)?;
                     return Ok(calloop::PostAction::Remove);
                 }
 
@@ -136,79 +230,29 @@ impl calloop::EventSource for EisRequestSource {
                     let request = match result {
                         PendingRequestResult::Request(request) => request,
                         PendingRequestResult::ParseError(err) => {
-                            if let ContextState::Connected(ref mut connected_state) =
-                                &mut self.state
-                            {
-                                cb(EisRequestSourceEvent::ParseError(err), connected_state)?;
-                            }
+                            cb(EisRequestSourceEvent::ParseError(err), &mut self.state)?;
                             return Ok(calloop::PostAction::Remove);
                         }
                         PendingRequestResult::InvalidObject(object_id) => {
-                            // TODO
-                            if let ContextState::Connected(ref mut connected_state) =
-                                &mut self.state
-                            {
-                                let res = cb(
-                                    EisRequestSourceEvent::InvalidObject(object_id),
-                                    connected_state,
-                                )?;
-                                if res != calloop::PostAction::Continue {
-                                    return Ok(res);
-                                }
+                            let res = cb(
+                                EisRequestSourceEvent::InvalidObject(object_id),
+                                &mut self.state,
+                            )?;
+                            if res != calloop::PostAction::Continue {
+                                return Ok(res);
                             }
                             continue;
                         }
                     };
 
-                    match &mut self.state {
-                        ContextState::Handshake(handshaker) => {
-                            match handshaker.handle_request(request) {
-                                Ok(Some(resp)) => {
-                                    let request_converter =
-                                        EisRequestConverter::new(&resp.connection, 1);
-
-                                    let mut connected_state = ConnectedContextState {
-                                        context: context.clone(),
-                                        connection: resp.connection,
-                                        name: resp.name,
-                                        context_type: resp.context_type,
-                                        negotiated_interfaces: resp.negotiated_interfaces.clone(),
-                                        request_converter,
-                                    };
-
-                                    let res =
-                                        cb(EisRequestSourceEvent::Connected, &mut connected_state)?;
-                                    if res != calloop::PostAction::Continue {
-                                        return Ok(res);
-                                    }
-
-                                    self.state = ContextState::Connected(connected_state);
-                                }
-                                Ok(None) => {}
-                                Err(_err) => {
-                                    // TODO What to do with handshake error?
-                                    return Ok(calloop::PostAction::Remove);
-                                }
-                            }
-                            // XXX
-                            let _ = context.flush();
-                        }
-                        ContextState::Connected(ref mut connected_state) => {
-                            if let Err(err) =
-                                connected_state.request_converter.handle_request(request)
-                            {
-                                cb(EisRequestSourceEvent::RequestError(err), connected_state)?;
-                                return Ok(calloop::PostAction::Remove);
-                            }
-                            while let Some(request) =
-                                connected_state.request_converter.next_request()
-                            {
-                                let res =
-                                    cb(EisRequestSourceEvent::Request(request), connected_state)?;
-                                if res != calloop::PostAction::Continue {
-                                    return Ok(res);
-                                }
-                            }
+                    if let Err(err) = self.state.request_converter.handle_request(request) {
+                        cb(EisRequestSourceEvent::RequestError(err), &mut self.state)?;
+                        return Ok(calloop::PostAction::Remove);
+                    }
+                    while let Some(request) = self.state.request_converter.next_request() {
+                        let res = cb(EisRequestSourceEvent::Request(request), &mut self.state)?;
+                        if res != calloop::PostAction::Continue {
+                            return Ok(res);
                         }
                     }
                 }
@@ -244,7 +288,6 @@ pub enum EisRequestSourceEvent {
     // Event source removes itself after error
     RequestError(crate::request::Error),
     ParseError(ParseError),
-    Connected,
+    IoError(io::Error),
     InvalidObject(u64),
-    // Handshake error? Doesn't have state.
 }
