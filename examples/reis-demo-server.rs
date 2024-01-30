@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use reis::{
     calloop::{
         ConnectedContextState, EisHandshakeSource, EisListenerSource, EisRequestSource,
-        EisRequestSourceError, EisRequestSourceEvent,
+        EisRequestSourceEvent,
     },
     eis::{self, device::DeviceType},
     request::{DeviceCapability, EisRequest},
@@ -213,9 +213,7 @@ impl State {
                     connected_state,
                     event,
                 )),
-                Err(err) => {
-                    Ok(state.handle_request_source_error(&mut context_state, connected_state, err))
-                }
+                Err(err) => Ok(context_state.protocol_error(connected_state, &err.to_string())),
             })
             .unwrap();
     }
@@ -244,26 +242,6 @@ impl State {
         connected_state.context.flush();
 
         calloop::PostAction::Continue
-    }
-
-    fn handle_request_source_error(
-        &mut self,
-        context_state: &mut ContextState,
-        connected_state: &mut ConnectedContextState,
-        error: EisRequestSourceError,
-    ) -> calloop::PostAction {
-        match error {
-            EisRequestSourceError::Request(err) => {
-                context_state.protocol_error(connected_state, &format!("request error: {:?}", err))
-            }
-            EisRequestSourceError::Parse(err) => {
-                context_state.protocol_error(connected_state, &format!("parse error: {:?}", err))
-            }
-            EisRequestSourceError::Io(err) => {
-                eprintln!("IO error: {}", err);
-                calloop::PostAction::Remove
-            }
-        }
     }
 }
 

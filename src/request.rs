@@ -2,10 +2,10 @@
 
 // TODO: rename/reorganize things; doc comments on public types/methods
 
-use crate::{eis, Object};
+use crate::{eis, Object, ParseError};
 use std::{
     collections::{HashMap, VecDeque},
-    fmt,
+    fmt, io,
     sync::Arc,
 };
 
@@ -17,6 +17,8 @@ pub enum Error {
     UnrecognizedSeat,
     UnrecognizedDevice,
     InvalidCallbackVersion,
+    Parse(ParseError),
+    Io(io::Error),
 }
 
 impl fmt::Display for Error {
@@ -26,6 +28,8 @@ impl fmt::Display for Error {
             Self::UnrecognizedSeat => write!(f, "unrecognized seat"),
             Self::UnrecognizedDevice => write!(f, "unrecognized device"),
             Self::InvalidCallbackVersion => write!(f, "invalid callback version"),
+            Self::Io(err) => write!(f, "IO error: {}", err),
+            Self::Parse(err) => write!(f, "parse error: {}", err),
         }
     }
 }

@@ -5,9 +5,7 @@
 use calloop::{generic::Generic, Interest, Mode, PostAction, Readiness, Token, TokenFactory};
 use std::{collections::HashMap, io};
 
-use crate::{
-    eis, handshake::HandshakeError, request::EisRequestConverter, ParseError, PendingRequestResult,
-};
+use crate::{eis, handshake::HandshakeError, request::EisRequestConverter, PendingRequestResult};
 
 pub struct EisListenerSource {
     source: Generic<eis::Listener>,
@@ -199,7 +197,7 @@ fn process_request(PendingRequestResult<eis::Request>) -> Result<Option>> {
 
 impl calloop::EventSource for EisRequestSource {
     // type Event = crate::request::EisRequest;
-    type Event = Result<EisRequestSourceEvent, EisRequestSourceError>;
+    type Event = Result<EisRequestSourceEvent, crate::request::Error>;
     type Metadata = ConnectedContextState;
     type Ret = io::Result<PostAction>;
     type Error = io::Error;
@@ -216,7 +214,7 @@ impl calloop::EventSource for EisRequestSource {
         self.source
             .process_events(readiness, token, |_readiness, context| {
                 if let Err(err) = context.read() {
-                    cb(Err(EisRequestSourceError::Io(err)), &mut self.state)?;
+                    cb(Err(crate::request::Error::Io(err)), &mut self.state)?;
                     return Ok(calloop::PostAction::Remove);
                 }
 
@@ -224,7 +222,7 @@ impl calloop::EventSource for EisRequestSource {
                     let request = match result {
                         PendingRequestResult::Request(request) => request,
                         PendingRequestResult::ParseError(err) => {
-                            cb(Err(EisRequestSourceError::Parse(err)), &mut self.state)?;
+                            cb(Err(crate::request::Error::Parse(err)), &mut self.state)?;
                             return Ok(calloop::PostAction::Remove);
                         }
                         PendingRequestResult::InvalidObject(object_id) => {
@@ -240,7 +238,7 @@ impl calloop::EventSource for EisRequestSource {
                     };
 
                     if let Err(err) = self.state.request_converter.handle_request(request) {
-                        cb(Err(EisRequestSourceError::Request(err)), &mut self.state)?;
+                        cb(Err(err), &mut self.state)?;
                         return Ok(calloop::PostAction::Remove);
                     }
                     while let Some(request) = self.state.request_converter.next_request() {
@@ -280,11 +278,4 @@ impl calloop::EventSource for EisRequestSource {
 pub enum EisRequestSourceEvent {
     Request(crate::request::EisRequest),
     InvalidObject(u64),
-}
-
-// Event source removes itself after error
-pub enum EisRequestSourceError {
-    Request(crate::request::Error),
-    Parse(ParseError),
-    Io(io::Error),
 }
