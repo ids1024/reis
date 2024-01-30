@@ -192,7 +192,7 @@ impl EisRequestSource {
             connection: resp.connection,
             name: resp.name,
             context_type: resp.context_type,
-            negotiated_interfaces: resp.negotiated_interfaces.clone(),
+            negotiated_interfaces: resp.negotiated_interfaces,
             request_converter,
         };
 
