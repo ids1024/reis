@@ -5,7 +5,7 @@
 use calloop::{generic::Generic, Interest, Mode, PostAction, Readiness, Token, TokenFactory};
 use std::{collections::HashMap, io};
 
-use crate::{eis, request::EisRequestConverter, PendingRequestResult};
+use crate::{eis, request::EisRequestConverter, ParseError, PendingRequestResult};
 
 pub struct EisListenerSource {
     source: Generic<eis::Listener>,
@@ -135,8 +135,12 @@ impl calloop::EventSource for EisRequestSource {
                 while let Some(result) = context.pending_request() {
                     let request = match result {
                         PendingRequestResult::Request(request) => request,
-                        PendingRequestResult::ParseError(_msg) => {
-                            // TODO
+                        PendingRequestResult::ParseError(err) => {
+                            if let ContextState::Connected(ref mut connected_state) =
+                                &mut self.state
+                            {
+                                cb(EisRequestSourceEvent::ParseError(err), connected_state)?;
+                            }
                             return Ok(calloop::PostAction::Remove);
                         }
                         PendingRequestResult::InvalidObject(object_id) => {
@@ -239,6 +243,7 @@ pub enum EisRequestSourceEvent {
     Request(crate::request::EisRequest),
     // Event source removes itself after error
     RequestError(crate::request::Error),
+    ParseError(ParseError),
     Connected,
     InvalidObject(u64),
     // Handshake error? Doesn't have state.

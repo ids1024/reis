@@ -211,6 +211,10 @@ impl State {
                 return context_state
                     .protocol_error(connected_state, &format!("request error: {:?}", err));
             }
+            EisRequestSourceEvent::ParseError(err) => {
+                return context_state
+                    .protocol_error(connected_state, &format!("parse error: {:?}", err));
+            }
             EisRequestSourceEvent::InvalidObject(object_id) => {
                 // Only send if object ID is in range?
                 connected_state
