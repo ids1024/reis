@@ -153,19 +153,25 @@ impl State {
         println!("New connection: {:?}", context);
 
         let source = EisHandshakeSource::new(context, &SERVER_INTERFACES, 1);
-        self.handle
-            .insert_source(source, |res, &mut (), state| {
-                match res {
-                    Ok(connected_state) => {
-                        state.connected(connected_state);
+        let token = std::rc::Rc::new(std::cell::Cell::new(None::<calloop::RegistrationToken>));
+        let token_clone = token.clone();
+        token.set(Some(
+            self.handle
+                .insert_source(source, move |res, &mut (), state| {
+                    match res {
+                        Ok(connected_state) => {
+                            // XXX make sure it's unregistered before this?
+                            state.handle.remove(token_clone.get().unwrap());
+                            state.connected(connected_state);
+                        }
+                        Err(err) => {
+                            eprintln!("Client handshake failed: {}", err);
+                        }
                     }
-                    Err(err) => {
-                        eprintln!("Client handshake failed: {}", err);
-                    }
-                }
-                Ok(())
-            })
-            .unwrap();
+                    Ok(())
+                })
+                .unwrap(),
+        ));
 
         Ok(calloop::PostAction::Continue)
     }

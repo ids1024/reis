@@ -101,6 +101,36 @@ impl EisHandshakeSource {
     }
 }
 
+fn process_handshake(
+    handshaker: &mut crate::handshake::EisHandshaker<'_>,
+    context: &eis::Context,
+) -> Result<Option<ConnectedContextState>, HandshakeError> {
+    context.read()?;
+
+    while let Some(result) = context.pending_request() {
+        let request = crate::handshake::request_result(result)?;
+        if let Some(resp) = handshaker.handle_request(request)? {
+            let request_converter = EisRequestConverter::new(&resp.connection, 1);
+
+            let connected_state = ConnectedContextState {
+                context: context.clone(),
+                connection: resp.connection,
+                name: resp.name,
+                context_type: resp.context_type,
+                negotiated_interfaces: resp.negotiated_interfaces,
+                request_converter,
+            };
+
+            return Ok(Some(connected_state));
+        }
+    }
+
+    // XXX
+    let _ = context.flush();
+
+    Ok(None)
+}
+
 impl calloop::EventSource for EisHandshakeSource {
     type Event = Result<ConnectedContextState, HandshakeError>;
     type Metadata = ();
@@ -118,46 +148,12 @@ impl calloop::EventSource for EisHandshakeSource {
     {
         self.source
             .process_events(readiness, token, |_readiness, context| {
-                if let Err(err) = context.read() {
-                    cb(Err(HandshakeError::Io(err)), &mut ())?;
-                    return Ok(calloop::PostAction::Remove);
+                if let Some(res) = process_handshake(&mut self.handshaker, context).transpose() {
+                    cb(res, &mut ())?;
+                    Ok(calloop::PostAction::Remove)
+                } else {
+                    Ok(calloop::PostAction::Continue)
                 }
-
-                while let Some(result) = context.pending_request() {
-                    let request = match crate::handshake::request_result(result) {
-                        Ok(request) => request,
-                        Err(err) => {
-                            cb(Err(err), &mut ())?;
-                            return Ok(calloop::PostAction::Remove);
-                        }
-                    };
-                    match self.handshaker.handle_request(request) {
-                        Ok(Some(resp)) => {
-                            let request_converter = EisRequestConverter::new(&resp.connection, 1);
-
-                            let connected_state = ConnectedContextState {
-                                context: context.clone(),
-                                connection: resp.connection,
-                                name: resp.name,
-                                context_type: resp.context_type,
-                                negotiated_interfaces: resp.negotiated_interfaces,
-                                request_converter,
-                            };
-
-                            cb(Ok(connected_state), &mut ())?;
-                            return Ok(calloop::PostAction::Remove);
-                        }
-                        Ok(None) => {}
-                        Err(err) => {
-                            cb(Err(err), &mut ())?;
-                            return Ok(calloop::PostAction::Remove);
-                        }
-                    }
-                    // XXX
-                    let _ = context.flush();
-                }
-
-                Ok(calloop::PostAction::Continue)
             })
     }
 
