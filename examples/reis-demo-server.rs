@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use reis::{
     calloop::{
         ConnectedContextState, EisHandshakeSource, EisListenerSource, EisRequestSource,
-        EisRequestSourceEvent,
+        EisRequestSourceError, EisRequestSourceEvent,
     },
     eis::{self, device::DeviceType},
     request::{DeviceCapability, EisRequest},
@@ -207,8 +207,15 @@ impl State {
         let source = EisRequestSource::new(connected_state);
         let mut context_state = ContextState { seat };
         self.handle
-            .insert_source(source, move |event, connected_state, state| {
-                Ok(state.handle_request_source_event(&mut context_state, connected_state, event))
+            .insert_source(source, move |event, connected_state, state| match event {
+                Ok(event) => Ok(state.handle_request_source_event(
+                    &mut context_state,
+                    connected_state,
+                    event,
+                )),
+                Err(err) => {
+                    Ok(state.handle_request_source_error(&mut context_state, connected_state, err))
+                }
             })
             .unwrap();
     }
@@ -226,17 +233,6 @@ impl State {
                     return res;
                 }
             }
-            EisRequestSourceEvent::RequestError(err) => {
-                return context_state
-                    .protocol_error(connected_state, &format!("request error: {:?}", err));
-            }
-            EisRequestSourceEvent::ParseError(err) => {
-                return context_state
-                    .protocol_error(connected_state, &format!("parse error: {:?}", err));
-            }
-            EisRequestSourceEvent::IoError(err) => {
-                eprintln!("IO error: {}", err);
-            }
             EisRequestSourceEvent::InvalidObject(object_id) => {
                 // Only send if object ID is in range?
                 connected_state
@@ -248,6 +244,26 @@ impl State {
         connected_state.context.flush();
 
         calloop::PostAction::Continue
+    }
+
+    fn handle_request_source_error(
+        &mut self,
+        context_state: &mut ContextState,
+        connected_state: &mut ConnectedContextState,
+        error: EisRequestSourceError,
+    ) -> calloop::PostAction {
+        match error {
+            EisRequestSourceError::Request(err) => {
+                context_state.protocol_error(connected_state, &format!("request error: {:?}", err))
+            }
+            EisRequestSourceError::Parse(err) => {
+                context_state.protocol_error(connected_state, &format!("parse error: {:?}", err))
+            }
+            EisRequestSourceError::Io(err) => {
+                eprintln!("IO error: {}", err);
+                calloop::PostAction::Remove
+            }
+        }
     }
 }
 
