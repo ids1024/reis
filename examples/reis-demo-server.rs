@@ -7,7 +7,6 @@ use reis::{
         EisRequestSourceEvent,
     },
     eis::{self, device::DeviceType},
-    handshake::EisHandshakeResp,
     request::{DeviceCapability, EisRequest},
 };
 use std::{
@@ -153,13 +152,12 @@ impl State {
     fn handle_new_connection(&mut self, context: eis::Context) -> io::Result<calloop::PostAction> {
         println!("New connection: {:?}", context);
 
-        let context_clone = context.clone();
         let source = EisHandshakeSource::new(context, &SERVER_INTERFACES, 1);
         self.handle
-            .insert_source(source, move |res, &mut (), state| {
+            .insert_source(source, |res, &mut (), state| {
                 match res {
-                    Ok(resp) => {
-                        state.connected(context_clone.clone(), resp);
+                    Ok(connected_state) => {
+                        state.connected(connected_state);
                     }
                     Err(err) => {
                         eprintln!("Client handshake failed: {}", err);
@@ -172,10 +170,7 @@ impl State {
         Ok(calloop::PostAction::Continue)
     }
 
-    fn connected(&mut self, context: eis::Context, resp: EisHandshakeResp) {
-        let mut source = EisRequestSource::new(context, resp);
-        let connected_state = &mut source.state;
-
+    fn connected(&mut self, mut connected_state: ConnectedContextState) {
         if !connected_state
             .negotiated_interfaces
             .contains_key("ei_seat")
@@ -203,6 +198,7 @@ impl State {
             ],
         );
 
+        let source = EisRequestSource::new(connected_state);
         let mut context_state = ContextState { seat };
         self.handle
             .insert_source(source, move |event, connected_state, state| {

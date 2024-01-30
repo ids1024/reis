@@ -6,10 +6,7 @@ use calloop::{generic::Generic, Interest, Mode, PostAction, Readiness, Token, To
 use std::{collections::HashMap, io};
 
 use crate::{
-    eis,
-    handshake::{EisHandshakeResp, HandshakeError},
-    request::EisRequestConverter,
-    ParseError, PendingRequestResult,
+    eis, handshake::HandshakeError, request::EisRequestConverter, ParseError, PendingRequestResult,
 };
 
 pub struct EisListenerSource {
@@ -105,7 +102,7 @@ impl EisHandshakeSource {
 }
 
 impl calloop::EventSource for EisHandshakeSource {
-    type Event = Result<EisHandshakeResp, HandshakeError>;
+    type Event = Result<ConnectedContextState, HandshakeError>;
     type Metadata = ();
     type Ret = io::Result<()>;
     type Error = io::Error;
@@ -117,7 +114,7 @@ impl calloop::EventSource for EisHandshakeSource {
         mut cb: F,
     ) -> io::Result<PostAction>
     where
-        F: FnMut(Result<EisHandshakeResp, HandshakeError>, &mut ()) -> io::Result<()>,
+        F: FnMut(Result<ConnectedContextState, HandshakeError>, &mut ()) -> io::Result<()>,
     {
         self.source
             .process_events(readiness, token, |_readiness, context| {
@@ -140,7 +137,18 @@ impl calloop::EventSource for EisHandshakeSource {
                     };
                     match self.handshaker.handle_request(request) {
                         Ok(Some(resp)) => {
-                            cb(Ok(resp), &mut ())?;
+                            let request_converter = EisRequestConverter::new(&resp.connection, 1);
+
+                            let connected_state = ConnectedContextState {
+                                context: context.clone(),
+                                connection: resp.connection,
+                                name: resp.name,
+                                context_type: resp.context_type,
+                                negotiated_interfaces: resp.negotiated_interfaces,
+                                request_converter,
+                            };
+
+                            cb(Ok(connected_state), &mut ())?;
                             return Ok(calloop::PostAction::Remove);
                         }
                         Ok(None) => {}
@@ -180,25 +188,14 @@ impl calloop::EventSource for EisHandshakeSource {
 
 pub struct EisRequestSource {
     source: Generic<eis::Context>,
-    pub state: ConnectedContextState,
+    state: ConnectedContextState,
 }
 
 impl EisRequestSource {
-    pub fn new(context: eis::Context, resp: EisHandshakeResp) -> Self {
-        let request_converter = EisRequestConverter::new(&resp.connection, 1);
-
-        let connected_state = ConnectedContextState {
-            context: context.clone(),
-            connection: resp.connection,
-            name: resp.name,
-            context_type: resp.context_type,
-            negotiated_interfaces: resp.negotiated_interfaces,
-            request_converter,
-        };
-
+    pub fn new(state: ConnectedContextState) -> Self {
         Self {
-            source: Generic::new(context, Interest::READ, Mode::Level),
-            state: connected_state,
+            source: Generic::new(state.context.clone(), Interest::READ, Mode::Level),
+            state,
         }
     }
 }
