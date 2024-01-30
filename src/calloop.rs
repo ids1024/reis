@@ -129,24 +129,6 @@ impl ConnectedContextState {
     }
 }
 
-pub struct EisHandshakeSource {
-    handshaker: crate::handshake::EisHandshaker<'static>,
-    source: Generic<eis::Context>,
-}
-
-impl EisHandshakeSource {
-    pub fn new(
-        context: eis::Context,
-        interfaces: &'static HashMap<&'static str, u32>,
-        initial_serial: u32,
-    ) -> Self {
-        Self {
-            handshaker: crate::handshake::EisHandshaker::new(&context, interfaces, initial_serial),
-            source: Generic::new(context, Interest::READ, Mode::Level),
-        }
-    }
-}
-
 fn process_handshake(
     handshaker: &mut crate::handshake::EisHandshaker<'_>,
     context: &eis::Context,
@@ -177,63 +159,26 @@ fn process_handshake(
     Ok(None)
 }
 
-impl calloop::EventSource for EisHandshakeSource {
-    type Event = Result<ConnectedContextState, HandshakeError>;
-    type Metadata = ();
-    type Ret = io::Result<()>;
-    type Error = io::Error;
-
-    fn process_events<F>(
-        &mut self,
-        readiness: Readiness,
-        token: Token,
-        mut cb: F,
-    ) -> io::Result<PostAction>
-    where
-        F: FnMut(Result<ConnectedContextState, HandshakeError>, &mut ()) -> io::Result<()>,
-    {
-        self.source
-            .process_events(readiness, token, |_readiness, context| {
-                if let Some(res) = process_handshake(&mut self.handshaker, context).transpose() {
-                    cb(res, &mut ())?;
-                    Ok(calloop::PostAction::Remove)
-                } else {
-                    Ok(calloop::PostAction::Continue)
-                }
-            })
-    }
-
-    fn register(
-        &mut self,
-        poll: &mut calloop::Poll,
-        token_factory: &mut TokenFactory,
-    ) -> Result<(), calloop::Error> {
-        self.source.register(poll, token_factory)
-    }
-
-    fn reregister(
-        &mut self,
-        poll: &mut calloop::Poll,
-        token_factory: &mut TokenFactory,
-    ) -> Result<(), calloop::Error> {
-        self.source.reregister(poll, token_factory)
-    }
-
-    fn unregister(&mut self, poll: &mut calloop::Poll) -> Result<(), calloop::Error> {
-        self.source.unregister(poll)
-    }
+enum State {
+    Handshake(crate::handshake::EisHandshaker<'static>),
+    Connected(ConnectedContextState),
 }
 
 pub struct EisRequestSource {
     source: Generic<eis::Context>,
-    state: ConnectedContextState,
+    state: State,
 }
 
 impl EisRequestSource {
-    pub fn new(state: ConnectedContextState) -> Self {
+    pub fn new(
+        context: eis::Context,
+        interfaces: &'static HashMap<&'static str, u32>,
+        initial_serial: u32,
+    ) -> Self {
+        let handshaker = crate::handshake::EisHandshaker::new(&context, interfaces, initial_serial);
         Self {
-            source: Generic::new(state.context.clone(), Interest::READ, Mode::Level),
-            state,
+            source: Generic::new(context, Interest::READ, Mode::Level),
+            state: State::Handshake(handshaker),
         }
     }
 }
@@ -254,8 +199,28 @@ impl calloop::EventSource for EisRequestSource {
         F: FnMut(Self::Event, &mut ConnectedContextState) -> io::Result<PostAction>,
     {
         self.source
-            .process_events(readiness, token, |_readiness, _context| {
-                self.state.process(&mut cb)
+            .process_events(readiness, token, |_readiness, context| {
+                match &mut self.state {
+                    State::Handshake(handshaker) => {
+                        if let Some(res) = process_handshake(handshaker, context).transpose() {
+                            match res {
+                                Ok(mut state) => {
+                                    let res = cb(Ok(EisRequestSourceEvent::Connected), &mut state)?;
+                                    self.state = State::Connected(state);
+                                    Ok(res)
+                                }
+                                Err(err) => {
+                                    // TODO return handshake errors?
+                                    eprintln!("Client handshake failed: {}", err);
+                                    Ok(calloop::PostAction::Remove)
+                                }
+                            }
+                        } else {
+                            Ok(calloop::PostAction::Continue)
+                        }
+                    }
+                    State::Connected(state) => state.process(&mut cb),
+                }
             })
     }
 
@@ -282,6 +247,7 @@ impl calloop::EventSource for EisRequestSource {
 
 // TODO
 pub enum EisRequestSourceEvent {
+    Connected,
     Request(request::EisRequest),
     InvalidObject(u64),
 }
