@@ -84,6 +84,49 @@ impl ConnectedContextState {
     pub fn has_interface(&self, interface: &str) -> bool {
         self.negotiated_interfaces.contains_key(interface)
     }
+
+    fn process<F>(&mut self, mut cb: F) -> io::Result<PostAction>
+    where
+        F: FnMut(
+            Result<EisRequestSourceEvent, request::Error>,
+            &mut Self,
+        ) -> io::Result<PostAction>,
+    {
+        if let Err(err) = self.context.read() {
+            cb(Err(request::Error::Io(err)), self)?;
+            return Ok(calloop::PostAction::Remove);
+        }
+
+        while let Some(result) = self.context.pending_request() {
+            let request = match result {
+                PendingRequestResult::Request(request) => request,
+                PendingRequestResult::ParseError(err) => {
+                    cb(Err(request::Error::Parse(err)), self)?;
+                    return Ok(calloop::PostAction::Remove);
+                }
+                PendingRequestResult::InvalidObject(object_id) => {
+                    let res = cb(Ok(EisRequestSourceEvent::InvalidObject(object_id)), self)?;
+                    if res != calloop::PostAction::Continue {
+                        return Ok(res);
+                    }
+                    continue;
+                }
+            };
+
+            if let Err(err) = self.request_converter.handle_request(request) {
+                cb(Err(err), self)?;
+                return Ok(calloop::PostAction::Remove);
+            }
+            while let Some(request) = self.request_converter.next_request() {
+                let res = cb(Ok(EisRequestSourceEvent::Request(request)), self)?;
+                if res != calloop::PostAction::Continue {
+                    return Ok(res);
+                }
+            }
+        }
+
+        Ok(calloop::PostAction::Continue)
+    }
 }
 
 pub struct EisHandshakeSource {
@@ -211,44 +254,8 @@ impl calloop::EventSource for EisRequestSource {
         F: FnMut(Self::Event, &mut ConnectedContextState) -> io::Result<PostAction>,
     {
         self.source
-            .process_events(readiness, token, |_readiness, context| {
-                if let Err(err) = context.read() {
-                    cb(Err(request::Error::Io(err)), &mut self.state)?;
-                    return Ok(calloop::PostAction::Remove);
-                }
-
-                while let Some(result) = context.pending_request() {
-                    let request = match result {
-                        PendingRequestResult::Request(request) => request,
-                        PendingRequestResult::ParseError(err) => {
-                            cb(Err(request::Error::Parse(err)), &mut self.state)?;
-                            return Ok(calloop::PostAction::Remove);
-                        }
-                        PendingRequestResult::InvalidObject(object_id) => {
-                            let res = cb(
-                                Ok(EisRequestSourceEvent::InvalidObject(object_id)),
-                                &mut self.state,
-                            )?;
-                            if res != calloop::PostAction::Continue {
-                                return Ok(res);
-                            }
-                            continue;
-                        }
-                    };
-
-                    if let Err(err) = self.state.request_converter.handle_request(request) {
-                        cb(Err(err), &mut self.state)?;
-                        return Ok(calloop::PostAction::Remove);
-                    }
-                    while let Some(request) = self.state.request_converter.next_request() {
-                        let res = cb(Ok(EisRequestSourceEvent::Request(request)), &mut self.state)?;
-                        if res != calloop::PostAction::Continue {
-                            return Ok(res);
-                        }
-                    }
-                }
-
-                Ok(calloop::PostAction::Continue)
+            .process_events(readiness, token, |_readiness, _context| {
+                self.state.process(&mut cb)
             })
     }
 
