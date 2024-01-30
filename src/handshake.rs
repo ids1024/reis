@@ -100,6 +100,18 @@ impl<'a> EiHandshaker<'a> {
     }
 }
 
+pub(crate) fn request_result<T>(result: PendingRequestResult<T>) -> Result<T, HandshakeError> {
+    match result {
+        PendingRequestResult::Request(request) => Ok(request),
+        PendingRequestResult::ParseError(parse_error) => {
+            return Err(HandshakeError::Parse(parse_error));
+        }
+        PendingRequestResult::InvalidObject(invalid_object) => {
+            return Err(HandshakeError::InvalidObject(invalid_object));
+        }
+    }
+}
+
 pub fn ei_handshake_blocking(
     context: &ei::Context,
     name: &str,
@@ -120,16 +132,7 @@ pub fn ei_handshake_blocking(
         .map_err(io::Error::from)?;
         context.read()?;
         while let Some(result) = context.pending_event() {
-            let request = match result {
-                PendingRequestResult::Request(request) => request,
-                PendingRequestResult::ParseError(parse_error) => {
-                    return Err(HandshakeError::Parse(parse_error));
-                }
-                PendingRequestResult::InvalidObject(invalid_object) => {
-                    return Err(HandshakeError::InvalidObject(invalid_object));
-                }
-            };
-
+            let request = request_result(result)?;
             if let Some(resp) = handshaker.handle_event(request)? {
                 return Ok(resp);
             }

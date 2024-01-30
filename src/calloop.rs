@@ -124,14 +124,10 @@ impl calloop::EventSource for EisHandshakeSource {
                 }
 
                 while let Some(result) = context.pending_request() {
-                    let request = match result {
-                        PendingRequestResult::Request(request) => request,
-                        PendingRequestResult::ParseError(err) => {
-                            cb(Err(HandshakeError::Parse(err)), &mut ())?;
-                            return Ok(calloop::PostAction::Remove);
-                        }
-                        PendingRequestResult::InvalidObject(object_id) => {
-                            cb(Err(HandshakeError::InvalidObject(object_id)), &mut ())?;
+                    let request = match crate::handshake::request_result(result) {
+                        Ok(request) => request,
+                        Err(err) => {
+                            cb(Err(err), &mut ());
                             return Ok(calloop::PostAction::Remove);
                         }
                     };

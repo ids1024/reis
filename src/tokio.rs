@@ -130,16 +130,7 @@ pub async fn ei_handshake(
 ) -> Result<HandshakeResp, HandshakeError> {
     let mut handshaker = EiHandshaker::new(name, context_type, interfaces);
     while let Some(result) = events.next().await {
-        let request = match result? {
-            PendingRequestResult::Request(request) => request,
-            PendingRequestResult::ParseError(parse_error) => {
-                return Err(HandshakeError::Parse(parse_error));
-            }
-            PendingRequestResult::InvalidObject(invalid_object) => {
-                return Err(HandshakeError::InvalidObject(invalid_object));
-            }
-        };
-
+        let request = crate::handshake::request_result(result?)?;
         if let Some(resp) = handshaker.handle_event(request)? {
             return Ok(resp);
         }
