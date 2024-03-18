@@ -49,7 +49,6 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-#[derive(Default)]
 pub struct EiEventConverter {
     pending_seats: HashMap<ei::Seat, SeatInner>,
     seats: HashMap<ei::Seat, Seat>,
@@ -58,9 +57,23 @@ pub struct EiEventConverter {
     device_for_interface: HashMap<Object, Device>,
     events: VecDeque<EiEvent>,
     pending_events: VecDeque<EiEvent>,
+    serial: u32,
 }
 
 impl EiEventConverter {
+    pub fn new(serial: u32) -> Self {
+        Self {
+            pending_seats: HashMap::new(),
+            seats: HashMap::new(),
+            pending_devices: HashMap::new(),
+            devices: HashMap::new(),
+            device_for_interface: HashMap::new(),
+            events: VecDeque::new(),
+            pending_events: VecDeque::new(),
+            serial,
+        }
+    }
+
     // Based on behavior of `queue_event` in libei
     fn queue_event(&mut self, mut event: EiEvent) {
         if event.time_mut().is_some() {
@@ -167,7 +180,8 @@ impl EiEventConverter {
                         },
                     );
                 }
-                ei::seat::Event::Destroyed { serial: _ } => {
+                ei::seat::Event::Destroyed { serial } => {
+                    self.serial = serial;
                     // TODO
                 }
             },
@@ -238,6 +252,7 @@ impl EiEventConverter {
                     self.queue_event(EiEvent::DeviceAdded(DeviceAdded { device }));
                 }
                 ei::device::Event::Resumed { serial } => {
+                    self.serial = serial;
                     let device = self
                         .devices
                         .get(&device)
@@ -248,6 +263,7 @@ impl EiEventConverter {
                     }));
                 }
                 ei::device::Event::Paused { serial } => {
+                    self.serial = serial;
                     let device = self
                         .devices
                         .get(&device)
@@ -258,6 +274,7 @@ impl EiEventConverter {
                     }));
                 }
                 ei::device::Event::StartEmulating { serial, sequence } => {
+                    self.serial = serial;
                     let device = self
                         .devices
                         .get(&device)
@@ -269,6 +286,7 @@ impl EiEventConverter {
                     }));
                 }
                 ei::device::Event::StopEmulating { serial } => {
+                    self.serial = serial;
                     let device = self
                         .devices
                         .get(&device)
@@ -286,6 +304,7 @@ impl EiEventConverter {
                     device.next_region_mapping_id = Some(mapping_id);
                 }
                 ei::device::Event::Frame { serial, timestamp } => {
+                    self.serial = serial;
                     let device = self
                         .devices
                         .get(&device)
@@ -296,7 +315,8 @@ impl EiEventConverter {
                         time: timestamp,
                     }));
                 }
-                ei::device::Event::Destroyed { serial: _ } => {
+                ei::device::Event::Destroyed { serial } => {
+                    self.serial = serial;
                     // TODO
                 }
             },
@@ -336,6 +356,7 @@ impl EiEventConverter {
                     latched,
                     group,
                 } => {
+                    self.serial = serial;
                     let device = self
                         .device_for_interface
                         .get(&keyboard.0)
@@ -349,7 +370,8 @@ impl EiEventConverter {
                         group,
                     }));
                 }
-                ei::keyboard::Event::Destroyed { serial: _ } => {
+                ei::keyboard::Event::Destroyed { serial } => {
+                    self.serial = serial;
                     // TODO
                 }
             },
@@ -367,7 +389,8 @@ impl EiEventConverter {
                             dy: y,
                         }));
                     }
-                    ei::pointer::Event::Destroyed { serial: _ } => {
+                    ei::pointer::Event::Destroyed { serial } => {
+                        self.serial = serial;
                         // TODO
                     }
                 }
@@ -386,7 +409,8 @@ impl EiEventConverter {
                             dy_absolute: y,
                         }));
                     }
-                    ei::pointer_absolute::Event::Destroyed { serial: _ } => {
+                    ei::pointer_absolute::Event::Destroyed { serial } => {
+                        self.serial = serial;
                         // TODO
                     }
                 }
@@ -430,7 +454,8 @@ impl EiEventConverter {
                             }));
                         }
                     }
-                    ei::scroll::Event::Destroyed { serial: _ } => {
+                    ei::scroll::Event::Destroyed { serial } => {
+                        self.serial = serial;
                         // TODO
                     }
                 }
@@ -449,7 +474,8 @@ impl EiEventConverter {
                             state,
                         }));
                     }
-                    ei::button::Event::Destroyed { serial: _ } => {
+                    ei::button::Event::Destroyed { serial } => {
+                        self.serial = serial;
                         // TODO
                     }
                 }
@@ -485,7 +511,8 @@ impl EiEventConverter {
                             touch_id: touchid,
                         }));
                     }
-                    ei::touchscreen::Event::Destroyed { serial: _ } => {
+                    ei::touchscreen::Event::Destroyed { serial } => {
+                        self.serial = serial;
                         // TODO
                     }
                 }
@@ -496,6 +523,10 @@ impl EiEventConverter {
 
     pub fn next_event(&mut self) -> Option<EiEvent> {
         self.events.pop_front()
+    }
+
+    pub fn serial(&self) -> u32 {
+        self.serial
     }
 }
 
@@ -950,14 +981,14 @@ pub enum EiConvertEventIteratorError {
 
 pub struct EiConvertEventIterator {
     context: ei::Context,
-    converter: crate::event::EiEventConverter,
+    converter: EiEventConverter,
 }
 
 impl EiConvertEventIterator {
-    pub fn new(context: ei::Context) -> Self {
+    pub fn new(context: ei::Context, serial: u32) -> Self {
         Self {
             context,
-            converter: Default::default(),
+            converter: EiEventConverter::new(serial),
         }
     }
 }

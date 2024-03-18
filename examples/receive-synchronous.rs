@@ -78,7 +78,7 @@ async fn open_connection() -> ei::Context {
 
 fn main() {
     let context = open_connection().block_on();
-    reis::handshake::ei_handshake_blocking(
+    let resp = reis::handshake::ei_handshake_blocking(
         &context,
         "receive-example",
         ei::handshake::ContextType::Receiver,
@@ -86,7 +86,7 @@ fn main() {
     )
     .unwrap();
 
-    let mut events = EiConvertEventIterator::new(context.clone());
+    let mut events = EiConvertEventIterator::new(context.clone(), resp.serial);
     while let Some(event) = events.next() {
         let event = event.unwrap();
         println!("{event:?}");

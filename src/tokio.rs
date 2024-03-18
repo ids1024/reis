@@ -75,10 +75,10 @@ pub struct EiConvertEventStream {
 }
 
 impl EiConvertEventStream {
-    pub fn new(inner: EiEventStream) -> Self {
+    pub fn new(inner: EiEventStream, serial: u32) -> Self {
         Self {
             inner,
-            converter: Default::default(),
+            converter: crate::event::EiEventConverter::new(serial),
         }
     }
 }

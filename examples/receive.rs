@@ -81,7 +81,7 @@ async fn open_connection() -> ei::Context {
 async fn main() {
     let context = open_connection().await;
     let mut events = EiEventStream::new(context.clone()).unwrap();
-    reis::tokio::ei_handshake(
+    let resp = reis::tokio::ei_handshake(
         &mut events,
         "receive-example",
         ei::handshake::ContextType::Receiver,
@@ -90,7 +90,7 @@ async fn main() {
     .await
     .unwrap();
 
-    let mut events = EiConvertEventStream::new(events);
+    let mut events = EiConvertEventStream::new(events, resp.serial);
     while let Some(event) = events.next().await {
         let event = event.unwrap();
         println!("{event:?}");
