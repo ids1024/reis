@@ -183,8 +183,9 @@ impl EiEventConverter {
                 ei::seat::Event::Destroyed { serial } => {
                     self.serial = serial;
                     self.pending_seats.remove(&seat);
-                    self.seats.remove(&seat);
-                    // TODO Send seat removed event?
+                    if let Some(seat) = self.seats.remove(&seat) {
+                        self.queue_event(EiEvent::SeatRemoved(SeatRemoved { seat }));
+                    }
                 }
             },
             ei::Event::Device(device, event) => match event {
@@ -320,8 +321,9 @@ impl EiEventConverter {
                 ei::device::Event::Destroyed { serial } => {
                     self.serial = serial;
                     self.pending_devices.remove(&device);
-                    self.devices.remove(&device);
-                    // TODO Send device removed event?
+                    if let Some(device) = self.devices.remove(&device) {
+                        self.queue_event(EiEvent::DeviceRemoved(DeviceRemoved { device }));
+                    }
                 }
             },
             ei::Event::Keyboard(keyboard, event) => match event {
