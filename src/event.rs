@@ -182,7 +182,9 @@ impl EiEventConverter {
                 }
                 ei::seat::Event::Destroyed { serial } => {
                     self.serial = serial;
-                    // TODO
+                    self.pending_seats.remove(&seat);
+                    self.seats.remove(&seat);
+                    // TODO Send seat removed event?
                 }
             },
             ei::Event::Device(device, event) => match event {
@@ -317,7 +319,9 @@ impl EiEventConverter {
                 }
                 ei::device::Event::Destroyed { serial } => {
                     self.serial = serial;
-                    // TODO
+                    self.pending_devices.remove(&device);
+                    self.devices.remove(&device);
+                    // TODO Send device removed event?
                 }
             },
             ei::Event::Keyboard(keyboard, event) => match event {
@@ -372,7 +376,8 @@ impl EiEventConverter {
                 }
                 ei::keyboard::Event::Destroyed { serial } => {
                     self.serial = serial;
-                    // TODO
+                    // TODO does interface need to be removed from `Device`?
+                    self.device_for_interface.remove(&keyboard.0);
                 }
             },
             ei::Event::Pointer(pointer, event) => {
@@ -391,7 +396,8 @@ impl EiEventConverter {
                     }
                     ei::pointer::Event::Destroyed { serial } => {
                         self.serial = serial;
-                        // TODO
+                        // TODO does interface need to be removed from `Device`?
+                        self.device_for_interface.remove(&pointer.0);
                     }
                 }
             }
@@ -411,7 +417,8 @@ impl EiEventConverter {
                     }
                     ei::pointer_absolute::Event::Destroyed { serial } => {
                         self.serial = serial;
-                        // TODO
+                        // TODO does interface need to be removed from `Device`?
+                        self.device_for_interface.remove(&pointer_absolute.0);
                     }
                 }
             }
@@ -456,7 +463,8 @@ impl EiEventConverter {
                     }
                     ei::scroll::Event::Destroyed { serial } => {
                         self.serial = serial;
-                        // TODO
+                        // TODO does interface need to be removed from `Device`?
+                        self.device_for_interface.remove(&scroll.0);
                     }
                 }
             }
@@ -476,7 +484,8 @@ impl EiEventConverter {
                     }
                     ei::button::Event::Destroyed { serial } => {
                         self.serial = serial;
-                        // TODO
+                        // TODO does interface need to be removed from `Device`?
+                        self.device_for_interface.remove(&button.0);
                     }
                 }
             }
@@ -513,7 +522,8 @@ impl EiEventConverter {
                     }
                     ei::touchscreen::Event::Destroyed { serial } => {
                         self.serial = serial;
-                        // TODO
+                        // TODO does interface need to be removed from `Device`?
+                        self.device_for_interface.remove(&touchscreen.0);
                     }
                 }
             }
