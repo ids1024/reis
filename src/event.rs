@@ -117,11 +117,15 @@ impl EiEventConverter {
                     }
                 }
                 ei::connection::Event::Disconnected {
-                    last_serial: _,
-                    reason: _,
-                    explanation: _,
+                    last_serial,
+                    reason,
+                    explanation,
                 } => {
-                    // TODO
+                    self.queue_event(EiEvent::Disconnected(Disconnected {
+                        last_serial,
+                        reason,
+                        explanation,
+                    }));
                 }
                 ei::connection::Event::InvalidObject {
                     last_serial: _,
@@ -715,8 +719,8 @@ impl std::hash::Hash for Device {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EiEvent {
-    // Connect,
-    // Disconnect,
+    // Connected,
+    Disconnected(Disconnected),
     SeatAdded(SeatAdded),
     SeatRemoved(SeatRemoved),
     DeviceAdded(DeviceAdded),
@@ -760,6 +764,13 @@ impl EiEvent {
             _ => None,
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Disconnected {
+    pub last_serial: u32,
+    pub reason: ei::connection::DisconnectReason,
+    pub explanation: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
