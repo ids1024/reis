@@ -15,13 +15,18 @@ pub mod eis;
 pub mod event; // XXX reorganize?
 pub mod handshake; // XXX ^
 mod object;
-pub mod request; // XXX
+#[doc(hidden)] // TODO
+pub mod request;
 pub use object::Object;
 mod util;
 mod wire;
-pub use wire::{Interface, ParseError};
+// TODO make (a version of) this public and documented?
+#[doc(hidden)]
+pub use wire::Interface;
+pub use wire::ParseError;
 
 #[cfg(feature = "calloop")]
+#[doc(hidden)] // TODO
 pub mod calloop;
 #[cfg(feature = "tokio")]
 pub mod tokio;

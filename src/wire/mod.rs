@@ -42,7 +42,6 @@ impl Header {
     }
 }
 
-#[doc(hidden)]
 pub trait Interface: crate::private::Sealed {
     const NAME: &'static str;
     const VERSION: u32;

@@ -23,8 +23,9 @@ signal-hook = "0.3.17"
 pollster = "0.3.0"
 
 [features]
-calloop = ["dep:calloop"]
 tokio = ["dep:tokio", "futures"]
+# Experimental and somewhat incomplete
+calloop = ["dep:calloop"]
 
 [[example]]
 name = "receive"
