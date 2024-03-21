@@ -1,6 +1,6 @@
 [package]
 name = "reis"
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT"
 description = "Pure Rust implementation of libei/libeis protocol."
 homepage = "https://github.com/ids1024/reis"
