@@ -2,12 +2,7 @@ use ashpd::desktop::remote_desktop::{DeviceType, RemoteDesktop};
 use futures::stream::StreamExt;
 use once_cell::sync::Lazy;
 use reis::{ei, tokio::EiEventStream, PendingRequestResult};
-use std::{
-    collections::HashMap,
-    io,
-    os::unix::{io::FromRawFd, net::UnixStream},
-    process,
-};
+use std::{collections::HashMap, io, os::unix::net::UnixStream, process};
 
 static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
     let mut m = HashMap::new();
@@ -165,8 +160,8 @@ async fn open_connection() -> ei::Context {
             .start(&session, &ashpd::WindowIdentifier::default())
             .await
             .unwrap();
-        let raw_fd = remote_desktop.connect_to_eis(&session).await.unwrap();
-        let stream = unsafe { UnixStream::from_raw_fd(raw_fd) };
+        let fd = remote_desktop.connect_to_eis(&session).await.unwrap();
+        let stream = UnixStream::from(fd);
         ei::Context::new(stream).unwrap()
     }
 }

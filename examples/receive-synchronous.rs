@@ -5,10 +5,7 @@ use reis::{
     ei,
     event::{DeviceCapability, EiConvertEventIterator},
 };
-use std::{
-    collections::HashMap,
-    os::unix::{io::FromRawFd, net::UnixStream},
-};
+use std::{collections::HashMap, os::unix::net::UnixStream};
 use xkbcommon::xkb;
 
 static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
@@ -41,8 +38,8 @@ async fn open_connection() -> ei::Context {
             .await
             .unwrap()
             .0;
-        let raw_fd = input_capture.connect_to_eis(&session).await.unwrap();
-        let stream = unsafe { UnixStream::from_raw_fd(raw_fd) };
+        let fd = input_capture.connect_to_eis(&session).await.unwrap();
+        let stream = UnixStream::from(fd);
         let zones = input_capture
             .zones(&session)
             .await
