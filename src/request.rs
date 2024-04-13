@@ -454,6 +454,10 @@ impl Device {
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
     }
+
+    pub fn interface<T: eis::Interface>(&self) -> Option<T> {
+        self.0.interfaces.get(T::NAME)?.clone().downcast()
+    }
 }
 
 impl PartialEq for Device {
