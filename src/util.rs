@@ -100,12 +100,13 @@ impl<T> ops::DerefMut for UnlinkOnDrop<T> {
 }
 
 // Should match way locking in libeis is handled
-pub struct LockFile(UnlinkOnDrop<fs::File>);
+pub struct LockFile(#[allow(dead_code)] UnlinkOnDrop<fs::File>);
 
 impl LockFile {
     pub fn new(path: PathBuf) -> io::Result<Option<Self>> {
         let inner = fs::File::options()
             .create(true)
+            .truncate(true)
             .read(true)
             .write(true)
             .mode(0o660)
