@@ -178,6 +178,7 @@ impl State {
                                         );
                                     }
                                 }
+                                device.frame(self.last_serial, 1); // XXX time
                                 device.stop_emulating(self.last_serial);
                                 self.running = false;
                             }
