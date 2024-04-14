@@ -120,6 +120,8 @@ impl EisRequestConverter {
         name: Option<&str>,
         device_type: eis::device::DeviceType,
         capabilities: &[DeviceCapability],
+        // TODO: better solution; keymap, etc.
+        before_done_cb: impl for<'a> FnOnce(&'a Device),
     ) -> Device {
         let device = seat.0.seat.device(1);
         if let Some(name) = name {
@@ -143,7 +145,7 @@ impl EisRequestConverter {
             };
             interfaces.insert(object.interface().to_string(), object);
         }
-        device.done();
+
 
         let device = Device(Arc::new(DeviceInner {
             device,
@@ -156,6 +158,10 @@ impl EisRequestConverter {
                 .insert(interface.clone(), device.clone());
         }
         self.devices.insert(device.0.device.clone(), device.clone());
+
+        before_done_cb(&device);
+        device.device().done();
+
         device
     }
 
