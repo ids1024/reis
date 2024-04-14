@@ -17,6 +17,7 @@ use crate::{util, wire::Backend, PendingRequestResult};
 // Re-export generate bindings
 pub use crate::eiproto_eis::*;
 
+#[derive(Debug)]
 pub struct Listener {
     listener: util::UnlinkOnDrop<UnixListener>,
     _lock: Option<util::LockFile>,

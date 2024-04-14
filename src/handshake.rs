@@ -3,6 +3,7 @@
 use crate::{ei, eis, util, ParseError, PendingRequestResult};
 use std::{collections::HashMap, error, fmt, io, mem};
 
+#[derive(Debug)]
 pub struct HandshakeResp {
     pub connection: ei::Connection,
     pub serial: u32,
@@ -129,6 +130,7 @@ pub fn ei_handshake_blocking(
     }
 }
 
+#[derive(Debug)]
 pub struct EisHandshakeResp {
     pub connection: eis::Connection,
     pub name: Option<String>,
@@ -136,6 +138,7 @@ pub struct EisHandshakeResp {
     pub negotiated_interfaces: HashMap<String, u32>,
 }
 
+#[derive(Debug)]
 pub struct EisHandshaker<'a> {
     interfaces: &'a HashMap<&'a str, u32>,
     name: Option<String>,

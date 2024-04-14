@@ -37,6 +37,7 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {}
 
 // need way to add seat/device?
+#[derive(Debug)]
 pub struct EisRequestConverter {
     connection: eis::Connection,
     requests: VecDeque<EisRequest>,

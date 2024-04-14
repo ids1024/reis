@@ -12,6 +12,7 @@ use crate::{
     PendingRequestResult,
 };
 
+#[derive(Debug)]
 pub struct EisListenerSource {
     source: Generic<eis::Listener>,
 }
@@ -70,6 +71,7 @@ impl calloop::EventSource for EisListenerSource {
     }
 }
 
+#[derive(Debug)]
 pub struct ConnectedContextState {
     pub context: eis::Context,
     pub connection: eis::Connection,
@@ -160,11 +162,13 @@ fn process_handshake(
 }
 
 #[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
 enum State {
     Handshake(crate::handshake::EisHandshaker<'static>),
     Connected(ConnectedContextState),
 }
 
+#[derive(Debug)]
 pub struct EisRequestSource {
     source: Generic<eis::Context>,
     state: State,

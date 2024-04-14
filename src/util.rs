@@ -68,6 +68,7 @@ pub fn recv_with_fds(
     Ok(response.bytes)
 }
 
+#[derive(Debug)]
 pub struct UnlinkOnDrop<T> {
     inner: T,
     path: PathBuf,
@@ -100,6 +101,7 @@ impl<T> ops::DerefMut for UnlinkOnDrop<T> {
 }
 
 // Should match way locking in libeis is handled
+#[derive(Debug)]
 pub struct LockFile(#[allow(dead_code)] UnlinkOnDrop<fs::File>);
 
 impl LockFile {
