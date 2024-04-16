@@ -146,7 +146,6 @@ impl EisRequestConverter {
             interfaces.insert(object.interface().to_string(), object);
         }
 
-
         let device = Device(Arc::new(DeviceInner {
             device,
             seat: seat.clone(),
@@ -464,6 +463,10 @@ impl Device {
 
     pub fn interface<T: eis::Interface>(&self) -> Option<T> {
         self.0.interfaces.get(T::NAME)?.clone().downcast()
+    }
+
+    pub fn has_capability(&self, capability: DeviceCapability) -> bool {
+        self.0.interfaces.get(capability.name()).is_some()
     }
 }
 

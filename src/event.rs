@@ -701,6 +701,10 @@ impl Device {
     pub fn interface<T: ei::Interface>(&self) -> Option<T> {
         self.0.interfaces.get(T::NAME)?.clone().downcast()
     }
+
+    pub fn has_capability(&self, capability: DeviceCapability) -> bool {
+        self.0.interfaces.get(capability.name()).is_some()
+    }
 }
 
 impl PartialEq for Device {

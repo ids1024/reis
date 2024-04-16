@@ -95,7 +95,7 @@ impl ContextState {
                         Some("keyboard"),
                         DeviceType::Virtual,
                         &[DeviceCapability::Keyboard],
-                        |_| {}
+                        |_| {},
                     );
                 }
 
@@ -108,7 +108,7 @@ impl ContextState {
                         Some("pointer"),
                         DeviceType::Virtual,
                         &[DeviceCapability::Pointer],
-                        |_| {}
+                        |_| {},
                     );
                 }
 
@@ -120,7 +120,7 @@ impl ContextState {
                         Some("touch"),
                         DeviceType::Virtual,
                         &[DeviceCapability::Touch],
-                        |_| {}
+                        |_| {},
                     );
                 }
 
@@ -132,7 +132,7 @@ impl ContextState {
                         Some("pointer-abs"),
                         DeviceType::Virtual,
                         &[DeviceCapability::PointerAbsolute],
-                        |_| {}
+                        |_| {},
                     );
                 }
 
