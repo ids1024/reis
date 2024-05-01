@@ -57,6 +57,7 @@ pub struct EiEventConverter {
     device_for_interface: HashMap<Object, Device>,
     events: VecDeque<EiEvent>,
     pending_events: VecDeque<EiEvent>,
+    callbacks: HashMap<ei::Callback, Box<dyn FnOnce(u64)>>,
     serial: u32,
 }
 
@@ -70,6 +71,7 @@ impl EiEventConverter {
             device_for_interface: HashMap::new(),
             events: VecDeque::new(),
             pending_events: VecDeque::new(),
+            callbacks: HashMap::new(),
             serial,
         }
     }
@@ -134,9 +136,11 @@ impl EiEventConverter {
                     // TODO
                 }
             },
-            ei::Event::Callback(_callback, event) => match event {
-                ei::callback::Event::Done { callback_data: _ } => {
-                    // TODO
+            ei::Event::Callback(callback, event) => match event {
+                ei::callback::Event::Done { callback_data } => {
+                    if let Some(cb) = self.callbacks.remove(&callback) {
+                        cb(callback_data);
+                    }
                 }
             },
             ei::Event::Pingpong(_ping_pong, event) => match event {},
@@ -543,6 +547,14 @@ impl EiEventConverter {
 
     pub fn serial(&self) -> u32 {
         self.serial
+    }
+
+    pub fn add_callback_handler<F: FnOnce(u64) + 'static>(
+        &mut self,
+        callback: ei::Callback,
+        cb: F,
+    ) {
+        self.callbacks.insert(callback, Box::new(cb));
     }
 }
 
