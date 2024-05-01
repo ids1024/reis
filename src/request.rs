@@ -69,9 +69,7 @@ impl EisRequestConverter {
         self.last_serial += 1;
         self.last_serial
     }
-}
 
-impl EisRequestConverter {
     // Based on behavior of `eis_queue_request` in libeis
     fn queue_request(&mut self, mut request: EisRequest) {
         if request.time_mut().is_some() {
