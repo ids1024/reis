@@ -3,7 +3,7 @@ name = "reis"
 version = "0.2.0"
 license = "MIT"
 description = "Pure Rust implementation of libei/libeis protocol."
-homepage = "https://github.com/ids1024/reis"
+repository = "https://github.com/ids1024/reis"
 keywords = ["libei", "libeis", "wayland"]
 edition = "2021"
 
