@@ -1,4 +1,7 @@
-use ashpd::desktop::remote_desktop::{DeviceType, RemoteDesktop};
+use ashpd::desktop::{
+    remote_desktop::{DeviceType, RemoteDesktop},
+    PersistMode,
+};
 use calloop::generic::Generic;
 use once_cell::sync::Lazy;
 use reis::{ei, PendingRequestResult};
@@ -180,7 +183,7 @@ impl State {
                                 }
                                 device.frame(self.last_serial, 1); // XXX time
                                 device.stop_emulating(self.last_serial);
-                                self.running = false;
+                                //self.running = false;
                             }
                         }
                         ei::device::Event::Resumed { serial } => {
@@ -235,7 +238,12 @@ async fn open_connection() -> ei::Context {
         let remote_desktop = RemoteDesktop::new().await.unwrap();
         let session = remote_desktop.create_session().await.unwrap();
         remote_desktop
-            .select_devices(&session, DeviceType::Keyboard.into())
+            .select_devices(
+                &session,
+                DeviceType::Keyboard.into(),
+                None,
+                PersistMode::DoNot,
+            )
             .await
             .unwrap();
         remote_desktop

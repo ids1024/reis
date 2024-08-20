@@ -26,7 +26,7 @@ pub use wire::Interface;
 pub use wire::ParseError;
 
 #[cfg(feature = "calloop")]
-#[doc(hidden)] // TODO
+//#[doc(hidden)] // TODO
 pub mod calloop;
 #[cfg(feature = "tokio")]
 pub mod tokio;
