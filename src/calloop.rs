@@ -251,6 +251,7 @@ impl calloop::EventSource for EisRequestSource {
 }
 
 // TODO
+#[derive(Debug)]
 pub enum EisRequestSourceEvent {
     Connected,
     Request(request::EisRequest),
