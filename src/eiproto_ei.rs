@@ -4,7 +4,9 @@
     clippy::useless_conversion,
     clippy::double_parens,
     clippy::match_single_binding,
-    clippy::unused_unit
+    clippy::unused_unit,
+    clippy::empty_docs,
+    clippy::doc_lazy_continuation
 )]
 
 // GENERATED FILE

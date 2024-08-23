@@ -464,7 +464,7 @@ impl Device {
     }
 
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
-        self.0.interfaces.get(capability.name()).is_some()
+        self.0.interfaces.contains_key(capability.name())
     }
 }
 

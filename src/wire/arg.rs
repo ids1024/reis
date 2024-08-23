@@ -78,6 +78,7 @@ pub(crate) trait OwnedArg: Sized {
     fn as_arg(&self) -> Arg<'_>;
 
     // For enum types, this returns the name of the enum and variant
+    #[allow(dead_code)]
     fn enum_name(&self) -> Option<(&'static str, &'static str)> {
         None
     }
