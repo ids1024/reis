@@ -18,12 +18,12 @@ id 0 and only exists until the connection has been set up, see the
 ei_handshake.connection event.
 
 The ei_handshake version is 1 until:
-- the EIS implementation sends the interface_version event with
+- the EIS implementation sends the handshake_version event with
   a version other than 1, and, in response,
-- the client sends the interface_version request with a
+- the client sends the handshake_version request with a
   version equal or lower to the EIS implementation version.
 
-The EIS implementation must send the interface_version event immediately
+The EIS implementation must send the handshake_version event immediately
 once the physical connection has been established.
 
 Once the ei_connection.connection event has been sent the handshake
@@ -81,9 +81,6 @@ pub mod handshake {
         Notifies the client that the EIS implementation supports
         the given named interface with the given maximum version number.
 
-        This event must be sent by the EIS implementation for any
-        interfaces that supports client-created objects (e.g. "ei_callback")
-        before the ei_handshake.connection event.
         The client must not assume those interfaces are supported unless
         and until those versions have been received.
 
@@ -214,7 +211,8 @@ pub mod handshake {
         given named interface with the given maximum version number.
 
         Future objects created by the EIS implementation will
-        use the respective interface version (or any lesser version).
+        use the respective interface version (or any lesser version)
+        as announced by the ei_connection.interface_version event.
 
         This request must be sent for the "ei_connection" interface,
         failing to do so will result in the EIS implementation disconnecting
@@ -449,7 +447,7 @@ pub mod connection {
 
         /**
         The ping event asks the client to emit the 'done' event
-        on the provided ei_callback object. Since requests are
+        on the provided ei_pingpong object. Since requests are
         handled in-order and events are delivered in-order, this can
         be used as a synchronization point to ensure all previous requests
         and the resulting events have been handled.
@@ -1140,16 +1138,19 @@ pub mod device {
         zero offset region spanning the left screen, the second with a nonzero
         offset spanning the right screen.
 
-        The physical scale denotes a constant factor that needs to be applied to
+        The physical scale denotes a constant multiplication factor that needs to be applied to
         any relative movement on this region for that movement to match the same
         *physical* movement on another region.
 
-        It is an EIS implementation bug to advertise the absolute pointer capability
+        It is an EIS implementation bug to advertise the touch and/or absolute pointer capability
         on a device_type.virtual device without advertising an ei_region for this device.
 
         This event is optional and sent immediately after object creation. Where a device
         has multiple regions, this event is sent once for each region.
         It is a protocol violation to send this event after the ei_device.done event.
+
+        Note: the fourth argument ('hight') was misspelled when the protocol was declared
+        stable but changing the name is an API breaking change.
          */
         pub fn region(
             &self,
@@ -1175,21 +1176,18 @@ pub mod device {
         /**
         Notification that a new device has a sub-interface.
 
-        This event may be sent for the
-        - "ei_pointer" interface if the device has the
-          ei_device.capabilities.pointer capability
-        - "ei_pointer_absolute" interface if the device has the
-          ei_device.capabilities.pointer_absolute capability
-        - "ei_scroll" interface if the device has the
-          ei_device.capabilities.scroll capability
-        - "ei_button" interface if the device has the
-          ei_device.capabilities.button capability
-        - "ei_keyboard" interface if the device has the
-          ei_device.capabilities.keyboard capability
-        - "ei_touchscreen" interface if the device has the
-          ei_device.capabilities.touchscreen capability
+        This event may be sent for the following interfaces:
+        - "ei_pointer"
+        - "ei_pointer_absolute"
+        - "ei_scroll"
+        - "ei_button"
+        - "ei_keyboard"
+        - "ei_touchscreen"
         The interface version is equal or less to the client-supported
         version in ei_handshake.interface_version for the respective interface.
+
+        It is a protocol violation to send a notification for an interface that
+        the client has not bound to with ei_seat.bind.
 
         This event is optional and sent immediately after object creation
         and at most once per interface.
@@ -1520,8 +1518,7 @@ pub mod device {
 pub use device::Device;
 
 /**
-Interface for pointer motion requests and events. This interface
-is available on devices with the ei_device.capability pointer.
+Interface for pointer motion requests and events.
 
 This interface is only provided once per device and where a client
 requests ei_pointer.release the interface does not get re-initialized. An
@@ -1608,10 +1605,8 @@ pub mod pointer {
         Generate a relative motion event on this pointer.
 
         It is a client bug to send this request more than once
-        within the same ei_device.frame.
-
-        It is a client bug to send this request on a device without
-        the ei_device.capabilities.pointer capability.
+        within the same ei_device.frame and the EIS implementation
+        may ignore either or all such requests and/or disconnect the client.
 
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than sender.
@@ -1675,8 +1670,7 @@ pub mod pointer {
 pub use pointer::Pointer;
 
 /**
-Interface for absolute pointer requests and events. This interface
-is available on devices with the ei_device.capability pointer_absolute.
+Interface for absolute pointer requests and events.
 
 This interface is only provided once per device and where a client
 requests ei_pointer_absolute.release the interface does not get
@@ -1765,10 +1759,8 @@ pub mod pointer_absolute {
         is silently discarded.
 
         It is a client bug to send this request more than once
-        within the same ei_device.frame.
-
-        It is a client bug to send this request on a device without
-        the ei_device.capabilities.pointer_absolute capability.
+        within the same ei_device.frame and the EIS implementation
+        may ignore either or all such requests and/or disconnect the client.
 
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than sender.
@@ -1832,8 +1824,7 @@ pub mod pointer_absolute {
 pub use pointer_absolute::PointerAbsolute;
 
 /**
-Interface for scroll requests and events. This interface
-is available on devices with the ei_device.capability scroll.
+Interface for scroll requests and events.
 
 This interface is only provided once per device and where a client
 requests ei_scroll.release the interface does not get
@@ -1955,7 +1946,8 @@ pub mod scroll {
         scroll events.
 
         It is a client bug to send this request more than once
-        within the same ei_device.frame.
+        within the same ei_device.frame and the EIS implementation
+        may ignore either or all such requests and/or disconnect the client.
 
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than sender.
@@ -1977,7 +1969,8 @@ pub mod scroll {
         multiple thereof represents a fraction or multiple of a wheel click.
 
         It is a client bug to send this request more than once
-        within the same ei_device.frame.
+        within the same ei_device.frame and the EIS implementation
+        may ignore either or all such requests and/or disconnect the client.
 
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than sender.
@@ -2003,11 +1996,13 @@ pub mod scroll {
         point where further (server-emulated) scroll events from this device are wrong.
 
         It is a client bug to send this request more than once
-        within the same ei_device.frame.
+        within the same ei_device.frame and the EIS implementation
+        may ignore either or all such requests and/or disconnect the client.
 
         It is a client bug to send this request for an axis that
         had a a nonzero value in either ei_scroll.scroll or ei_scroll.scroll_discrete
-        in the current frame.
+        in the current frame and the EIS implementation
+        may ignore either or all such requests and/or disconnect the client.
 
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than sender.
@@ -2097,8 +2092,7 @@ pub mod scroll {
 pub use scroll::Scroll;
 
 /**
-Interface for button requests and events. This interface
-is available on devices with the ei_device.capability button.
+Interface for button requests and events.
 
 This interface is only provided once per device and where a client
 requests ei_button.release the interface does not get
@@ -2195,7 +2189,8 @@ pub mod button {
         The button codes must match the defines in linux/input-event-codes.h.
 
         It is a client bug to send more than one button request for the same button
-        within the same ei_device.frame.
+        within the same ei_device.frame and the EIS implementation
+        may ignore either or all button state changes and/or disconnect the client.
 
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than sender.
@@ -2259,8 +2254,7 @@ pub mod button {
 pub use button::Button;
 
 /**
-Interface for keyboard requests and events. This interface
-is available on devices with the ei_device.capability keyboard.
+Interface for keyboard requests and events.
 
 This interface is only provided once per device and where a client
 requests ei_keyboard.release the interface does not get re-initialized. An
@@ -2333,7 +2327,7 @@ pub mod keyboard {
         description. The fd must be mapped with MAP_PRIVATE by
         the recipient, as MAP_SHARED may fail.
 
-        This event is sent immediately after the ei_keyboard object is created
+        This event is optional and only sent immediately after the ei_keyboard object is created
         and before the ei_device.done event. It is a protocol violation to send this
         event after the ei_device.done event.
          */
@@ -2375,9 +2369,14 @@ pub mod keyboard {
         }
 
         /**
-        Notification that the EIS implementation has changed modifier
-        states on this device. Future ei_keyboard.key requests must take the
-        new modifier state into account.
+        Notification that the EIS implementation has changed group or modifier
+        states on this device, but not necessarily in response to an
+        ei_keyboard.key event. Future ei_keyboard.key requests must take the
+        new group or modifier state into account.
+
+        This event should not be sent in response to ei_keyboard.key events
+        that change the group or modifier state according to the keymap. The
+        client is expected to track such group or modifier states on its own.
 
         A client must assume that all modifiers are lifted when it
         receives an ei_device.paused event. The EIS implementation
@@ -2430,7 +2429,8 @@ pub mod keyboard {
         The key codes must match the defines in linux/input-event-codes.h.
 
         It is a client bug to send more than one key request for the same key
-        within the same ei_device.frame.
+        within the same ei_device.frame and the EIS implementation
+        may ignore either or all key state changes and/or disconnect the client.
 
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than sender.
@@ -2494,8 +2494,7 @@ pub mod keyboard {
 pub use keyboard::Keyboard;
 
 /**
-Interface for touchscreen requests and events. This interface
-is available on devices with the ei_device.capability touchscreen.
+Interface for touchscreen requests and events.
 
 This interface is only provided once per device and where a client
 requests ei_touchscreen.release the interface does not get re-initialized. An
