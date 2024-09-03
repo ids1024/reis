@@ -97,7 +97,7 @@ impl AsRawFd for Context {
 }
 
 impl Context {
-    pub(crate) fn new(socket: UnixStream) -> io::Result<Self> {
+    pub fn new(socket: UnixStream) -> io::Result<Self> {
         Ok(Self(Backend::new(socket, false)?))
     }
 
