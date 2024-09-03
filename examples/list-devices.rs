@@ -153,6 +153,8 @@ async fn open_connection() -> ei::Context {
             .select_devices(
                 &session,
                 (DeviceType::Keyboard | DeviceType::Pointer | DeviceType::Touchscreen).into(),
+                None,
+                ashpd::desktop::PersistMode::DoNot,
             )
             .await
             .unwrap();
