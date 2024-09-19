@@ -162,6 +162,16 @@ impl EisRequestConverter {
         device
     }
 
+    pub fn remove_device(&mut self, device: &Device) {
+        for interface in device.0.interfaces.values() {
+            self.device_for_interface.remove(interface);
+            destroy_interface(interface.clone(), self.next_serial());
+        }
+
+        device.0.device.destroyed(self.next_serial());
+        self.devices.remove(&device.0.device);
+    }
+
     pub fn handle_request(&mut self, request: eis::Request) -> Result<(), Error> {
         match request {
             eis::Request::Handshake(_handshake, _request) => {
@@ -440,7 +450,6 @@ impl_device_interface!(eis::Button);
 impl_device_interface!(eis::Keyboard);
 impl_device_interface!(eis::Touchscreen);
 
-#[allow(dead_code)]
 fn destroy_interface(object: crate::Object, serial: u32) {
     match object.interface() {
         eis::Pointer::NAME => object
