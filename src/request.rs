@@ -2,7 +2,7 @@
 
 // TODO: rename/reorganize things; doc comments on public types/methods
 
-use crate::{eis, Object, ParseError};
+use crate::{eis, wire::Interface, Object, ParseError};
 use std::{
     collections::{HashMap, VecDeque},
     fmt, io,
@@ -426,6 +426,41 @@ impl std::hash::Hash for Seat {
     }
 }
 
+pub trait DeviceInterface: eis::Interface {}
+
+macro_rules! impl_device_interface {
+    ($ty:ty) => {
+        impl DeviceInterface for $ty {}
+    };
+}
+impl_device_interface!(eis::Pointer);
+impl_device_interface!(eis::PointerAbsolute);
+impl_device_interface!(eis::Scroll);
+impl_device_interface!(eis::Button);
+impl_device_interface!(eis::Keyboard);
+impl_device_interface!(eis::Touchscreen);
+
+#[allow(dead_code)]
+fn destroy_interface(object: crate::Object, serial: u32) {
+    match object.interface() {
+        eis::Pointer::NAME => object
+            .downcast_unchecked::<eis::Pointer>()
+            .destroyed(serial),
+        eis::PointerAbsolute::NAME => object
+            .downcast_unchecked::<eis::PointerAbsolute>()
+            .destroyed(serial),
+        eis::Scroll::NAME => object.downcast_unchecked::<eis::Scroll>().destroyed(serial),
+        eis::Button::NAME => object.downcast_unchecked::<eis::Button>().destroyed(serial),
+        eis::Keyboard::NAME => object
+            .downcast_unchecked::<eis::Keyboard>()
+            .destroyed(serial),
+        eis::Touchscreen::NAME => object
+            .downcast_unchecked::<eis::Touchscreen>()
+            .destroyed(serial),
+        _ => unreachable!(),
+    }
+}
+
 struct DeviceInner {
     device: eis::Device,
     seat: Seat,
@@ -459,7 +494,7 @@ impl Device {
         self.0.name.as_deref()
     }
 
-    pub fn interface<T: eis::Interface>(&self) -> Option<T> {
+    pub fn interface<T: DeviceInterface>(&self) -> Option<T> {
         self.0.interfaces.get(T::NAME)?.clone().downcast()
     }
 
