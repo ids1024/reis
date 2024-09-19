@@ -72,7 +72,6 @@ pub mod {{interface.plainname}} {
         {% else %}
         const CLIENT_SIDE: bool = true;
         {% endif %}
-        type Incoming = {{incoming_enum()}};
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)

@@ -49,7 +49,6 @@ pub mod handshake {
         const NAME: &'static str = "ei_handshake";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -338,7 +337,6 @@ pub mod connection {
         const NAME: &'static str = "ei_connection";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -628,7 +626,6 @@ pub mod callback {
         const NAME: &'static str = "ei_callback";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -728,7 +725,6 @@ pub mod pingpong {
         const NAME: &'static str = "ei_pingpong";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -831,7 +827,6 @@ pub mod seat {
         const NAME: &'static str = "ei_seat";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -1077,7 +1072,6 @@ pub mod device {
         const NAME: &'static str = "ei_device";
         const VERSION: u32 = 2;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -1631,7 +1625,6 @@ pub mod pointer {
         const NAME: &'static str = "ei_pointer";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -1791,7 +1784,6 @@ pub mod pointer_absolute {
         const NAME: &'static str = "ei_pointer_absolute";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -1953,7 +1945,6 @@ pub mod scroll {
         const NAME: &'static str = "ei_scroll";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -2229,7 +2220,6 @@ pub mod button {
         const NAME: &'static str = "ei_button";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -2399,7 +2389,6 @@ pub mod keyboard {
         const NAME: &'static str = "ei_keyboard";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
@@ -2679,7 +2668,6 @@ pub mod touchscreen {
         const NAME: &'static str = "ei_touchscreen";
         const VERSION: u32 = 1;
         const CLIENT_SIDE: bool = true;
-        type Incoming = Event;
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)

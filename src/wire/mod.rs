@@ -46,7 +46,6 @@ pub trait Interface: crate::private::Sealed {
     const NAME: &'static str;
     const VERSION: u32;
     const CLIENT_SIDE: bool;
-    type Incoming;
 
     fn new_unchecked(object: Object) -> Self;
 
