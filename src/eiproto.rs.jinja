@@ -77,6 +77,10 @@ pub mod {{interface.plainname}} {
             Self(object)
         }
 
+	fn as_object(&self) -> &crate::Object {
+            &self.0
+	}
+
         fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }

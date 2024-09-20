@@ -54,6 +54,10 @@ pub mod handshake {
             Self(object)
         }
 
+        fn as_object(&self) -> &crate::Object {
+            &self.0
+        }
+
         fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
@@ -340,6 +344,10 @@ pub mod connection {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_object(&self) -> &crate::Object {
+            &self.0
         }
 
         fn as_arg(&self) -> wire::Arg<'_> {
@@ -631,6 +639,10 @@ pub mod callback {
             Self(object)
         }
 
+        fn as_object(&self) -> &crate::Object {
+            &self.0
+        }
+
         fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
@@ -728,6 +740,10 @@ pub mod pingpong {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_object(&self) -> &crate::Object {
+            &self.0
         }
 
         fn as_arg(&self) -> wire::Arg<'_> {
@@ -830,6 +846,10 @@ pub mod seat {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_object(&self) -> &crate::Object {
+            &self.0
         }
 
         fn as_arg(&self) -> wire::Arg<'_> {
@@ -1075,6 +1095,10 @@ pub mod device {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_object(&self) -> &crate::Object {
+            &self.0
         }
 
         fn as_arg(&self) -> wire::Arg<'_> {
@@ -1630,6 +1654,10 @@ pub mod pointer {
             Self(object)
         }
 
+        fn as_object(&self) -> &crate::Object {
+            &self.0
+        }
+
         fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
@@ -1787,6 +1815,10 @@ pub mod pointer_absolute {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_object(&self) -> &crate::Object {
+            &self.0
         }
 
         fn as_arg(&self) -> wire::Arg<'_> {
@@ -1948,6 +1980,10 @@ pub mod scroll {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_object(&self) -> &crate::Object {
+            &self.0
         }
 
         fn as_arg(&self) -> wire::Arg<'_> {
@@ -2225,6 +2261,10 @@ pub mod button {
             Self(object)
         }
 
+        fn as_object(&self) -> &crate::Object {
+            &self.0
+        }
+
         fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
         }
@@ -2392,6 +2432,10 @@ pub mod keyboard {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_object(&self) -> &crate::Object {
+            &self.0
         }
 
         fn as_arg(&self) -> wire::Arg<'_> {
@@ -2671,6 +2715,10 @@ pub mod touchscreen {
 
         fn new_unchecked(object: crate::Object) -> Self {
             Self(object)
+        }
+
+        fn as_object(&self) -> &crate::Object {
+            &self.0
         }
 
         fn as_arg(&self) -> wire::Arg<'_> {

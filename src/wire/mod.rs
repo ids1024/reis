@@ -49,6 +49,8 @@ pub trait Interface: crate::private::Sealed {
 
     fn new_unchecked(object: Object) -> Self;
 
+    fn as_object(&self) -> &Object;
+
     fn as_arg(&self) -> Arg<'_>;
 }
 

@@ -36,11 +36,37 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-#[derive(Debug, Default)]
-struct ObjectMappings {
+#[derive(Debug)]
+struct ConnectionHandleInner {
     seats: HashMap<eis::Seat, Seat>,
     devices: HashMap<eis::Device, Device>,
     device_for_interface: HashMap<Object, Device>,
+    last_serial: u32,
+}
+
+#[derive(Debug)]
+struct ConnectionHandle(Arc<Mutex<ConnectionHandleInner>>);
+
+impl ConnectionHandle {
+    pub fn last_serial(&self) -> u32 {
+        self.0.lock().unwrap().last_serial
+    }
+
+    pub fn next_serial(&mut self) -> u32 {
+        let mut inner = self.0.lock().unwrap();
+        inner.last_serial += 1;
+        inner.last_serial
+    }
+
+    fn device_for_interface<T: DeviceInterface>(&mut self, interface: &T) -> Result<Device, Error> {
+        self.0
+            .lock()
+            .unwrap()
+            .device_for_interface
+            .get(interface.as_object())
+            .cloned()
+            .ok_or(Error::UnrecognizedDevice)
+    }
 }
 
 // need way to add seat/device?
@@ -49,28 +75,30 @@ pub struct EisRequestConverter {
     connection: eis::Connection,
     requests: VecDeque<EisRequest>,
     pending_requests: VecDeque<EisRequest>,
-    mappings: Arc<Mutex<ObjectMappings>>,
-    last_serial: u32,
+    handle: ConnectionHandle,
 }
 
 impl EisRequestConverter {
     pub fn new(connection: &eis::Connection, initial_serial: u32) -> Self {
         Self {
             connection: connection.clone(),
-            last_serial: initial_serial,
             requests: VecDeque::new(),
             pending_requests: VecDeque::new(),
-            mappings: Default::default(),
+            handle: ConnectionHandle(Arc::new(Mutex::new(ConnectionHandleInner {
+                seats: HashMap::new(),
+                devices: HashMap::new(),
+                device_for_interface: HashMap::new(),
+                last_serial: initial_serial,
+            }))),
         }
     }
 
     pub fn last_serial(&self) -> u32 {
-        self.last_serial
+        self.handle.last_serial()
     }
 
     pub fn next_serial(&mut self) -> u32 {
-        self.last_serial += 1;
-        self.last_serial
+        self.handle.next_serial()
     }
 
     // Based on behavior of `eis_queue_request` in libeis
@@ -110,7 +138,8 @@ impl EisRequestConverter {
             seat,
             name: name.map(|x| x.to_owned()),
         }));
-        self.mappings
+        self.handle
+            .0
             .lock()
             .unwrap()
             .seats
@@ -158,13 +187,15 @@ impl EisRequestConverter {
             interfaces,
         }));
         for interface in device.0.interfaces.values() {
-            self.mappings
+            self.handle
+                .0
                 .lock()
                 .unwrap()
                 .device_for_interface
                 .insert(interface.clone(), device.clone());
         }
-        self.mappings
+        self.handle
+            .0
             .lock()
             .unwrap()
             .devices
@@ -178,7 +209,8 @@ impl EisRequestConverter {
 
     pub fn remove_device(&mut self, device: &Device) {
         for interface in device.0.interfaces.values() {
-            self.mappings
+            self.handle
+                .0
                 .lock()
                 .unwrap()
                 .device_for_interface
@@ -187,7 +219,8 @@ impl EisRequestConverter {
         }
 
         device.0.device.destroyed(self.next_serial());
-        self.mappings
+        self.handle
+            .0
             .lock()
             .unwrap()
             .devices
@@ -228,7 +261,8 @@ impl EisRequestConverter {
                 }
                 eis::seat::Request::Bind { capabilities } => {
                     let seat = self
-                        .mappings
+                        .handle
+                        .0
                         .lock()
                         .unwrap()
                         .seats
@@ -240,7 +274,8 @@ impl EisRequestConverter {
             },
             eis::Request::Device(device, request) => {
                 let device = self
-                    .mappings
+                    .handle
+                    .0
                     .lock()
                     .unwrap()
                     .devices
@@ -280,14 +315,7 @@ impl EisRequestConverter {
                 }
             }
             eis::Request::Keyboard(keyboard, request) => {
-                let device = self
-                    .mappings
-                    .lock()
-                    .unwrap()
-                    .device_for_interface
-                    .get(&keyboard.0)
-                    .ok_or(Error::UnrecognizedDevice)?
-                    .clone();
+                let device = self.handle.device_for_interface(&keyboard)?;
                 match request {
                     eis::keyboard::Request::Release => {}
                     eis::keyboard::Request::Key { key, state } => {
@@ -301,14 +329,7 @@ impl EisRequestConverter {
                 }
             }
             eis::Request::Pointer(pointer, request) => {
-                let device = self
-                    .mappings
-                    .lock()
-                    .unwrap()
-                    .device_for_interface
-                    .get(&pointer.0)
-                    .ok_or(Error::UnrecognizedDevice)?
-                    .clone();
+                let device = self.handle.device_for_interface(&pointer)?;
                 match request {
                     eis::pointer::Request::Release => {}
                     eis::pointer::Request::MotionRelative { x, y } => {
@@ -322,14 +343,7 @@ impl EisRequestConverter {
                 }
             }
             eis::Request::PointerAbsolute(pointer_absolute, request) => {
-                let device = self
-                    .mappings
-                    .lock()
-                    .unwrap()
-                    .device_for_interface
-                    .get(&pointer_absolute.0)
-                    .ok_or(Error::UnrecognizedDevice)?
-                    .clone();
+                let device = self.handle.device_for_interface(&pointer_absolute)?;
                 match request {
                     eis::pointer_absolute::Request::Release => {}
                     eis::pointer_absolute::Request::MotionAbsolute { x, y } => {
@@ -345,14 +359,7 @@ impl EisRequestConverter {
                 }
             }
             eis::Request::Scroll(scroll, request) => {
-                let device = self
-                    .mappings
-                    .lock()
-                    .unwrap()
-                    .device_for_interface
-                    .get(&scroll.0)
-                    .ok_or(Error::UnrecognizedDevice)?
-                    .clone();
+                let device = self.handle.device_for_interface(&scroll)?;
                 match request {
                     eis::scroll::Request::Release => {}
                     eis::scroll::Request::Scroll { x, y } => {
@@ -391,14 +398,7 @@ impl EisRequestConverter {
                 }
             }
             eis::Request::Button(button, request) => {
-                let device = self
-                    .mappings
-                    .lock()
-                    .unwrap()
-                    .device_for_interface
-                    .get(&button.0)
-                    .ok_or(Error::UnrecognizedDevice)?
-                    .clone();
+                let device = self.handle.device_for_interface(&button)?;
                 match request {
                     eis::button::Request::Release => {}
                     eis::button::Request::Button { button, state } => {
@@ -412,14 +412,7 @@ impl EisRequestConverter {
                 }
             }
             eis::Request::Touchscreen(touchscreen, request) => {
-                let device = self
-                    .mappings
-                    .lock()
-                    .unwrap()
-                    .device_for_interface
-                    .get(&touchscreen.0)
-                    .ok_or(Error::UnrecognizedDevice)?
-                    .clone();
+                let device = self.handle.device_for_interface(&touchscreen)?;
                 match request {
                     eis::touchscreen::Request::Release => {}
                     eis::touchscreen::Request::Down { touchid, x, y } => {
