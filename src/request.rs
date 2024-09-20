@@ -38,14 +38,15 @@ impl std::error::Error for Error {}
 
 #[derive(Debug)]
 struct ConnectionHandleInner {
+    connection: eis::Connection,
     seats: HashMap<eis::Seat, Seat>,
     devices: HashMap<eis::Device, Device>,
     device_for_interface: HashMap<Object, Device>,
     last_serial: u32,
 }
 
-#[derive(Debug)]
-struct ConnectionHandle(Arc<Mutex<ConnectionHandleInner>>);
+#[derive(Clone, Debug)]
+pub struct ConnectionHandle(Arc<Mutex<ConnectionHandleInner>>);
 
 impl ConnectionHandle {
     pub fn last_serial(&self) -> u32 {
@@ -72,7 +73,6 @@ impl ConnectionHandle {
 // need way to add seat/device?
 #[derive(Debug)]
 pub struct EisRequestConverter {
-    connection: eis::Connection,
     requests: VecDeque<EisRequest>,
     pending_requests: VecDeque<EisRequest>,
     handle: ConnectionHandle,
@@ -81,16 +81,20 @@ pub struct EisRequestConverter {
 impl EisRequestConverter {
     pub fn new(connection: &eis::Connection, initial_serial: u32) -> Self {
         Self {
-            connection: connection.clone(),
             requests: VecDeque::new(),
             pending_requests: VecDeque::new(),
             handle: ConnectionHandle(Arc::new(Mutex::new(ConnectionHandleInner {
+                connection: connection.clone(),
                 seats: HashMap::new(),
                 devices: HashMap::new(),
                 device_for_interface: HashMap::new(),
                 last_serial: initial_serial,
             }))),
         }
+    }
+
+    pub fn handle(&self) -> ConnectionHandle {
+        self.handle.clone()
     }
 
     pub fn last_serial(&self) -> u32 {
@@ -125,7 +129,7 @@ impl EisRequestConverter {
     }
 
     pub fn add_seat(&mut self, name: Option<&str>, capabilities: &[DeviceCapability]) -> Seat {
-        let seat = self.connection.seat(1);
+        let seat = self.handle.0.lock().unwrap().connection.seat(1);
         if let Some(name) = name {
             seat.name(name);
         }
