@@ -6,7 +6,10 @@ use crate::{eis, wire::Interface, Object, ParseError};
 use std::{
     collections::{HashMap, VecDeque},
     fmt, io,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc, Mutex,
+    },
 };
 
 pub use crate::event::DeviceCapability;
@@ -39,31 +42,29 @@ impl std::error::Error for Error {}
 #[derive(Debug)]
 struct ConnectionHandleInner {
     connection: eis::Connection,
-    seats: HashMap<eis::Seat, Seat>,
-    devices: HashMap<eis::Device, Device>,
-    device_for_interface: HashMap<Object, Device>,
-    last_serial: u32,
+    seats: Mutex<HashMap<eis::Seat, Seat>>,
+    devices: Mutex<HashMap<eis::Device, Device>>,
+    device_for_interface: Mutex<HashMap<Object, Device>>,
+    next_serial: AtomicU32,
 }
 
 #[derive(Clone, Debug)]
-pub struct ConnectionHandle(Arc<Mutex<ConnectionHandleInner>>);
+pub struct ConnectionHandle(Arc<ConnectionHandleInner>);
 
 impl ConnectionHandle {
     pub fn last_serial(&self) -> u32 {
-        self.0.lock().unwrap().last_serial
+        self.0.next_serial.load(Ordering::Relaxed)
     }
 
     pub fn next_serial(&mut self) -> u32 {
-        let mut inner = self.0.lock().unwrap();
-        inner.last_serial += 1;
-        inner.last_serial
+        self.0.next_serial.fetch_add(1, Ordering::Relaxed)
     }
 
     fn device_for_interface<T: DeviceInterface>(&mut self, interface: &T) -> Result<Device, Error> {
         self.0
+            .device_for_interface
             .lock()
             .unwrap()
-            .device_for_interface
             .get(interface.as_object())
             .cloned()
             .ok_or(Error::UnrecognizedDevice)
@@ -83,13 +84,13 @@ impl EisRequestConverter {
         Self {
             requests: VecDeque::new(),
             pending_requests: VecDeque::new(),
-            handle: ConnectionHandle(Arc::new(Mutex::new(ConnectionHandleInner {
+            handle: ConnectionHandle(Arc::new(ConnectionHandleInner {
                 connection: connection.clone(),
-                seats: HashMap::new(),
-                devices: HashMap::new(),
-                device_for_interface: HashMap::new(),
-                last_serial: initial_serial,
-            }))),
+                seats: Default::default(),
+                devices: Default::default(),
+                device_for_interface: Default::default(),
+                next_serial: AtomicU32::new(initial_serial),
+            })),
         }
     }
 
@@ -129,7 +130,7 @@ impl EisRequestConverter {
     }
 
     pub fn add_seat(&mut self, name: Option<&str>, capabilities: &[DeviceCapability]) -> Seat {
-        let seat = self.handle.0.lock().unwrap().connection.seat(1);
+        let seat = self.handle.0.connection.seat(1);
         if let Some(name) = name {
             seat.name(name);
         }
@@ -144,9 +145,9 @@ impl EisRequestConverter {
         }));
         self.handle
             .0
+            .seats
             .lock()
             .unwrap()
-            .seats
             .insert(seat.0.seat.clone(), seat.clone());
         seat
     }
@@ -193,16 +194,16 @@ impl EisRequestConverter {
         for interface in device.0.interfaces.values() {
             self.handle
                 .0
+                .device_for_interface
                 .lock()
                 .unwrap()
-                .device_for_interface
                 .insert(interface.clone(), device.clone());
         }
         self.handle
             .0
+            .devices
             .lock()
             .unwrap()
-            .devices
             .insert(device.0.device.clone(), device.clone());
 
         before_done_cb(&device);
@@ -215,9 +216,9 @@ impl EisRequestConverter {
         for interface in device.0.interfaces.values() {
             self.handle
                 .0
+                .device_for_interface
                 .lock()
                 .unwrap()
-                .device_for_interface
                 .remove(interface);
             destroy_interface(interface.clone(), self.next_serial());
         }
@@ -225,9 +226,9 @@ impl EisRequestConverter {
         device.0.device.destroyed(self.next_serial());
         self.handle
             .0
+            .devices
             .lock()
             .unwrap()
-            .devices
             .remove(&device.0.device);
     }
 
@@ -267,9 +268,9 @@ impl EisRequestConverter {
                     let seat = self
                         .handle
                         .0
+                        .seats
                         .lock()
                         .unwrap()
-                        .seats
                         .get(&seat)
                         .ok_or(Error::UnrecognizedSeat)?
                         .clone();
@@ -280,9 +281,9 @@ impl EisRequestConverter {
                 let device = self
                     .handle
                     .0
+                    .devices
                     .lock()
                     .unwrap()
-                    .devices
                     .get(&device)
                     .ok_or(Error::UnrecognizedDevice)?
                     .clone();
