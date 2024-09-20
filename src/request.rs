@@ -98,8 +98,8 @@ impl EisRequestConverter {
         }
     }
 
-    pub fn handle(&self) -> ConnectionHandle {
-        self.handle.clone()
+    pub fn handle(&self) -> &ConnectionHandle {
+        &self.handle
     }
 
     pub fn last_serial(&self) -> u32 {
