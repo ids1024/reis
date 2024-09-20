@@ -52,6 +52,10 @@ struct ConnectionHandleInner {
 pub struct ConnectionHandle(Arc<ConnectionHandleInner>);
 
 impl ConnectionHandle {
+    pub fn connection(&self) -> &eis::Connection {
+        &self.0.connection
+    }
+
     pub fn last_serial(&self) -> u32 {
         self.0.next_serial.load(Ordering::Relaxed)
     }
