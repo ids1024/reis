@@ -60,7 +60,7 @@ impl ConnectionHandle {
         self.0.next_serial.load(Ordering::Relaxed)
     }
 
-    pub fn next_serial(&mut self) -> u32 {
+    pub fn next_serial(&self) -> u32 {
         self.0.next_serial.fetch_add(1, Ordering::Relaxed)
     }
 
@@ -73,68 +73,9 @@ impl ConnectionHandle {
             .cloned()
             .ok_or(Error::UnrecognizedDevice)
     }
-}
 
-// need way to add seat/device?
-#[derive(Debug)]
-pub struct EisRequestConverter {
-    requests: VecDeque<EisRequest>,
-    pending_requests: VecDeque<EisRequest>,
-    handle: ConnectionHandle,
-}
-
-impl EisRequestConverter {
-    pub fn new(connection: &eis::Connection, initial_serial: u32) -> Self {
-        Self {
-            requests: VecDeque::new(),
-            pending_requests: VecDeque::new(),
-            handle: ConnectionHandle(Arc::new(ConnectionHandleInner {
-                connection: connection.clone(),
-                seats: Default::default(),
-                devices: Default::default(),
-                device_for_interface: Default::default(),
-                next_serial: AtomicU32::new(initial_serial),
-            })),
-        }
-    }
-
-    pub fn handle(&self) -> &ConnectionHandle {
-        &self.handle
-    }
-
-    pub fn last_serial(&self) -> u32 {
-        self.handle.last_serial()
-    }
-
-    pub fn next_serial(&mut self) -> u32 {
-        self.handle.next_serial()
-    }
-
-    // Based on behavior of `eis_queue_request` in libeis
-    fn queue_request(&mut self, mut request: EisRequest) {
-        if request.time_mut().is_some() {
-            self.pending_requests.push_back(request);
-        } else if let EisRequest::Frame(Frame { time, .. }) = &request {
-            if self.pending_requests.is_empty() {
-                return;
-            }
-            for mut pending_request in self.pending_requests.drain(..) {
-                *pending_request.time_mut().unwrap() = *time;
-                self.requests.push_back(pending_request);
-            }
-            self.requests.push_back(request);
-        } else {
-            // TODO: If a device request, queue a frame if anything is pending
-            self.requests.push_back(request);
-        }
-    }
-
-    pub fn next_request(&mut self) -> Option<EisRequest> {
-        self.requests.pop_front()
-    }
-
-    pub fn add_seat(&mut self, name: Option<&str>, capabilities: &[DeviceCapability]) -> Seat {
-        let seat = self.handle.0.connection.seat(1);
+    pub fn add_seat(&self, name: Option<&str>, capabilities: &[DeviceCapability]) -> Seat {
+        let seat = self.0.connection.seat(1);
         if let Some(name) = name {
             seat.name(name);
         }
@@ -147,8 +88,7 @@ impl EisRequestConverter {
             seat,
             name: name.map(|x| x.to_owned()),
         }));
-        self.handle
-            .0
+        self.0
             .seats
             .lock()
             .unwrap()
@@ -158,7 +98,7 @@ impl EisRequestConverter {
 
     // builder pattern?
     pub fn add_device(
-        &mut self,
+        &self,
         seat: &Seat,
         name: Option<&str>,
         device_type: eis::device::DeviceType,
@@ -196,15 +136,13 @@ impl EisRequestConverter {
             interfaces,
         }));
         for interface in device.0.interfaces.values() {
-            self.handle
-                .0
+            self.0
                 .device_for_interface
                 .lock()
                 .unwrap()
                 .insert(interface.clone(), device.clone());
         }
-        self.handle
-            .0
+        self.0
             .devices
             .lock()
             .unwrap()
@@ -216,10 +154,9 @@ impl EisRequestConverter {
         device
     }
 
-    pub fn remove_device(&mut self, device: &Device) {
+    pub fn remove_device(&self, device: &Device) {
         for interface in device.0.interfaces.values() {
-            self.handle
-                .0
+            self.0
                 .device_for_interface
                 .lock()
                 .unwrap()
@@ -228,12 +165,58 @@ impl EisRequestConverter {
         }
 
         device.0.device.destroyed(self.next_serial());
-        self.handle
-            .0
-            .devices
-            .lock()
-            .unwrap()
-            .remove(&device.0.device);
+        self.0.devices.lock().unwrap().remove(&device.0.device);
+    }
+}
+
+// need way to add seat/device?
+#[derive(Debug)]
+pub struct EisRequestConverter {
+    requests: VecDeque<EisRequest>,
+    pending_requests: VecDeque<EisRequest>,
+    handle: ConnectionHandle,
+}
+
+impl EisRequestConverter {
+    pub fn new(connection: &eis::Connection, initial_serial: u32) -> Self {
+        Self {
+            requests: VecDeque::new(),
+            pending_requests: VecDeque::new(),
+            handle: ConnectionHandle(Arc::new(ConnectionHandleInner {
+                connection: connection.clone(),
+                seats: Default::default(),
+                devices: Default::default(),
+                device_for_interface: Default::default(),
+                next_serial: AtomicU32::new(initial_serial),
+            })),
+        }
+    }
+
+    pub fn handle(&self) -> &ConnectionHandle {
+        &self.handle
+    }
+
+    // Based on behavior of `eis_queue_request` in libeis
+    fn queue_request(&mut self, mut request: EisRequest) {
+        if request.time_mut().is_some() {
+            self.pending_requests.push_back(request);
+        } else if let EisRequest::Frame(Frame { time, .. }) = &request {
+            if self.pending_requests.is_empty() {
+                return;
+            }
+            for mut pending_request in self.pending_requests.drain(..) {
+                *pending_request.time_mut().unwrap() = *time;
+                self.requests.push_back(pending_request);
+            }
+            self.requests.push_back(request);
+        } else {
+            // TODO: If a device request, queue a frame if anything is pending
+            self.requests.push_back(request);
+        }
+    }
+
+    pub fn next_request(&mut self) -> Option<EisRequest> {
+        self.requests.pop_front()
     }
 
     pub fn handle_request(&mut self, request: eis::Request) -> Result<(), Error> {
@@ -265,7 +248,7 @@ impl EisRequestConverter {
             eis::Request::Seat(seat, request) => match request {
                 eis::seat::Request::Release => {
                     // XXX
-                    let serial = self.next_serial();
+                    let serial = self.handle.next_serial();
                     seat.destroyed(serial);
                 }
                 eis::seat::Request::Bind { capabilities } => {

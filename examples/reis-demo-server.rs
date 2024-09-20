@@ -44,7 +44,7 @@ impl ContextState {
         explaination: &str,
     ) -> calloop::PostAction {
         connected_state.connection.disconnected(
-            connected_state.request_converter.last_serial(),
+            connected_state.request_converter.handle().last_serial(),
             reason,
             explaination,
         );
@@ -78,7 +78,7 @@ impl ContextState {
 
                 // TODO Handle in converter
                 if capabilities & 0x7e != capabilities {
-                    let serial = connected_state.request_converter.next_serial();
+                    let serial = connected_state.request_converter.handle().next_serial();
                     request.seat.eis_seat().destroyed(serial);
                     return self.disconnected(
                         connected_state,
@@ -90,7 +90,7 @@ impl ContextState {
                 if connected_state.has_interface("ei_keyboard")
                     && capabilities & 2 << DeviceCapability::Keyboard as u64 != 0
                 {
-                    connected_state.request_converter.add_device(
+                    connected_state.request_converter.handle().add_device(
                         self.seat.as_ref().unwrap(),
                         Some("keyboard"),
                         DeviceType::Virtual,
@@ -103,7 +103,7 @@ impl ContextState {
                 if connected_state.has_interface("ei_pointer")
                     && capabilities & 2 << DeviceCapability::Pointer as u64 != 0
                 {
-                    connected_state.request_converter.add_device(
+                    connected_state.request_converter.handle().add_device(
                         self.seat.as_ref().unwrap(),
                         Some("pointer"),
                         DeviceType::Virtual,
@@ -115,7 +115,7 @@ impl ContextState {
                 if connected_state.has_interface("ei_touchscreen")
                     && capabilities & 2 << DeviceCapability::Touch as u64 != 0
                 {
-                    connected_state.request_converter.add_device(
+                    connected_state.request_converter.handle().add_device(
                         self.seat.as_ref().unwrap(),
                         Some("touch"),
                         DeviceType::Virtual,
@@ -127,7 +127,7 @@ impl ContextState {
                 if connected_state.has_interface("ei_pointer_absolute")
                     && capabilities & 2 << DeviceCapability::PointerAbsolute as u64 != 0
                 {
-                    connected_state.request_converter.add_device(
+                    connected_state.request_converter.handle().add_device(
                         self.seat.as_ref().unwrap(),
                         Some("pointer-abs"),
                         DeviceType::Virtual,
@@ -185,7 +185,7 @@ impl State {
             connected_state.context.flush();
         }
 
-        let seat = connected_state.request_converter.add_seat(
+        let seat = connected_state.request_converter.handle().add_seat(
             Some("default"),
             &[
                 DeviceCapability::Pointer,
@@ -221,7 +221,7 @@ impl State {
                     connected_state.context.flush();
                 }
 
-                let seat = connected_state.request_converter.add_seat(
+                let seat = connected_state.request_converter.handle().add_seat(
                     Some("default"),
                     &[
                         DeviceCapability::Pointer,
@@ -243,9 +243,10 @@ impl State {
             }
             EisRequestSourceEvent::InvalidObject(object_id) => {
                 // Only send if object ID is in range?
-                connected_state
-                    .connection
-                    .invalid_object(connected_state.request_converter.last_serial(), object_id);
+                connected_state.connection.invalid_object(
+                    connected_state.request_converter.handle().last_serial(),
+                    object_id,
+                );
             }
         }
 
