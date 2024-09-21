@@ -8,7 +8,7 @@ use std::{
     fmt, io,
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc, Mutex,
+        Arc, Mutex, Weak,
     },
 };
 
@@ -87,6 +87,7 @@ impl ConnectionHandle {
         let seat = Seat(Arc::new(SeatInner {
             seat,
             name: name.map(|x| x.to_owned()),
+            handle: Arc::downgrade(&self.0),
         }));
         self.0
             .seats
@@ -94,78 +95,6 @@ impl ConnectionHandle {
             .unwrap()
             .insert(seat.0.seat.clone(), seat.clone());
         seat
-    }
-
-    // builder pattern?
-    pub fn add_device(
-        &self,
-        seat: &Seat,
-        name: Option<&str>,
-        device_type: eis::device::DeviceType,
-        capabilities: &[DeviceCapability],
-        // TODO: better solution; keymap, etc.
-        before_done_cb: impl for<'a> FnOnce(&'a Device),
-    ) -> Device {
-        let device = seat.0.seat.device(1);
-        if let Some(name) = name {
-            device.name(name);
-        }
-        device.device_type(device_type);
-        // TODO
-        // dimensions
-        // regions; region_mapping_id
-        // TODO add interfaces for capabilities
-        // - `eis_device_configure_capability`; only if seat has capability
-        let mut interfaces = HashMap::new();
-        for capability in capabilities {
-            let object = match capability {
-                DeviceCapability::Pointer => device.interface::<eis::Pointer>(1).0,
-                DeviceCapability::PointerAbsolute => device.interface::<eis::PointerAbsolute>(1).0,
-                DeviceCapability::Keyboard => device.interface::<eis::Keyboard>(1).0,
-                DeviceCapability::Touch => device.interface::<eis::Touchscreen>(1).0,
-                DeviceCapability::Scroll => device.interface::<eis::Scroll>(1).0,
-                DeviceCapability::Button => device.interface::<eis::Button>(1).0,
-            };
-            interfaces.insert(object.interface().to_string(), object);
-        }
-
-        let device = Device(Arc::new(DeviceInner {
-            device,
-            seat: seat.clone(),
-            name: name.map(|x| x.to_string()),
-            interfaces,
-        }));
-        for interface in device.0.interfaces.values() {
-            self.0
-                .device_for_interface
-                .lock()
-                .unwrap()
-                .insert(interface.clone(), device.clone());
-        }
-        self.0
-            .devices
-            .lock()
-            .unwrap()
-            .insert(device.0.device.clone(), device.clone());
-
-        before_done_cb(&device);
-        device.device().done();
-
-        device
-    }
-
-    pub fn remove_device(&self, device: &Device) {
-        for interface in device.0.interfaces.values() {
-            self.0
-                .device_for_interface
-                .lock()
-                .unwrap()
-                .remove(interface);
-            destroy_interface(interface.clone(), self.next_serial());
-        }
-
-        device.0.device.destroyed(self.next_serial());
-        self.0.devices.lock().unwrap().remove(&device.0.device);
     }
 }
 
@@ -443,6 +372,7 @@ struct SeatInner {
     seat: eis::Seat,
     name: Option<String>,
     //capabilities: HashMap<String, u64>,
+    handle: Weak<ConnectionHandleInner>,
 }
 
 #[derive(Clone)]
@@ -451,6 +381,68 @@ pub struct Seat(Arc<SeatInner>);
 impl Seat {
     pub fn eis_seat(&self) -> &eis::Seat {
         &self.0.seat
+    }
+
+    // builder pattern?
+    pub fn add_device(
+        &self,
+        name: Option<&str>,
+        device_type: eis::device::DeviceType,
+        capabilities: &[DeviceCapability],
+        // TODO: better solution; keymap, etc.
+        before_done_cb: impl for<'a> FnOnce(&'a Device),
+    ) -> Device {
+        let device = self.0.seat.device(1);
+        if let Some(name) = name {
+            device.name(name);
+        }
+        device.device_type(device_type);
+        // TODO
+        // dimensions
+        // regions; region_mapping_id
+        // TODO add interfaces for capabilities
+        // - `eis_device_configure_capability`; only if seat has capability
+        let mut interfaces = HashMap::new();
+        for capability in capabilities {
+            let object = match capability {
+                DeviceCapability::Pointer => device.interface::<eis::Pointer>(1).0,
+                DeviceCapability::PointerAbsolute => device.interface::<eis::PointerAbsolute>(1).0,
+                DeviceCapability::Keyboard => device.interface::<eis::Keyboard>(1).0,
+                DeviceCapability::Touch => device.interface::<eis::Touchscreen>(1).0,
+                DeviceCapability::Scroll => device.interface::<eis::Scroll>(1).0,
+                DeviceCapability::Button => device.interface::<eis::Button>(1).0,
+            };
+            interfaces.insert(object.interface().to_string(), object);
+        }
+
+        let device = Device(Arc::new(DeviceInner {
+            device,
+            seat: self.clone(),
+            name: name.map(|x| x.to_string()),
+            interfaces,
+            handle: self.0.handle.clone(),
+        }));
+        if let Some(handle) = self.0.handle.upgrade().map(ConnectionHandle) {
+            for interface in device.0.interfaces.values() {
+                handle
+                    .0
+                    .device_for_interface
+                    .lock()
+                    .unwrap()
+                    .insert(interface.clone(), device.clone());
+            }
+            handle
+                .0
+                .devices
+                .lock()
+                .unwrap()
+                .insert(device.0.device.clone(), device.clone());
+        }
+
+        before_done_cb(&device);
+        device.device().done();
+
+        device
     }
 }
 
@@ -517,6 +509,7 @@ struct DeviceInner {
     seat: Seat,
     name: Option<String>,
     interfaces: HashMap<String, crate::Object>,
+    handle: Weak<ConnectionHandleInner>,
 }
 
 #[derive(Clone)]
@@ -551,6 +544,23 @@ impl Device {
 
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
         self.0.interfaces.contains_key(capability.name())
+    }
+
+    pub fn remove(&self) {
+        if let Some(handle) = self.0.handle.upgrade().map(ConnectionHandle) {
+            for interface in self.0.interfaces.values() {
+                handle
+                    .0
+                    .device_for_interface
+                    .lock()
+                    .unwrap()
+                    .remove(interface);
+                destroy_interface(interface.clone(), handle.next_serial());
+            }
+
+            self.0.device.destroyed(handle.next_serial());
+            handle.0.devices.lock().unwrap().remove(&self.0.device);
+        }
     }
 }
 

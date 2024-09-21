@@ -87,11 +87,12 @@ impl ContextState {
                     );
                 }
 
+                let seat = self.seat.as_ref().unwrap();
+
                 if connected_state.has_interface("ei_keyboard")
                     && capabilities & 2 << DeviceCapability::Keyboard as u64 != 0
                 {
-                    connected_state.request_converter.handle().add_device(
-                        self.seat.as_ref().unwrap(),
+                    seat.add_device(
                         Some("keyboard"),
                         DeviceType::Virtual,
                         &[DeviceCapability::Keyboard],
@@ -103,8 +104,7 @@ impl ContextState {
                 if connected_state.has_interface("ei_pointer")
                     && capabilities & 2 << DeviceCapability::Pointer as u64 != 0
                 {
-                    connected_state.request_converter.handle().add_device(
-                        self.seat.as_ref().unwrap(),
+                    seat.add_device(
                         Some("pointer"),
                         DeviceType::Virtual,
                         &[DeviceCapability::Pointer],
@@ -115,8 +115,7 @@ impl ContextState {
                 if connected_state.has_interface("ei_touchscreen")
                     && capabilities & 2 << DeviceCapability::Touch as u64 != 0
                 {
-                    connected_state.request_converter.handle().add_device(
-                        self.seat.as_ref().unwrap(),
+                    seat.add_device(
                         Some("touch"),
                         DeviceType::Virtual,
                         &[DeviceCapability::Touch],
@@ -127,8 +126,7 @@ impl ContextState {
                 if connected_state.has_interface("ei_pointer_absolute")
                     && capabilities & 2 << DeviceCapability::PointerAbsolute as u64 != 0
                 {
-                    connected_state.request_converter.handle().add_device(
-                        self.seat.as_ref().unwrap(),
+                    seat.add_device(
                         Some("pointer-abs"),
                         DeviceType::Virtual,
                         &[DeviceCapability::PointerAbsolute],
