@@ -43,11 +43,15 @@ impl ContextState {
         reason: eis::connection::DisconnectReason,
         explaination: &str,
     ) -> calloop::PostAction {
-        connected_state.connection.disconnected(
-            connected_state.request_converter.handle().last_serial(),
-            reason,
-            explaination,
-        );
+        connected_state
+            .request_converter
+            .handle()
+            .connection()
+            .disconnected(
+                connected_state.request_converter.handle().last_serial(),
+                reason,
+                explaination,
+            );
         connected_state.context.flush();
         calloop::PostAction::Remove
     }
@@ -175,11 +179,15 @@ impl State {
                 .negotiated_interfaces
                 .contains_key("ei_device")
         {
-            connected_state.connection.disconnected(
-                1,
-                eis::connection::DisconnectReason::Protocol,
-                "Need `ei_seat` and `ei_device`",
-            );
+            connected_state
+                .request_converter
+                .handle()
+                .connection()
+                .disconnected(
+                    1,
+                    eis::connection::DisconnectReason::Protocol,
+                    "Need `ei_seat` and `ei_device`",
+                );
             connected_state.context.flush();
         }
 
@@ -211,11 +219,15 @@ impl State {
                         .negotiated_interfaces
                         .contains_key("ei_device")
                 {
-                    connected_state.connection.disconnected(
-                        1,
-                        eis::connection::DisconnectReason::Protocol,
-                        "Need `ei_seat` and `ei_device`",
-                    );
+                    connected_state
+                        .request_converter
+                        .handle()
+                        .connection()
+                        .disconnected(
+                            1,
+                            eis::connection::DisconnectReason::Protocol,
+                            "Need `ei_seat` and `ei_device`",
+                        );
                     connected_state.context.flush();
                 }
 
@@ -241,10 +253,14 @@ impl State {
             }
             EisRequestSourceEvent::InvalidObject(object_id) => {
                 // Only send if object ID is in range?
-                connected_state.connection.invalid_object(
-                    connected_state.request_converter.handle().last_serial(),
-                    object_id,
-                );
+                connected_state
+                    .request_converter
+                    .handle()
+                    .connection()
+                    .invalid_object(
+                        connected_state.request_converter.handle().last_serial(),
+                        object_id,
+                    );
             }
         }
 

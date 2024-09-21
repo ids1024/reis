@@ -2,7 +2,7 @@
 
 // TODO: rename/reorganize things; doc comments on public types/methods
 
-use crate::{eis, wire::Interface, Object, ParseError};
+use crate::{eis, handshake::EisHandshakeResp, wire::Interface, Object, ParseError};
 use std::{
     collections::{HashMap, VecDeque},
     fmt, io,
@@ -41,7 +41,7 @@ impl std::error::Error for Error {}
 
 #[derive(Debug)]
 struct ConnectionHandleInner {
-    connection: eis::Connection,
+    handshake_resp: EisHandshakeResp,
     seats: Mutex<HashMap<eis::Seat, Seat>>,
     devices: Mutex<HashMap<eis::Device, Device>>,
     device_for_interface: Mutex<HashMap<Object, Device>>,
@@ -53,7 +53,7 @@ pub struct ConnectionHandle(Arc<ConnectionHandleInner>);
 
 impl ConnectionHandle {
     pub fn connection(&self) -> &eis::Connection {
-        &self.0.connection
+        &self.0.handshake_resp.connection
     }
 
     pub fn last_serial(&self) -> u32 {
@@ -75,7 +75,7 @@ impl ConnectionHandle {
     }
 
     pub fn add_seat(&self, name: Option<&str>, capabilities: &[DeviceCapability]) -> Seat {
-        let seat = self.0.connection.seat(1);
+        let seat = self.connection().seat(1);
         if let Some(name) = name {
             seat.name(name);
         }
@@ -107,12 +107,12 @@ pub struct EisRequestConverter {
 }
 
 impl EisRequestConverter {
-    pub fn new(connection: &eis::Connection, initial_serial: u32) -> Self {
+    pub fn new(handshake_resp: EisHandshakeResp, initial_serial: u32) -> Self {
         Self {
             requests: VecDeque::new(),
             pending_requests: VecDeque::new(),
             handle: ConnectionHandle(Arc::new(ConnectionHandleInner {
-                connection: connection.clone(),
+                handshake_resp,
                 seats: Default::default(),
                 devices: Default::default(),
                 device_for_interface: Default::default(),
