@@ -207,7 +207,7 @@ impl calloop::EventSource for EisRequestSource {
                                 Ok(mut state) => {
                                     let res = cb(
                                         Ok(EisRequestSourceEvent::Connected),
-                                        &mut state.request_converter.handle().clone(),
+                                        &mut state.handle,
                                     )?;
                                     self.state = State::Connected(state);
                                     Ok(res)

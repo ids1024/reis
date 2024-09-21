@@ -372,7 +372,7 @@ impl EisRequestConverter {
                     eis::touchscreen::Request::Release => {}
                     eis::touchscreen::Request::Down { touchid, x, y } => {
                         self.queue_request(EisRequest::TouchDown(TouchDown {
-                            device: device,
+                            device,
                             touch_id: touchid,
                             x,
                             y,
@@ -381,7 +381,7 @@ impl EisRequestConverter {
                     }
                     eis::touchscreen::Request::Motion { touchid, x, y } => {
                         self.queue_request(EisRequest::TouchMotion(TouchMotion {
-                            device: device,
+                            device,
                             touch_id: touchid,
                             x,
                             y,
@@ -390,7 +390,7 @@ impl EisRequestConverter {
                     }
                     eis::touchscreen::Request::Up { touchid } => {
                         self.queue_request(EisRequest::TouchUp(TouchUp {
-                            device: device,
+                            device,
                             touch_id: touchid,
                             time: 0,
                         }));
