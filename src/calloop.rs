@@ -7,9 +7,8 @@ use std::{collections::HashMap, io};
 
 use crate::{
     eis,
-    handshake::HandshakeError,
     request::{self, Connection, EisRequestConverter},
-    PendingRequestResult,
+    Error, PendingRequestResult,
 };
 
 #[derive(Debug)]
@@ -81,13 +80,10 @@ struct ConnectedContextState {
 impl ConnectedContextState {
     fn process<F>(&mut self, mut cb: F) -> io::Result<PostAction>
     where
-        F: FnMut(
-            Result<EisRequestSourceEvent, request::Error>,
-            &mut Connection,
-        ) -> io::Result<PostAction>,
+        F: FnMut(Result<EisRequestSourceEvent, Error>, &mut Connection) -> io::Result<PostAction>,
     {
         if let Err(err) = self.context.read() {
-            cb(Err(request::Error::Io(err)), &mut self.handle)?;
+            cb(Err(Error::Io(err)), &mut self.handle)?;
             return Ok(calloop::PostAction::Remove);
         }
 
@@ -95,7 +91,7 @@ impl ConnectedContextState {
             let request = match result {
                 PendingRequestResult::Request(request) => request,
                 PendingRequestResult::ParseError(err) => {
-                    cb(Err(request::Error::Parse(err)), &mut self.handle)?;
+                    cb(Err(Error::Parse(err)), &mut self.handle)?;
                     return Ok(calloop::PostAction::Remove);
                 }
                 PendingRequestResult::InvalidObject(object_id) => {
@@ -132,7 +128,7 @@ impl ConnectedContextState {
 fn process_handshake(
     handshaker: &mut crate::handshake::EisHandshaker<'_>,
     context: &eis::Context,
-) -> Result<Option<ConnectedContextState>, HandshakeError> {
+) -> Result<Option<ConnectedContextState>, Error> {
     context.read()?;
 
     while let Some(result) = context.pending_request() {
@@ -184,7 +180,7 @@ impl EisRequestSource {
 }
 
 impl calloop::EventSource for EisRequestSource {
-    type Event = Result<EisRequestSourceEvent, request::Error>;
+    type Event = Result<EisRequestSourceEvent, Error>;
     type Metadata = Connection;
     type Ret = io::Result<PostAction>;
     type Error = io::Error;

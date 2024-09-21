@@ -10,7 +10,7 @@ use std::{
 use tokio::io::unix::AsyncFd;
 
 pub use crate::handshake::{HandshakeError, HandshakeResp};
-use crate::{ei, handshake::EiHandshaker, ParseError, PendingRequestResult};
+use crate::{ei, handshake::EiHandshaker, Error, ParseError, PendingRequestResult};
 
 // XXX make this ei::EventStream?
 pub struct EiEventStream(AsyncFd<ei::Context>);
@@ -127,7 +127,7 @@ pub async fn ei_handshake(
     name: &str,
     context_type: ei::handshake::ContextType,
     interfaces: &HashMap<&str, u32>,
-) -> Result<HandshakeResp, HandshakeError> {
+) -> Result<HandshakeResp, Error> {
     let mut handshaker = EiHandshaker::new(name, context_type, interfaces);
     while let Some(result) = events.next().await {
         let request = crate::handshake::request_result(result?)?;

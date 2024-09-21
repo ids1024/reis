@@ -1,7 +1,7 @@
 // Generic `EiHandshaker` can be used in async or sync code
 
-use crate::{ei, eis, util, ParseError, PendingRequestResult};
-use std::{collections::HashMap, error, fmt, io, mem};
+use crate::{ei, eis, util, Error, PendingRequestResult};
+use std::{collections::HashMap, error, fmt, mem};
 
 #[derive(Clone, Debug)]
 pub struct HandshakeResp {
@@ -12,8 +12,6 @@ pub struct HandshakeResp {
 
 #[derive(Debug)]
 pub enum HandshakeError {
-    Io(io::Error),
-    Parse(ParseError),
     InvalidObject(u64),
     NonHandshakeEvent,
     MissingInterface,
@@ -24,8 +22,6 @@ pub enum HandshakeError {
 impl fmt::Display for HandshakeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Io(err) => write!(f, "IO error: {}", err),
-            Self::Parse(err) => write!(f, "parse error: {}", err),
             Self::InvalidObject(id) => write!(f, "invalid object {} during handshake", id),
             Self::NonHandshakeEvent => write!(f, "non-handshake event during handshake"),
             Self::MissingInterface => write!(f, "missing required interface"),
@@ -36,12 +32,6 @@ impl fmt::Display for HandshakeError {
 }
 
 impl error::Error for HandshakeError {}
-
-impl From<io::Error> for HandshakeError {
-    fn from(err: io::Error) -> Self {
-        Self::Io(err)
-    }
-}
 
 pub struct EiHandshaker<'a> {
     name: &'a str,
@@ -101,12 +91,12 @@ impl<'a> EiHandshaker<'a> {
     }
 }
 
-pub(crate) fn request_result<T>(result: PendingRequestResult<T>) -> Result<T, HandshakeError> {
+pub(crate) fn request_result<T>(result: PendingRequestResult<T>) -> Result<T, Error> {
     match result {
         PendingRequestResult::Request(request) => Ok(request),
-        PendingRequestResult::ParseError(parse_error) => Err(HandshakeError::Parse(parse_error)),
+        PendingRequestResult::ParseError(parse_error) => Err(Error::Parse(parse_error)),
         PendingRequestResult::InvalidObject(invalid_object) => {
-            Err(HandshakeError::InvalidObject(invalid_object))
+            Err(HandshakeError::InvalidObject(invalid_object).into())
         }
     }
 }
@@ -116,7 +106,7 @@ pub fn ei_handshake_blocking(
     name: &str,
     context_type: ei::handshake::ContextType,
     interfaces: &HashMap<&str, u32>,
-) -> Result<HandshakeResp, HandshakeError> {
+) -> Result<HandshakeResp, Error> {
     let mut handshaker = EiHandshaker::new(name, context_type, interfaces);
     loop {
         util::poll_readable(context)?;

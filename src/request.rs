@@ -2,10 +2,10 @@
 
 // TODO: rename/reorganize things; doc comments on public types/methods
 
-use crate::{eis, handshake::EisHandshakeResp, wire::Interface, Object, ParseError};
+use crate::{eis, handshake::EisHandshakeResp, wire::Interface, Error, Object};
 use std::{
     collections::{HashMap, VecDeque},
-    fmt, io,
+    fmt,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc, Mutex, Weak,
@@ -13,31 +13,6 @@ use std::{
 };
 
 pub use crate::event::DeviceCapability;
-
-#[derive(Debug)]
-pub enum Error {
-    UnexpectedHandshakeEvent,
-    InvalidInterfaceVersion(&'static str, u32),
-    Parse(ParseError),
-    Io(io::Error),
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::UnexpectedHandshakeEvent => write!(f, "unexpected handshake event"),
-            Self::InvalidInterfaceVersion(interface, version) => write!(
-                f,
-                "invalid version {} for interface '{}'",
-                version, interface
-            ),
-            Self::Io(err) => write!(f, "IO error: {}", err),
-            Self::Parse(err) => write!(f, "parse error: {}", err),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
 
 #[derive(Debug)]
 struct ConnectionInner {
