@@ -14,7 +14,7 @@
 
 #![allow(clippy::derive_partial_eq_without_eq)]
 
-use crate::{ei, util, Interface, Object, ParseError, PendingRequestResult};
+use crate::{ei, util, Error, Interface, Object, PendingRequestResult};
 use std::{
     collections::{HashMap, VecDeque},
     fmt, io,
@@ -25,7 +25,7 @@ use std::{
 // struct ReceiverStream(EiEventStream, ());
 
 #[derive(Debug)]
-pub enum Error {
+pub enum EventError {
     DeviceEventBeforeDone,
     DeviceSetupEventAfterDone,
     SeatSetupEventAfterDone,
@@ -34,7 +34,7 @@ pub enum Error {
     UnexpectedHandshakeEvent,
 }
 
-impl fmt::Display for Error {
+impl fmt::Display for EventError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::DeviceEventBeforeDone => write!(f, "device event before done"),
@@ -47,7 +47,7 @@ impl fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for EventError {}
 
 pub struct EiEventConverter {
     pending_seats: HashMap<ei::Seat, SeatInner>,
@@ -95,10 +95,10 @@ impl EiEventConverter {
         }
     }
 
-    pub fn handle_event(&mut self, event: ei::Event) -> Result<(), Error> {
+    pub fn handle_event(&mut self, event: ei::Event) -> Result<(), EventError> {
         match event {
             ei::Event::Handshake(_handshake, _event) => {
-                return Err(Error::UnexpectedHandshakeEvent);
+                return Err(EventError::UnexpectedHandshakeEvent);
             }
             ei::Event::Connection(_connection, event) => match event {
                 ei::connection::Event::Seat { seat } => {
@@ -149,21 +149,21 @@ impl EiEventConverter {
                     let seat = self
                         .pending_seats
                         .get_mut(&seat)
-                        .ok_or(Error::SeatSetupEventAfterDone)?;
+                        .ok_or(EventError::SeatSetupEventAfterDone)?;
                     seat.name = Some(name);
                 }
                 ei::seat::Event::Capability { mask, interface } => {
                     let seat = self
                         .pending_seats
                         .get_mut(&seat)
-                        .ok_or(Error::SeatSetupEventAfterDone)?;
+                        .ok_or(EventError::SeatSetupEventAfterDone)?;
                     seat.capabilities.insert(interface, mask);
                 }
                 ei::seat::Event::Done => {
                     let seat = self
                         .pending_seats
                         .remove(&seat)
-                        .ok_or(Error::SeatSetupEventAfterDone)?;
+                        .ok_or(EventError::SeatSetupEventAfterDone)?;
                     let seat = Seat(Arc::new(seat));
                     self.seats.insert(seat.0.seat.clone(), seat.clone());
                     self.queue_event(EiEvent::SeatAdded(SeatAdded { seat }));
@@ -172,7 +172,7 @@ impl EiEventConverter {
                     let seat = self
                         .seats
                         .get_mut(&seat)
-                        .ok_or(Error::SeatEventBeforeDone)?;
+                        .ok_or(EventError::SeatEventBeforeDone)?;
                     self.pending_devices.insert(
                         device.clone(),
                         DeviceInner {
@@ -201,21 +201,21 @@ impl EiEventConverter {
                     let device = self
                         .pending_devices
                         .get_mut(&device)
-                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                        .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     device.name = Some(name);
                 }
                 ei::device::Event::DeviceType { device_type } => {
                     let device = self
                         .pending_devices
                         .get_mut(&device)
-                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                        .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     device.device_type = Some(device_type);
                 }
                 ei::device::Event::Interface { object } => {
                     let device = self
                         .pending_devices
                         .get_mut(&device)
-                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                        .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     device
                         .interfaces
                         .insert(object.interface().to_string(), object);
@@ -224,7 +224,7 @@ impl EiEventConverter {
                     let device = self
                         .pending_devices
                         .get_mut(&device)
-                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                        .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     device.dimensions = Some((width, height));
                 }
                 ei::device::Event::Region {
@@ -237,7 +237,7 @@ impl EiEventConverter {
                     let device = self
                         .pending_devices
                         .get_mut(&device)
-                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                        .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     device.regions.push(Region {
                         x: offset_x,
                         y: offset_y,
@@ -251,9 +251,9 @@ impl EiEventConverter {
                     let device = self
                         .pending_devices
                         .remove(&device)
-                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                        .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     if device.device_type.is_none() {
-                        return Err(Error::NoDeviceType);
+                        return Err(EventError::NoDeviceType);
                     }
                     let device = Device(Arc::new(device));
                     self.devices.insert(device.0.device.clone(), device.clone());
@@ -267,7 +267,7 @@ impl EiEventConverter {
                     let device = self
                         .devices
                         .get(&device)
-                        .ok_or(Error::DeviceEventBeforeDone)?;
+                        .ok_or(EventError::DeviceEventBeforeDone)?;
                     self.queue_event(EiEvent::DeviceResumed(DeviceResumed {
                         device: device.clone(),
                         serial,
@@ -278,7 +278,7 @@ impl EiEventConverter {
                     let device = self
                         .devices
                         .get(&device)
-                        .ok_or(Error::DeviceEventBeforeDone)?;
+                        .ok_or(EventError::DeviceEventBeforeDone)?;
                     self.queue_event(EiEvent::DevicePaused(DevicePaused {
                         device: device.clone(),
                         serial,
@@ -289,7 +289,7 @@ impl EiEventConverter {
                     let device = self
                         .devices
                         .get(&device)
-                        .ok_or(Error::DeviceEventBeforeDone)?;
+                        .ok_or(EventError::DeviceEventBeforeDone)?;
                     self.queue_event(EiEvent::DeviceStartEmulating(DeviceStartEmulating {
                         device: device.clone(),
                         serial,
@@ -301,7 +301,7 @@ impl EiEventConverter {
                     let device = self
                         .devices
                         .get(&device)
-                        .ok_or(Error::DeviceEventBeforeDone)?;
+                        .ok_or(EventError::DeviceEventBeforeDone)?;
                     self.queue_event(EiEvent::DeviceStopEmulating(DeviceStopEmulating {
                         device: device.clone(),
                         serial,
@@ -311,7 +311,7 @@ impl EiEventConverter {
                     let device = self
                         .pending_devices
                         .get_mut(&device)
-                        .ok_or(Error::DeviceEventBeforeDone)?;
+                        .ok_or(EventError::DeviceEventBeforeDone)?;
                     device.next_region_mapping_id = Some(mapping_id);
                 }
                 ei::device::Event::Frame { serial, timestamp } => {
@@ -319,7 +319,7 @@ impl EiEventConverter {
                     let device = self
                         .devices
                         .get(&device)
-                        .ok_or(Error::DeviceEventBeforeDone)?;
+                        .ok_or(EventError::DeviceEventBeforeDone)?;
                     self.queue_event(EiEvent::Frame(Frame {
                         device: device.clone(),
                         serial,
@@ -344,7 +344,7 @@ impl EiEventConverter {
                         .pending_devices
                         .values_mut()
                         .find(|i| i.interfaces.values().any(|j| j == &keyboard.0))
-                        .ok_or(Error::DeviceSetupEventAfterDone)?;
+                        .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     device.keymap = Some(Keymap {
                         type_: keymap_type,
                         size,
@@ -355,7 +355,7 @@ impl EiEventConverter {
                     let device = self
                         .device_for_interface
                         .get(&keyboard.0)
-                        .ok_or(Error::DeviceEventBeforeDone)?;
+                        .ok_or(EventError::DeviceEventBeforeDone)?;
                     self.queue_event(EiEvent::KeyboardKey(KeyboardKey {
                         device: device.clone(),
                         time: 0,
@@ -374,7 +374,7 @@ impl EiEventConverter {
                     let device = self
                         .device_for_interface
                         .get(&keyboard.0)
-                        .ok_or(Error::DeviceEventBeforeDone)?;
+                        .ok_or(EventError::DeviceEventBeforeDone)?;
                     self.queue_event(EiEvent::KeyboardModifiers(KeyboardModifiers {
                         device: device.clone(),
                         serial,
@@ -394,7 +394,7 @@ impl EiEventConverter {
                 let device = self
                     .device_for_interface
                     .get(&pointer.0)
-                    .ok_or(Error::DeviceEventBeforeDone)?;
+                    .ok_or(EventError::DeviceEventBeforeDone)?;
                 match event {
                     ei::pointer::Event::MotionRelative { x, y } => {
                         self.queue_event(EiEvent::PointerMotion(PointerMotion {
@@ -415,7 +415,7 @@ impl EiEventConverter {
                 let device = self
                     .device_for_interface
                     .get(&pointer_absolute.0)
-                    .ok_or(Error::DeviceEventBeforeDone)?;
+                    .ok_or(EventError::DeviceEventBeforeDone)?;
                 match event {
                     ei::pointer_absolute::Event::MotionAbsolute { x, y } => {
                         self.queue_event(EiEvent::PointerMotionAbsolute(PointerMotionAbsolute {
@@ -436,7 +436,7 @@ impl EiEventConverter {
                 let device = self
                     .device_for_interface
                     .get(&scroll.0)
-                    .ok_or(Error::DeviceEventBeforeDone)?;
+                    .ok_or(EventError::DeviceEventBeforeDone)?;
                 match event {
                     ei::scroll::Event::Scroll { x, y } => {
                         self.queue_event(EiEvent::ScrollDelta(ScrollDelta {
@@ -482,7 +482,7 @@ impl EiEventConverter {
                 let device = self
                     .device_for_interface
                     .get(&button.0)
-                    .ok_or(Error::DeviceEventBeforeDone)?;
+                    .ok_or(EventError::DeviceEventBeforeDone)?;
                 match event {
                     ei::button::Event::Button { button, state } => {
                         self.queue_event(EiEvent::Button(Button {
@@ -503,7 +503,7 @@ impl EiEventConverter {
                 let device = self
                     .device_for_interface
                     .get(&touchscreen.0)
-                    .ok_or(Error::DeviceEventBeforeDone)?;
+                    .ok_or(EventError::DeviceEventBeforeDone)?;
                 match event {
                     ei::touchscreen::Event::Down { touchid, x, y } => {
                         self.queue_event(EiEvent::TouchDown(TouchDown {
@@ -1011,13 +1011,6 @@ impl_device_trait!(TouchDown; time);
 impl_device_trait!(TouchUp; time);
 impl_device_trait!(TouchMotion; time);
 
-#[derive(Debug)]
-pub enum EiConvertEventIteratorError {
-    Io(io::Error),
-    Parse(ParseError),
-    Event(crate::event::Error),
-}
-
 pub struct EiConvertEventIterator {
     context: ei::Context,
     converter: EiEventConverter,
@@ -1033,7 +1026,7 @@ impl EiConvertEventIterator {
 }
 
 impl Iterator for EiConvertEventIterator {
-    type Item = Result<crate::event::EiEvent, EiConvertEventIteratorError>;
+    type Item = Result<crate::event::EiEvent, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -1041,18 +1034,18 @@ impl Iterator for EiConvertEventIterator {
                 return Some(Ok(event));
             }
             if let Err(err) = util::poll_readable(&self.context) {
-                return Some(Err(EiConvertEventIteratorError::Io(err)));
+                return Some(Err(err.into()));
             }
             match self.context.read() {
                 Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return None,
-                Err(err) => return Some(Err(EiConvertEventIteratorError::Io(err))),
+                Err(err) => return Some(Err(err.into())),
                 Ok(_) => {}
             };
             while let Some(result) = self.context.pending_event() {
                 let request = match result {
                     PendingRequestResult::Request(request) => request,
                     PendingRequestResult::ParseError(parse_error) => {
-                        return Some(Err(EiConvertEventIteratorError::Parse(parse_error)))
+                        return Some(Err(parse_error.into()))
                     }
                     PendingRequestResult::InvalidObject(_invalid_object) => {
                         // Log?
@@ -1061,7 +1054,7 @@ impl Iterator for EiConvertEventIterator {
                 };
 
                 if let Err(err) = self.converter.handle_event(request) {
-                    return Some(Err(EiConvertEventIteratorError::Event(err)));
+                    return Some(Err(err.into()));
                 }
             }
         }

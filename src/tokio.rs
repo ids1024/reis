@@ -10,7 +10,7 @@ use std::{
 use tokio::io::unix::AsyncFd;
 
 pub use crate::handshake::{HandshakeError, HandshakeResp};
-use crate::{ei, handshake::EiHandshaker, Error, ParseError, PendingRequestResult};
+use crate::{ei, handshake::EiHandshaker, Error, PendingRequestResult};
 
 // XXX make this ei::EventStream?
 pub struct EiEventStream(AsyncFd<ei::Context>);
@@ -60,14 +60,6 @@ impl Stream for EiEventStream {
     }
 }
 
-#[derive(Debug)]
-pub enum EiConvertEventStreamError {
-    Io(io::Error),
-    Parse(ParseError),
-    // TODO better error type here?
-    Event(crate::event::Error),
-}
-
 // TODO rename EiProtoEventStream
 pub struct EiConvertEventStream {
     inner: EiEventStream,
@@ -84,7 +76,7 @@ impl EiConvertEventStream {
 }
 
 impl Stream for EiConvertEventStream {
-    type Item = Result<crate::event::EiEvent, EiConvertEventStreamError>;
+    type Item = Result<crate::event::EiEvent, Error>;
 
     fn poll_next(
         mut self: Pin<&mut Self>,
@@ -98,20 +90,20 @@ impl Stream for EiConvertEventStream {
                 Some(Ok(res)) => match res {
                     PendingRequestResult::Request(event) => {
                         if let Err(err) = self.converter.handle_event(event) {
-                            return Poll::Ready(Some(Err(EiConvertEventStreamError::Event(err))));
+                            return Poll::Ready(Some(Err(err.into())));
                         }
                         if let Some(event) = self.converter.next_event() {
                             return Poll::Ready(Some(Ok(event)));
                         }
                     }
                     PendingRequestResult::ParseError(err) => {
-                        return Poll::Ready(Some(Err(EiConvertEventStreamError::Parse(err))));
+                        return Poll::Ready(Some(Err(err.into())));
                     }
                     // TODO log?
                     PendingRequestResult::InvalidObject(_object_id) => {}
                 },
                 Some(Err(err)) => {
-                    return Poll::Ready(Some(Err(EiConvertEventStreamError::Io(err))));
+                    return Poll::Ready(Some(Err(err.into())));
                 }
                 None => {
                     return Poll::Ready(None);
