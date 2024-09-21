@@ -74,7 +74,6 @@ impl calloop::EventSource for EisListenerSource {
 #[derive(Debug)]
 pub struct ConnectedContextState {
     pub context: eis::Context,
-    pub connection: eis::Connection,
     pub name: Option<String>,
     pub context_type: eis::handshake::ContextType,
     pub negotiated_interfaces: HashMap<String, u32>,
@@ -144,7 +143,6 @@ fn process_handshake(
 
             let connected_state = ConnectedContextState {
                 context: context.clone(),
-                connection: resp.connection,
                 name: resp.name,
                 context_type: resp.context_type,
                 negotiated_interfaces: resp.negotiated_interfaces,
