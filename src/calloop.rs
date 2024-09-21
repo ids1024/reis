@@ -3,7 +3,7 @@
 // produce an event of some kind on disconnect/eof?
 
 use calloop::{generic::Generic, Interest, Mode, PostAction, Readiness, Token, TokenFactory};
-use std::{collections::HashMap, io};
+use std::io;
 
 use crate::{
     eis,
@@ -126,7 +126,7 @@ impl ConnectedContextState {
 }
 
 fn process_handshake(
-    handshaker: &mut crate::handshake::EisHandshaker<'_>,
+    handshaker: &mut crate::handshake::EisHandshaker,
     context: &eis::Context,
 ) -> Result<Option<ConnectedContextState>, Error> {
     context.read()?;
@@ -155,7 +155,7 @@ fn process_handshake(
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 enum State {
-    Handshake(crate::handshake::EisHandshaker<'static>),
+    Handshake(crate::handshake::EisHandshaker),
     Connected(ConnectedContextState),
 }
 
@@ -166,12 +166,8 @@ pub struct EisRequestSource {
 }
 
 impl EisRequestSource {
-    pub fn new(
-        context: eis::Context,
-        interfaces: &'static HashMap<&'static str, u32>,
-        initial_serial: u32,
-    ) -> Self {
-        let handshaker = crate::handshake::EisHandshaker::new(&context, interfaces, initial_serial);
+    pub fn new(context: eis::Context, initial_serial: u32) -> Self {
+        let handshaker = crate::handshake::EisHandshaker::new(&context, initial_serial);
         Self {
             source: Generic::new(context, Interest::READ, Mode::Level),
             state: State::Handshake(handshaker),

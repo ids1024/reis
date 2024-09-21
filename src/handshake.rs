@@ -1,7 +1,24 @@
 // Generic `EiHandshaker` can be used in async or sync code
 
 use crate::{ei, eis, util, Error, PendingRequestResult};
+use once_cell::sync::Lazy;
 use std::{collections::HashMap, error, fmt, mem};
+
+static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
+    let mut m = HashMap::new();
+    m.insert("ei_connection", 1);
+    m.insert("ei_callback", 1);
+    m.insert("ei_pingpong", 1);
+    m.insert("ei_seat", 1);
+    m.insert("ei_device", 2);
+    m.insert("ei_pointer", 1);
+    m.insert("ei_pointer_absolute", 1);
+    m.insert("ei_scroll", 1);
+    m.insert("ei_button", 1);
+    m.insert("ei_keyboard", 1);
+    m.insert("ei_touchscreen", 1);
+    m
+});
 
 #[derive(Clone, Debug)]
 pub struct HandshakeResp {
@@ -36,20 +53,14 @@ impl error::Error for HandshakeError {}
 pub struct EiHandshaker<'a> {
     name: &'a str,
     context_type: ei::handshake::ContextType,
-    interfaces: &'a HashMap<&'a str, u32>,
     negotiated_interfaces: HashMap<String, u32>,
 }
 
 impl<'a> EiHandshaker<'a> {
-    pub fn new(
-        name: &'a str,
-        context_type: ei::handshake::ContextType,
-        interfaces: &'a HashMap<&'a str, u32>,
-    ) -> Self {
+    pub fn new(name: &'a str, context_type: ei::handshake::ContextType) -> Self {
         Self {
             name,
             context_type,
-            interfaces,
             negotiated_interfaces: HashMap::new(),
         }
     }
@@ -66,7 +77,7 @@ impl<'a> EiHandshaker<'a> {
                 handshake.handshake_version(1);
                 handshake.name(self.name);
                 handshake.context_type(self.context_type);
-                for (interface, version) in self.interfaces.iter() {
+                for (interface, version) in INTERFACES.iter() {
                     handshake.interface_version(interface, *version);
                 }
                 handshake.finish();
@@ -105,9 +116,8 @@ pub fn ei_handshake_blocking(
     context: &ei::Context,
     name: &str,
     context_type: ei::handshake::ContextType,
-    interfaces: &HashMap<&str, u32>,
 ) -> Result<HandshakeResp, Error> {
-    let mut handshaker = EiHandshaker::new(name, context_type, interfaces);
+    let mut handshaker = EiHandshaker::new(name, context_type);
     loop {
         util::poll_readable(context)?;
         context.read()?;
@@ -129,27 +139,21 @@ pub struct EisHandshakeResp {
 }
 
 #[derive(Debug)]
-pub struct EisHandshaker<'a> {
-    interfaces: &'a HashMap<&'a str, u32>,
+pub struct EisHandshaker {
     name: Option<String>,
     context_type: Option<eis::handshake::ContextType>,
     negotiated_interfaces: HashMap<String, u32>,
     initial_serial: u32,
 }
 
-impl<'a> EisHandshaker<'a> {
-    pub fn new(
-        context: &eis::Context,
-        interfaces: &'a HashMap<&'a str, u32>,
-        initial_serial: u32,
-    ) -> Self {
+impl EisHandshaker {
+    pub fn new(context: &eis::Context, initial_serial: u32) -> Self {
         let handshake = context.handshake();
         handshake.handshake_version(1);
         // XXX error handling?
         let _ = context.flush();
 
         Self {
-            interfaces,
             initial_serial,
             name: None,
             context_type: None,
@@ -179,9 +183,7 @@ impl<'a> EisHandshaker<'a> {
                 self.context_type = Some(context_type);
             }
             eis::handshake::Request::InterfaceVersion { name, version } => {
-                if let Some((interface, server_version)) =
-                    self.interfaces.get_key_value(name.as_str())
-                {
+                if let Some((interface, server_version)) = INTERFACES.get_key_value(name.as_str()) {
                     self.negotiated_interfaces
                         .insert(interface.to_string(), version.min(*server_version));
                 }

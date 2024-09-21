@@ -16,22 +16,6 @@ use std::{
     time::Duration,
 };
 
-static SERVER_INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
-    let mut m = HashMap::new();
-    m.insert("ei_callback", 1);
-    m.insert("ei_connection", 1);
-    m.insert("ei_seat", 1);
-    m.insert("ei_device", 1);
-    m.insert("ei_pingpong", 1);
-    m.insert("ei_keyboard", 1);
-    m.insert("ei_pointer", 1);
-    m.insert("ei_pointer_absolute", 1);
-    m.insert("ei_button", 1);
-    m.insert("ei_scroll", 1);
-    m.insert("ei_touchscreen", 1);
-    m
-});
-
 struct ContextState {
     seat: Option<reis::request::Seat>,
 }
@@ -145,7 +129,7 @@ impl State {
     fn handle_new_connection(&mut self, context: eis::Context) -> io::Result<calloop::PostAction> {
         println!("New connection: {:?}", context);
 
-        let source = EisRequestSource::new(context, &SERVER_INTERFACES, 1);
+        let source = EisRequestSource::new(context, 1);
         let mut context_state = ContextState { seat: None };
         self.handle
             .insert_source(source, move |event, connected_state, state| match event {

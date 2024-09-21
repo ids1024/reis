@@ -2,7 +2,6 @@
 
 use futures::stream::{Stream, StreamExt};
 use std::{
-    collections::HashMap,
     io,
     pin::Pin,
     task::{Context, Poll},
@@ -118,9 +117,8 @@ pub async fn ei_handshake(
     events: &mut EiEventStream,
     name: &str,
     context_type: ei::handshake::ContextType,
-    interfaces: &HashMap<&str, u32>,
 ) -> Result<HandshakeResp, Error> {
-    let mut handshaker = EiHandshaker::new(name, context_type, interfaces);
+    let mut handshaker = EiHandshaker::new(name, context_type);
     while let Some(result) = events.next().await {
         let request = crate::handshake::request_result(result?)?;
         if let Some(resp) = handshaker.handle_event(request)? {

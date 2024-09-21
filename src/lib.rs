@@ -1,8 +1,6 @@
 #![forbid(unsafe_code)]
 
-// TODO error type?
 // TODO split up
-// Implement handshake
 
 use std::{env, path::PathBuf};
 

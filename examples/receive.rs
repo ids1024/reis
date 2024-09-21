@@ -9,22 +9,6 @@ use reis::{
 use std::{collections::HashMap, os::unix::net::UnixStream};
 use xkbcommon::xkb;
 
-static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
-    let mut m = HashMap::new();
-    m.insert("ei_connection", 1);
-    m.insert("ei_callback", 1);
-    m.insert("ei_pingpong", 1);
-    m.insert("ei_seat", 1);
-    m.insert("ei_device", 2);
-    m.insert("ei_pointer", 1);
-    m.insert("ei_pointer_absolute", 1);
-    m.insert("ei_scroll", 1);
-    m.insert("ei_button", 1);
-    m.insert("ei_keyboard", 1);
-    m.insert("ei_touchscreen", 1);
-    m
-});
-
 async fn open_connection() -> ei::Context {
     if let Some(context) = ei::Context::connect_to_env().unwrap() {
         context
@@ -82,7 +66,6 @@ async fn main() {
         &mut events,
         "receive-example",
         ei::handshake::ContextType::Receiver,
-        &INTERFACES,
     )
     .await
     .unwrap();

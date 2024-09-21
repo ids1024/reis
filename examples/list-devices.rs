@@ -4,22 +4,6 @@ use once_cell::sync::Lazy;
 use reis::{ei, tokio::EiEventStream, PendingRequestResult};
 use std::{collections::HashMap, io, os::unix::net::UnixStream, process};
 
-static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
-    let mut m = HashMap::new();
-    m.insert("ei_connection", 1);
-    m.insert("ei_callback", 1);
-    m.insert("ei_pingpong", 1);
-    m.insert("ei_seat", 1);
-    m.insert("ei_device", 1);
-    m.insert("ei_pointer", 1);
-    m.insert("ei_pointer_absolute", 1);
-    m.insert("ei_scroll", 1);
-    m.insert("ei_button", 1);
-    m.insert("ei_keyboard", 1);
-    m.insert("ei_touchscreen", 1);
-    m
-});
-
 #[derive(Default)]
 struct SeatData {
     name: Option<String>,
@@ -177,7 +161,6 @@ async fn main() {
         &mut events,
         "list-devices-example",
         ei::handshake::ContextType::Sender,
-        &INTERFACES,
     )
     .await
     .unwrap();
