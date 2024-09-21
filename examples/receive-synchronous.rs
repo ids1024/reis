@@ -83,7 +83,7 @@ fn main() {
     )
     .unwrap();
 
-    let mut events = EiConvertEventIterator::new(context.clone(), resp.serial);
+    let mut events = EiConvertEventIterator::new(context.clone(), resp);
     while let Some(event) = events.next() {
         let event = event.unwrap();
         println!("{event:?}");

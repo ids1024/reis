@@ -14,12 +14,15 @@
 
 #![allow(clippy::derive_partial_eq_without_eq)]
 
-use crate::{ei, util, Error, Interface, Object, PendingRequestResult};
+use crate::{ei, handshake::HandshakeResp, util, Error, Interface, Object, PendingRequestResult};
 use std::{
     collections::{HashMap, VecDeque},
     fmt, io,
     os::unix::io::OwnedFd,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
 };
 
 // struct ReceiverStream(EiEventStream, ());
@@ -49,6 +52,34 @@ impl fmt::Display for EventError {
 
 impl std::error::Error for EventError {}
 
+#[derive(Debug)]
+struct ConnectionInner {
+    context: ei::Context,
+    handshake_resp: HandshakeResp,
+    serial: AtomicU32,
+}
+
+#[derive(Clone, Debug)]
+pub struct Connection(Arc<ConnectionInner>);
+
+impl Connection {
+    pub fn connection(&self) -> &ei::Connection {
+        &self.0.handshake_resp.connection
+    }
+
+    pub fn flush(&self) -> rustix::io::Result<()> {
+        self.0.context.flush()
+    }
+
+    fn update_serial(&self, value: u32) {
+        self.0.serial.store(value, Ordering::Relaxed);
+    }
+
+    pub fn serial(&self) -> u32 {
+        self.0.serial.load(Ordering::Relaxed)
+    }
+}
+
 pub struct EiEventConverter {
     pending_seats: HashMap<ei::Seat, SeatInner>,
     seats: HashMap<ei::Seat, Seat>,
@@ -58,11 +89,11 @@ pub struct EiEventConverter {
     events: VecDeque<EiEvent>,
     pending_events: VecDeque<EiEvent>,
     callbacks: HashMap<ei::Callback, Box<dyn FnOnce(u64)>>,
-    serial: u32,
+    connection: Connection,
 }
 
 impl EiEventConverter {
-    pub fn new(serial: u32) -> Self {
+    pub fn new(context: &ei::Context, handshake_resp: HandshakeResp) -> Self {
         Self {
             pending_seats: HashMap::new(),
             seats: HashMap::new(),
@@ -72,8 +103,16 @@ impl EiEventConverter {
             events: VecDeque::new(),
             pending_events: VecDeque::new(),
             callbacks: HashMap::new(),
-            serial,
+            connection: Connection(Arc::new(ConnectionInner {
+                context: context.clone(),
+                serial: AtomicU32::new(handshake_resp.serial),
+                handshake_resp,
+            })),
         }
+    }
+
+    pub fn connection(&self) -> &Connection {
+        &self.connection
     }
 
     // Based on behavior of `queue_event` in libei
@@ -189,7 +228,7 @@ impl EiEventConverter {
                     );
                 }
                 ei::seat::Event::Destroyed { serial } => {
-                    self.serial = serial;
+                    self.connection.update_serial(serial);
                     self.pending_seats.remove(&seat);
                     if let Some(seat) = self.seats.remove(&seat) {
                         self.queue_event(EiEvent::SeatRemoved(SeatRemoved { seat }));
@@ -263,7 +302,7 @@ impl EiEventConverter {
                     self.queue_event(EiEvent::DeviceAdded(DeviceAdded { device }));
                 }
                 ei::device::Event::Resumed { serial } => {
-                    self.serial = serial;
+                    self.connection.update_serial(serial);
                     let device = self
                         .devices
                         .get(&device)
@@ -274,7 +313,7 @@ impl EiEventConverter {
                     }));
                 }
                 ei::device::Event::Paused { serial } => {
-                    self.serial = serial;
+                    self.connection.update_serial(serial);
                     let device = self
                         .devices
                         .get(&device)
@@ -285,7 +324,7 @@ impl EiEventConverter {
                     }));
                 }
                 ei::device::Event::StartEmulating { serial, sequence } => {
-                    self.serial = serial;
+                    self.connection.update_serial(serial);
                     let device = self
                         .devices
                         .get(&device)
@@ -297,7 +336,7 @@ impl EiEventConverter {
                     }));
                 }
                 ei::device::Event::StopEmulating { serial } => {
-                    self.serial = serial;
+                    self.connection.update_serial(serial);
                     let device = self
                         .devices
                         .get(&device)
@@ -315,7 +354,7 @@ impl EiEventConverter {
                     device.next_region_mapping_id = Some(mapping_id);
                 }
                 ei::device::Event::Frame { serial, timestamp } => {
-                    self.serial = serial;
+                    self.connection.update_serial(serial);
                     let device = self
                         .devices
                         .get(&device)
@@ -327,7 +366,7 @@ impl EiEventConverter {
                     }));
                 }
                 ei::device::Event::Destroyed { serial } => {
-                    self.serial = serial;
+                    self.connection.update_serial(serial);
                     self.pending_devices.remove(&device);
                     if let Some(device) = self.devices.remove(&device) {
                         self.queue_event(EiEvent::DeviceRemoved(DeviceRemoved { device }));
@@ -370,7 +409,7 @@ impl EiEventConverter {
                     latched,
                     group,
                 } => {
-                    self.serial = serial;
+                    self.connection.update_serial(serial);
                     let device = self
                         .device_for_interface
                         .get(&keyboard.0)
@@ -385,7 +424,7 @@ impl EiEventConverter {
                     }));
                 }
                 ei::keyboard::Event::Destroyed { serial } => {
-                    self.serial = serial;
+                    self.connection.update_serial(serial);
                     // TODO does interface need to be removed from `Device`?
                     self.device_for_interface.remove(&keyboard.0);
                 }
@@ -405,7 +444,7 @@ impl EiEventConverter {
                         }));
                     }
                     ei::pointer::Event::Destroyed { serial } => {
-                        self.serial = serial;
+                        self.connection.update_serial(serial);
                         // TODO does interface need to be removed from `Device`?
                         self.device_for_interface.remove(&pointer.0);
                     }
@@ -426,7 +465,7 @@ impl EiEventConverter {
                         }));
                     }
                     ei::pointer_absolute::Event::Destroyed { serial } => {
-                        self.serial = serial;
+                        self.connection.update_serial(serial);
                         // TODO does interface need to be removed from `Device`?
                         self.device_for_interface.remove(&pointer_absolute.0);
                     }
@@ -472,7 +511,7 @@ impl EiEventConverter {
                         }
                     }
                     ei::scroll::Event::Destroyed { serial } => {
-                        self.serial = serial;
+                        self.connection.update_serial(serial);
                         // TODO does interface need to be removed from `Device`?
                         self.device_for_interface.remove(&scroll.0);
                     }
@@ -493,7 +532,7 @@ impl EiEventConverter {
                         }));
                     }
                     ei::button::Event::Destroyed { serial } => {
-                        self.serial = serial;
+                        self.connection.update_serial(serial);
                         // TODO does interface need to be removed from `Device`?
                         self.device_for_interface.remove(&button.0);
                     }
@@ -531,7 +570,7 @@ impl EiEventConverter {
                         }));
                     }
                     ei::touchscreen::Event::Destroyed { serial } => {
-                        self.serial = serial;
+                        self.connection.update_serial(serial);
                         // TODO does interface need to be removed from `Device`?
                         self.device_for_interface.remove(&touchscreen.0);
                     }
@@ -543,10 +582,6 @@ impl EiEventConverter {
 
     pub fn next_event(&mut self) -> Option<EiEvent> {
         self.events.pop_front()
-    }
-
-    pub fn serial(&self) -> u32 {
-        self.serial
     }
 
     pub fn add_callback_handler<F: FnOnce(u64) + 'static>(
@@ -1017,10 +1052,10 @@ pub struct EiConvertEventIterator {
 }
 
 impl EiConvertEventIterator {
-    pub fn new(context: ei::Context, serial: u32) -> Self {
+    pub fn new(context: ei::Context, handshake_resp: HandshakeResp) -> Self {
         Self {
+            converter: EiEventConverter::new(&context, handshake_resp),
             context,
-            converter: EiEventConverter::new(serial),
         }
     }
 }

@@ -87,7 +87,7 @@ async fn main() {
     .await
     .unwrap();
 
-    let mut events = EiConvertEventStream::new(events, resp.serial);
+    let mut events = EiConvertEventStream::new(events, resp);
     while let Some(event) = events.next().await {
         let event = event.unwrap();
         println!("{event:?}");
