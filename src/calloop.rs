@@ -8,7 +8,7 @@ use std::{collections::HashMap, io};
 use crate::{
     eis,
     handshake::HandshakeError,
-    request::{self, ConnectionHandle, EisRequestConverter},
+    request::{self, Connection, EisRequestConverter},
     PendingRequestResult,
 };
 
@@ -75,7 +75,7 @@ impl calloop::EventSource for EisListenerSource {
 struct ConnectedContextState {
     context: eis::Context,
     request_converter: request::EisRequestConverter,
-    handle: ConnectionHandle,
+    handle: Connection,
 }
 
 impl ConnectedContextState {
@@ -83,7 +83,7 @@ impl ConnectedContextState {
     where
         F: FnMut(
             Result<EisRequestSourceEvent, request::Error>,
-            &mut ConnectionHandle,
+            &mut Connection,
         ) -> io::Result<PostAction>,
     {
         if let Err(err) = self.context.read() {
@@ -185,7 +185,7 @@ impl EisRequestSource {
 
 impl calloop::EventSource for EisRequestSource {
     type Event = Result<EisRequestSourceEvent, request::Error>;
-    type Metadata = ConnectionHandle;
+    type Metadata = Connection;
     type Ret = io::Result<PostAction>;
     type Error = io::Error;
 
@@ -196,7 +196,7 @@ impl calloop::EventSource for EisRequestSource {
         mut cb: F,
     ) -> io::Result<PostAction>
     where
-        F: FnMut(Self::Event, &mut ConnectionHandle) -> io::Result<PostAction>,
+        F: FnMut(Self::Event, &mut Connection) -> io::Result<PostAction>,
     {
         self.source
             .process_events(readiness, token, |_readiness, context| {

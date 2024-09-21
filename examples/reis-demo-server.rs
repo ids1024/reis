@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use reis::{
     calloop::{EisListenerSource, EisRequestSource, EisRequestSourceEvent},
     eis::{self, device::DeviceType},
-    request::{ConnectionHandle, DeviceCapability, EisRequest},
+    request::{Connection, DeviceCapability, EisRequest},
 };
 use std::{
     collections::HashMap,
@@ -39,7 +39,7 @@ struct ContextState {
 impl ContextState {
     fn disconnected(
         &self,
-        connection: &ConnectionHandle,
+        connection: &Connection,
         reason: eis::connection::DisconnectReason,
         explaination: &str,
     ) -> calloop::PostAction {
@@ -50,11 +50,7 @@ impl ContextState {
         calloop::PostAction::Remove
     }
 
-    fn protocol_error(
-        &self,
-        connection: &ConnectionHandle,
-        explanation: &str,
-    ) -> calloop::PostAction {
+    fn protocol_error(&self, connection: &Connection, explanation: &str) -> calloop::PostAction {
         self.disconnected(
             connection,
             eis::connection::DisconnectReason::Protocol,
@@ -64,7 +60,7 @@ impl ContextState {
 
     fn handle_request(
         &mut self,
-        connection: &ConnectionHandle,
+        connection: &Connection,
         request: EisRequest,
     ) -> calloop::PostAction {
         match request {
@@ -165,7 +161,7 @@ impl State {
         Ok(calloop::PostAction::Continue)
     }
 
-    fn connected(&mut self, connection: &ConnectionHandle) {
+    fn connected(&mut self, connection: &Connection) {
         if !connection.has_interface("ei_seat") || !connection.has_interface("ei_device") {
             connection.connection().disconnected(
                 1,
@@ -191,7 +187,7 @@ impl State {
     fn handle_request_source_event(
         &mut self,
         context_state: &mut ContextState,
-        connection: &ConnectionHandle,
+        connection: &Connection,
         event: EisRequestSourceEvent,
     ) -> calloop::PostAction {
         match event {

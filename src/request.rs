@@ -40,7 +40,7 @@ impl fmt::Display for Error {
 impl std::error::Error for Error {}
 
 #[derive(Debug)]
-struct ConnectionHandleInner {
+struct ConnectionInner {
     context: eis::Context,
     handshake_resp: EisHandshakeResp,
     seats: Mutex<HashMap<eis::Seat, Seat>>,
@@ -50,9 +50,9 @@ struct ConnectionHandleInner {
 }
 
 #[derive(Clone, Debug)]
-pub struct ConnectionHandle(Arc<ConnectionHandleInner>);
+pub struct Connection(Arc<ConnectionInner>);
 
-impl ConnectionHandle {
+impl Connection {
     pub fn connection(&self) -> &eis::Connection {
         &self.0.handshake_resp.connection
     }
@@ -132,7 +132,7 @@ impl ConnectionHandle {
 pub struct EisRequestConverter {
     requests: VecDeque<EisRequest>,
     pending_requests: VecDeque<EisRequest>,
-    handle: ConnectionHandle,
+    handle: Connection,
 }
 
 impl EisRequestConverter {
@@ -144,7 +144,7 @@ impl EisRequestConverter {
         Self {
             requests: VecDeque::new(),
             pending_requests: VecDeque::new(),
-            handle: ConnectionHandle(Arc::new(ConnectionHandleInner {
+            handle: Connection(Arc::new(ConnectionInner {
                 context: context.clone(),
                 handshake_resp,
                 seats: Default::default(),
@@ -155,7 +155,7 @@ impl EisRequestConverter {
         }
     }
 
-    pub fn handle(&self) -> &ConnectionHandle {
+    pub fn handle(&self) -> &Connection {
         &self.handle
     }
 
@@ -406,7 +406,7 @@ struct SeatInner {
     seat: eis::Seat,
     name: Option<String>,
     //capabilities: HashMap<String, u64>,
-    handle: Weak<ConnectionHandleInner>,
+    handle: Weak<ConnectionInner>,
 }
 
 #[derive(Clone)]
@@ -456,7 +456,7 @@ impl Seat {
             interfaces,
             handle: self.0.handle.clone(),
         }));
-        if let Some(handle) = self.0.handle.upgrade().map(ConnectionHandle) {
+        if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             for interface in device.0.interfaces.values() {
                 handle
                     .0
@@ -543,7 +543,7 @@ struct DeviceInner {
     seat: Seat,
     name: Option<String>,
     interfaces: HashMap<String, crate::Object>,
-    handle: Weak<ConnectionHandleInner>,
+    handle: Weak<ConnectionInner>,
 }
 
 #[derive(Clone)]
@@ -581,7 +581,7 @@ impl Device {
     }
 
     pub fn remove(&self) {
-        if let Some(handle) = self.0.handle.upgrade().map(ConnectionHandle) {
+        if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             for interface in self.0.interfaces.values() {
                 handle
                     .0
