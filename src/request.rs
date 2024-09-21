@@ -17,7 +17,7 @@ pub use crate::event::DeviceCapability;
 #[derive(Debug)]
 pub enum Error {
     UnexpectedHandshakeEvent,
-    InvalidCallbackVersion,
+    InvalidInterfaceVersion(&'static str, u32),
     Parse(ParseError),
     Io(io::Error),
 }
@@ -26,7 +26,11 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::UnexpectedHandshakeEvent => write!(f, "unexpected handshake event"),
-            Self::InvalidCallbackVersion => write!(f, "invalid callback version"),
+            Self::InvalidInterfaceVersion(interface, version) => write!(
+                f,
+                "invalid version {} for interface '{}'",
+                version, interface
+            ),
             Self::Io(err) => write!(f, "IO error: {}", err),
             Self::Parse(err) => write!(f, "parse error: {}", err),
         }
@@ -185,7 +189,10 @@ impl EisRequestConverter {
             eis::Request::Connection(_connection, request) => match request {
                 eis::connection::Request::Sync { callback } => {
                     if callback.version() != 1 {
-                        return Err(Error::InvalidCallbackVersion);
+                        return Err(Error::InvalidInterfaceVersion(
+                            "ei_callback",
+                            callback.version(),
+                        ));
                     }
                     callback.done(0);
                     if let Some(backend) = callback.0.backend() {
