@@ -52,7 +52,7 @@ impl ContextState {
                 reason,
                 explaination,
             );
-        connected_state.context.flush();
+        connected_state.request_converter.handle().flush();
         calloop::PostAction::Remove
     }
 
@@ -202,7 +202,7 @@ impl State {
                     eis::connection::DisconnectReason::Protocol,
                     "Need `ei_seat` and `ei_device`",
                 );
-            connected_state.context.flush();
+            connected_state.request_converter.handle().flush();
         }
 
         let seat = connected_state.request_converter.handle().add_seat(
@@ -244,7 +244,7 @@ impl State {
                             eis::connection::DisconnectReason::Protocol,
                             "Need `ei_seat` and `ei_device`",
                         );
-                    connected_state.context.flush();
+                    connected_state.request_converter.handle().flush();
                 }
 
                 let seat = connected_state.request_converter.handle().add_seat(
@@ -280,7 +280,7 @@ impl State {
             }
         }
 
-        connected_state.context.flush();
+        connected_state.request_converter.handle().flush();
 
         calloop::PostAction::Continue
     }

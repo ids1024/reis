@@ -41,6 +41,7 @@ impl std::error::Error for Error {}
 
 #[derive(Debug)]
 struct ConnectionHandleInner {
+    context: eis::Context,
     handshake_resp: EisHandshakeResp,
     seats: Mutex<HashMap<eis::Seat, Seat>>,
     devices: Mutex<HashMap<eis::Device, Device>>,
@@ -54,6 +55,10 @@ pub struct ConnectionHandle(Arc<ConnectionHandleInner>);
 impl ConnectionHandle {
     pub fn connection(&self) -> &eis::Connection {
         &self.0.handshake_resp.connection
+    }
+
+    pub fn flush(&self) -> rustix::io::Result<()> {
+        self.0.context.flush()
     }
 
     pub fn context_type(&self) -> eis::handshake::ContextType {
@@ -131,11 +136,16 @@ pub struct EisRequestConverter {
 }
 
 impl EisRequestConverter {
-    pub fn new(handshake_resp: EisHandshakeResp, initial_serial: u32) -> Self {
+    pub fn new(
+        context: &eis::Context,
+        handshake_resp: EisHandshakeResp,
+        initial_serial: u32,
+    ) -> Self {
         Self {
             requests: VecDeque::new(),
             pending_requests: VecDeque::new(),
             handle: ConnectionHandle(Arc::new(ConnectionHandleInner {
+                context: context.clone(),
                 handshake_resp,
                 seats: Default::default(),
                 devices: Default::default(),
