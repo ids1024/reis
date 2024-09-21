@@ -8,7 +8,7 @@ use std::{collections::HashMap, io};
 use crate::{
     eis,
     handshake::HandshakeError,
-    request::{self, EisRequestConverter},
+    request::{self, ConnectionHandle, EisRequestConverter},
     PendingRequestResult,
 };
 
@@ -72,9 +72,10 @@ impl calloop::EventSource for EisListenerSource {
 }
 
 #[derive(Debug)]
-pub struct ConnectedContextState {
+struct ConnectedContextState {
     context: eis::Context,
-    pub request_converter: request::EisRequestConverter,
+    request_converter: request::EisRequestConverter,
+    handle: ConnectionHandle,
 }
 
 impl ConnectedContextState {
@@ -82,11 +83,11 @@ impl ConnectedContextState {
     where
         F: FnMut(
             Result<EisRequestSourceEvent, request::Error>,
-            &mut Self,
+            &mut ConnectionHandle,
         ) -> io::Result<PostAction>,
     {
         if let Err(err) = self.context.read() {
-            cb(Err(request::Error::Io(err)), self)?;
+            cb(Err(request::Error::Io(err)), &mut self.handle)?;
             return Ok(calloop::PostAction::Remove);
         }
 
@@ -94,11 +95,14 @@ impl ConnectedContextState {
             let request = match result {
                 PendingRequestResult::Request(request) => request,
                 PendingRequestResult::ParseError(err) => {
-                    cb(Err(request::Error::Parse(err)), self)?;
+                    cb(Err(request::Error::Parse(err)), &mut self.handle)?;
                     return Ok(calloop::PostAction::Remove);
                 }
                 PendingRequestResult::InvalidObject(object_id) => {
-                    let res = cb(Ok(EisRequestSourceEvent::InvalidObject(object_id)), self)?;
+                    let res = cb(
+                        Ok(EisRequestSourceEvent::InvalidObject(object_id)),
+                        &mut self.handle,
+                    )?;
                     if res != calloop::PostAction::Continue {
                         return Ok(res);
                     }
@@ -107,11 +111,14 @@ impl ConnectedContextState {
             };
 
             if let Err(err) = self.request_converter.handle_request(request) {
-                cb(Err(err), self)?;
+                cb(Err(err), &mut self.handle)?;
                 return Ok(calloop::PostAction::Remove);
             }
             while let Some(request) = self.request_converter.next_request() {
-                let res = cb(Ok(EisRequestSourceEvent::Request(request)), self)?;
+                let res = cb(
+                    Ok(EisRequestSourceEvent::Request(request)),
+                    &mut self.handle,
+                )?;
                 if res != calloop::PostAction::Continue {
                     return Ok(res);
                 }
@@ -135,6 +142,7 @@ fn process_handshake(
 
             let connected_state = ConnectedContextState {
                 context: context.clone(),
+                handle: request_converter.handle().clone(),
                 request_converter,
             };
 
@@ -177,7 +185,7 @@ impl EisRequestSource {
 
 impl calloop::EventSource for EisRequestSource {
     type Event = Result<EisRequestSourceEvent, request::Error>;
-    type Metadata = ConnectedContextState;
+    type Metadata = ConnectionHandle;
     type Ret = io::Result<PostAction>;
     type Error = io::Error;
 
@@ -188,7 +196,7 @@ impl calloop::EventSource for EisRequestSource {
         mut cb: F,
     ) -> io::Result<PostAction>
     where
-        F: FnMut(Self::Event, &mut ConnectedContextState) -> io::Result<PostAction>,
+        F: FnMut(Self::Event, &mut ConnectionHandle) -> io::Result<PostAction>,
     {
         self.source
             .process_events(readiness, token, |_readiness, context| {
@@ -197,7 +205,10 @@ impl calloop::EventSource for EisRequestSource {
                         if let Some(res) = process_handshake(handshaker, context).transpose() {
                             match res {
                                 Ok(mut state) => {
-                                    let res = cb(Ok(EisRequestSourceEvent::Connected), &mut state)?;
+                                    let res = cb(
+                                        Ok(EisRequestSourceEvent::Connected),
+                                        &mut state.request_converter.handle().clone(),
+                                    )?;
                                     self.state = State::Connected(state);
                                     Ok(res)
                                 }

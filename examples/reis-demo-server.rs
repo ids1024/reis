@@ -2,9 +2,9 @@
 
 use once_cell::sync::Lazy;
 use reis::{
-    calloop::{ConnectedContextState, EisListenerSource, EisRequestSource, EisRequestSourceEvent},
+    calloop::{EisListenerSource, EisRequestSource, EisRequestSourceEvent},
     eis::{self, device::DeviceType},
-    request::{DeviceCapability, EisRequest},
+    request::{ConnectionHandle, DeviceCapability, EisRequest},
 };
 use std::{
     collections::HashMap,
@@ -39,30 +39,24 @@ struct ContextState {
 impl ContextState {
     fn disconnected(
         &self,
-        connected_state: &ConnectedContextState,
+        connection: &ConnectionHandle,
         reason: eis::connection::DisconnectReason,
         explaination: &str,
     ) -> calloop::PostAction {
-        connected_state
-            .request_converter
-            .handle()
+        connection
             .connection()
-            .disconnected(
-                connected_state.request_converter.handle().last_serial(),
-                reason,
-                explaination,
-            );
-        connected_state.request_converter.handle().flush();
+            .disconnected(connection.last_serial(), reason, explaination);
+        connection.flush();
         calloop::PostAction::Remove
     }
 
     fn protocol_error(
         &self,
-        connected_state: &ConnectedContextState,
+        connection: &ConnectionHandle,
         explanation: &str,
     ) -> calloop::PostAction {
         self.disconnected(
-            connected_state,
+            connection,
             eis::connection::DisconnectReason::Protocol,
             explanation,
         )
@@ -70,7 +64,7 @@ impl ContextState {
 
     fn handle_request(
         &mut self,
-        connected_state: &mut ConnectedContextState,
+        connection: &ConnectionHandle,
         request: EisRequest,
     ) -> calloop::PostAction {
         match request {
@@ -82,10 +76,10 @@ impl ContextState {
 
                 // TODO Handle in converter
                 if capabilities & 0x7e != capabilities {
-                    let serial = connected_state.request_converter.handle().next_serial();
+                    let serial = connection.next_serial();
                     request.seat.eis_seat().destroyed(serial);
                     return self.disconnected(
-                        connected_state,
+                        connection,
                         eis::connection::DisconnectReason::Value,
                         "Invalid capabilities",
                     );
@@ -93,10 +87,7 @@ impl ContextState {
 
                 let seat = self.seat.as_ref().unwrap();
 
-                if connected_state
-                    .request_converter
-                    .handle()
-                    .has_interface("ei_keyboard")
+                if connection.has_interface("ei_keyboard")
                     && capabilities & 2 << DeviceCapability::Keyboard as u64 != 0
                 {
                     seat.add_device(
@@ -108,10 +99,7 @@ impl ContextState {
                 }
 
                 // XXX button/etc should be on same object
-                if connected_state
-                    .request_converter
-                    .handle()
-                    .has_interface("ei_pointer")
+                if connection.has_interface("ei_pointer")
                     && capabilities & 2 << DeviceCapability::Pointer as u64 != 0
                 {
                     seat.add_device(
@@ -122,10 +110,7 @@ impl ContextState {
                     );
                 }
 
-                if connected_state
-                    .request_converter
-                    .handle()
-                    .has_interface("ei_touchscreen")
+                if connection.has_interface("ei_touchscreen")
                     && capabilities & 2 << DeviceCapability::Touch as u64 != 0
                 {
                     seat.add_device(
@@ -136,10 +121,7 @@ impl ContextState {
                     );
                 }
 
-                if connected_state
-                    .request_converter
-                    .handle()
-                    .has_interface("ei_pointer_absolute")
+                if connection.has_interface("ei_pointer_absolute")
                     && capabilities & 2 << DeviceCapability::PointerAbsolute as u64 != 0
                 {
                     seat.add_device(
@@ -183,29 +165,17 @@ impl State {
         Ok(calloop::PostAction::Continue)
     }
 
-    fn connected(&mut self, mut connected_state: ConnectedContextState) {
-        if !connected_state
-            .request_converter
-            .handle()
-            .has_interface("ei_seat")
-            || !connected_state
-                .request_converter
-                .handle()
-                .has_interface("ei_device")
-        {
-            connected_state
-                .request_converter
-                .handle()
-                .connection()
-                .disconnected(
-                    1,
-                    eis::connection::DisconnectReason::Protocol,
-                    "Need `ei_seat` and `ei_device`",
-                );
-            connected_state.request_converter.handle().flush();
+    fn connected(&mut self, connection: &ConnectionHandle) {
+        if !connection.has_interface("ei_seat") || !connection.has_interface("ei_device") {
+            connection.connection().disconnected(
+                1,
+                eis::connection::DisconnectReason::Protocol,
+                "Need `ei_seat` and `ei_device`",
+            );
+            connection.flush();
         }
 
-        let seat = connected_state.request_converter.handle().add_seat(
+        let seat = connection.add_seat(
             Some("default"),
             &[
                 DeviceCapability::Pointer,
@@ -221,33 +191,21 @@ impl State {
     fn handle_request_source_event(
         &mut self,
         context_state: &mut ContextState,
-        connected_state: &mut ConnectedContextState,
+        connection: &ConnectionHandle,
         event: EisRequestSourceEvent,
     ) -> calloop::PostAction {
         match event {
             EisRequestSourceEvent::Connected => {
-                if !connected_state
-                    .request_converter
-                    .handle()
-                    .has_interface("ei_seat")
-                    || !connected_state
-                        .request_converter
-                        .handle()
-                        .has_interface("ei_device")
-                {
-                    connected_state
-                        .request_converter
-                        .handle()
-                        .connection()
-                        .disconnected(
-                            1,
-                            eis::connection::DisconnectReason::Protocol,
-                            "Need `ei_seat` and `ei_device`",
-                        );
-                    connected_state.request_converter.handle().flush();
+                if !connection.has_interface("ei_seat") || !connection.has_interface("ei_device") {
+                    connection.connection().disconnected(
+                        1,
+                        eis::connection::DisconnectReason::Protocol,
+                        "Need `ei_seat` and `ei_device`",
+                    );
+                    connection.flush();
                 }
 
-                let seat = connected_state.request_converter.handle().add_seat(
+                let seat = connection.add_seat(
                     Some("default"),
                     &[
                         DeviceCapability::Pointer,
@@ -262,25 +220,20 @@ impl State {
                 context_state.seat = Some(seat);
             }
             EisRequestSourceEvent::Request(request) => {
-                let res = context_state.handle_request(connected_state, request);
+                let res = context_state.handle_request(connection, request);
                 if res != calloop::PostAction::Continue {
                     return res;
                 }
             }
             EisRequestSourceEvent::InvalidObject(object_id) => {
                 // Only send if object ID is in range?
-                connected_state
-                    .request_converter
-                    .handle()
+                connection
                     .connection()
-                    .invalid_object(
-                        connected_state.request_converter.handle().last_serial(),
-                        object_id,
-                    );
+                    .invalid_object(connection.last_serial(), object_id);
             }
         }
 
-        connected_state.request_converter.handle().flush();
+        connection.flush();
 
         calloop::PostAction::Continue
     }
