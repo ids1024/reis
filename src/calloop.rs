@@ -134,7 +134,7 @@ fn process_handshake(
     while let Some(result) = context.pending_request() {
         let request = crate::handshake::request_result(result)?;
         if let Some(resp) = handshaker.handle_request(request)? {
-            let request_converter = EisRequestConverter::new(context, resp.clone(), 1);
+            let request_converter = EisRequestConverter::new(context, resp, 1);
 
             let connected_state = ConnectedContextState {
                 context: context.clone(),
