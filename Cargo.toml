@@ -6,6 +6,7 @@ description = "Pure Rust implementation of libei/libeis protocol."
 homepage = "https://github.com/ids1024/reis"
 keywords = ["libei", "libeis", "wayland"]
 edition = "2021"
+rust-version = "1.70.0"
 
 [dependencies]
 calloop = { version = "0.14.0", optional = true }
