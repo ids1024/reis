@@ -56,6 +56,30 @@ impl ConnectionHandle {
         &self.0.handshake_resp.connection
     }
 
+    pub fn context_type(&self) -> eis::handshake::ContextType {
+        self.0.handshake_resp.context_type
+    }
+
+    pub fn name(&self) -> Option<&str> {
+        self.0.handshake_resp.name.as_deref()
+    }
+
+    // Use type instead of string?
+    pub fn has_interface(&self, interface: &str) -> bool {
+        self.0
+            .handshake_resp
+            .negotiated_interfaces
+            .contains_key(interface)
+    }
+
+    pub fn interface_version(&self, interface: &str) -> Option<u32> {
+        self.0
+            .handshake_resp
+            .negotiated_interfaces
+            .get(interface)
+            .copied()
+    }
+
     pub fn last_serial(&self) -> u32 {
         self.0.next_serial.load(Ordering::Relaxed)
     }

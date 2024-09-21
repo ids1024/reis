@@ -93,7 +93,10 @@ impl ContextState {
 
                 let seat = self.seat.as_ref().unwrap();
 
-                if connected_state.has_interface("ei_keyboard")
+                if connected_state
+                    .request_converter
+                    .handle()
+                    .has_interface("ei_keyboard")
                     && capabilities & 2 << DeviceCapability::Keyboard as u64 != 0
                 {
                     seat.add_device(
@@ -105,7 +108,10 @@ impl ContextState {
                 }
 
                 // XXX button/etc should be on same object
-                if connected_state.has_interface("ei_pointer")
+                if connected_state
+                    .request_converter
+                    .handle()
+                    .has_interface("ei_pointer")
                     && capabilities & 2 << DeviceCapability::Pointer as u64 != 0
                 {
                     seat.add_device(
@@ -116,7 +122,10 @@ impl ContextState {
                     );
                 }
 
-                if connected_state.has_interface("ei_touchscreen")
+                if connected_state
+                    .request_converter
+                    .handle()
+                    .has_interface("ei_touchscreen")
                     && capabilities & 2 << DeviceCapability::Touch as u64 != 0
                 {
                     seat.add_device(
@@ -127,7 +136,10 @@ impl ContextState {
                     );
                 }
 
-                if connected_state.has_interface("ei_pointer_absolute")
+                if connected_state
+                    .request_converter
+                    .handle()
+                    .has_interface("ei_pointer_absolute")
                     && capabilities & 2 << DeviceCapability::PointerAbsolute as u64 != 0
                 {
                     seat.add_device(
@@ -173,11 +185,13 @@ impl State {
 
     fn connected(&mut self, mut connected_state: ConnectedContextState) {
         if !connected_state
-            .negotiated_interfaces
-            .contains_key("ei_seat")
+            .request_converter
+            .handle()
+            .has_interface("ei_seat")
             || !connected_state
-                .negotiated_interfaces
-                .contains_key("ei_device")
+                .request_converter
+                .handle()
+                .has_interface("ei_device")
         {
             connected_state
                 .request_converter
@@ -213,11 +227,13 @@ impl State {
         match event {
             EisRequestSourceEvent::Connected => {
                 if !connected_state
-                    .negotiated_interfaces
-                    .contains_key("ei_seat")
+                    .request_converter
+                    .handle()
+                    .has_interface("ei_seat")
                     || !connected_state
-                        .negotiated_interfaces
-                        .contains_key("ei_device")
+                        .request_converter
+                        .handle()
+                        .has_interface("ei_device")
                 {
                     connected_state
                         .request_converter

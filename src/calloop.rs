@@ -74,18 +74,10 @@ impl calloop::EventSource for EisListenerSource {
 #[derive(Debug)]
 pub struct ConnectedContextState {
     pub context: eis::Context,
-    pub name: Option<String>,
-    pub context_type: eis::handshake::ContextType,
-    pub negotiated_interfaces: HashMap<String, u32>,
     pub request_converter: request::EisRequestConverter,
 }
 
 impl ConnectedContextState {
-    // Use type instead of string?
-    pub fn has_interface(&self, interface: &str) -> bool {
-        self.negotiated_interfaces.contains_key(interface)
-    }
-
     fn process<F>(&mut self, mut cb: F) -> io::Result<PostAction>
     where
         F: FnMut(
@@ -143,9 +135,6 @@ fn process_handshake(
 
             let connected_state = ConnectedContextState {
                 context: context.clone(),
-                name: resp.name,
-                context_type: resp.context_type,
-                negotiated_interfaces: resp.negotiated_interfaces,
                 request_converter,
             };
 
