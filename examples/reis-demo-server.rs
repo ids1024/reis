@@ -27,9 +27,7 @@ impl ContextState {
         reason: eis::connection::DisconnectReason,
         explaination: &str,
     ) -> calloop::PostAction {
-        connection
-            .connection()
-            .disconnected(connection.last_serial(), reason, explaination);
+        connection.disconnected(reason, explaination);
         connection.flush();
         calloop::PostAction::Remove
     }
@@ -56,8 +54,6 @@ impl ContextState {
 
                 // TODO Handle in converter
                 if capabilities & 0x7e != capabilities {
-                    let serial = connection.next_serial();
-                    request.seat.eis_seat().destroyed(serial);
                     return self.disconnected(
                         connection,
                         eis::connection::DisconnectReason::Value,
@@ -147,8 +143,7 @@ impl State {
 
     fn connected(&mut self, connection: &Connection) {
         if !connection.has_interface("ei_seat") || !connection.has_interface("ei_device") {
-            connection.connection().disconnected(
-                1,
+            connection.disconnected(
                 eis::connection::DisconnectReason::Protocol,
                 "Need `ei_seat` and `ei_device`",
             );
@@ -177,8 +172,7 @@ impl State {
         match event {
             EisRequestSourceEvent::Connected => {
                 if !connection.has_interface("ei_seat") || !connection.has_interface("ei_device") {
-                    connection.connection().disconnected(
-                        1,
+                    connection.disconnected(
                         eis::connection::DisconnectReason::Protocol,
                         "Need `ei_seat` and `ei_device`",
                     );
