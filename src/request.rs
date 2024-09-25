@@ -18,7 +18,7 @@ struct ConnectionInner {
     seats: Mutex<HashMap<eis::Seat, Seat>>,
     devices: Mutex<HashMap<eis::Device, Device>>,
     device_for_interface: Mutex<HashMap<Object, Device>>,
-    next_serial: Mutex<u32>,
+    last_serial: Mutex<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -27,6 +27,11 @@ pub struct Connection(Arc<ConnectionInner>);
 impl Connection {
     pub fn connection(&self) -> &eis::Connection {
         &self.0.handshake_resp.connection
+    }
+
+    pub fn disconnected(&self, reason: eis::connection::DisconnectReason, explanation: &str) {
+        self.connection()
+            .disconnected(self.last_serial(), reason, explanation);
     }
 
     pub fn flush(&self) -> rustix::io::Result<()> {
@@ -58,13 +63,14 @@ impl Connection {
     }
 
     pub fn last_serial(&self) -> u32 {
-        self.0.next_serial.lock().unwrap().wrapping_sub(1)
+        *self.0.last_serial.lock().unwrap()
     }
 
     pub fn with_next_serial<T, F: FnOnce(u32) -> T>(&self, cb: F) -> T {
-        let mut next_serial = self.0.next_serial.lock().unwrap();
-        let res = cb(*next_serial);
-        *next_serial = next_serial.wrapping_add(1);
+        let mut last_serial = self.0.last_serial.lock().unwrap();
+        let serial = last_serial.wrapping_add(1);
+        let res = cb(serial);
+        *last_serial = serial;
         res
     }
 
@@ -124,7 +130,7 @@ impl EisRequestConverter {
                 seats: Default::default(),
                 devices: Default::default(),
                 device_for_interface: Default::default(),
-                next_serial: Mutex::new(initial_serial),
+                last_serial: Mutex::new(initial_serial),
             })),
         }
     }
@@ -571,6 +577,37 @@ impl Device {
 
             handle.with_next_serial(|serial| self.0.device.destroyed(serial));
             handle.0.devices.lock().unwrap().remove(&self.0.device);
+        }
+    }
+
+    pub fn resumed(&self) {
+        if let Some(handle) = self.0.handle.upgrade().map(Connection) {
+            handle.with_next_serial(|serial| self.device().resumed(serial))
+        }
+    }
+
+    pub fn paused(&self) {
+        if let Some(handle) = self.0.handle.upgrade().map(Connection) {
+            handle.with_next_serial(|serial| self.device().paused(serial))
+        }
+    }
+
+    // TODO: statically restrict to receiver context?
+    pub fn start_emulating(&self, sequence: u32) {
+        if let Some(handle) = self.0.handle.upgrade().map(Connection) {
+            handle.with_next_serial(|serial| self.device().start_emulating(serial, sequence))
+        }
+    }
+
+    pub fn stop_emulating(&self) {
+        if let Some(handle) = self.0.handle.upgrade().map(Connection) {
+            handle.with_next_serial(|serial| self.device().stop_emulating(serial))
+        }
+    }
+
+    pub fn frame(&self, time: u64) {
+        if let Some(handle) = self.0.handle.upgrade().map(Connection) {
+            handle.with_next_serial(|serial| self.device().frame(serial, time))
         }
     }
 }
