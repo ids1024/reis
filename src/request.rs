@@ -30,6 +30,17 @@ impl Connection {
     }
 
     pub fn disconnected(&self, reason: eis::connection::DisconnectReason, explanation: &str) {
+        let seats = self
+            .0
+            .seats
+            .lock()
+            .unwrap()
+            .values()
+            .cloned()
+            .collect::<Vec<_>>();
+        for seat in seats {
+            seat.remove();
+        }
         self.connection()
             .disconnected(self.last_serial(), reason, explanation);
     }
@@ -460,6 +471,26 @@ impl Seat {
         device.device().done();
 
         device
+    }
+
+    pub fn remove(&self) {
+        if let Some(handle) = self.0.handle.upgrade().map(Connection) {
+            let devices = handle
+                .0
+                .devices
+                .lock()
+                .unwrap()
+                .values()
+                .filter(|device| &device.0.seat == self)
+                .cloned()
+                .collect::<Vec<_>>();
+            for device in devices {
+                device.remove();
+            }
+
+            handle.with_next_serial(|serial| self.0.seat.destroyed(serial));
+            handle.0.seats.lock().unwrap().remove(&self.0.seat);
+        }
     }
 }
 
