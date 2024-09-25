@@ -31,6 +31,7 @@ pub fn send_with_fds(
     buf: &[IoSlice],
     fds: &[BorrowedFd],
 ) -> rustix::io::Result<usize> {
+    #[allow(clippy::manual_slice_size_calculation)]
     let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(fds.len()))];
     let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
     cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(fds));
@@ -44,6 +45,7 @@ pub fn recv_with_fds(
 ) -> rustix::io::Result<usize> {
     const MAX_FDS: usize = 32;
 
+    #[allow(clippy::manual_slice_size_calculation)]
     let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(MAX_FDS))];
     let mut cmsg_buffer = net::RecvAncillaryBuffer::new(&mut cmsg_space);
     let response = retry_on_intr(|| {

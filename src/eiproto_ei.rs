@@ -1,4 +1,5 @@
 #![allow(
+    unknown_lints,
     unused_imports,
     unused_parens,
     clippy::useless_conversion,
