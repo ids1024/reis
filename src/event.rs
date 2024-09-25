@@ -25,8 +25,6 @@ use std::{
     },
 };
 
-// struct ReceiverStream(EiEventStream, ());
-
 #[derive(Debug)]
 pub enum EventError {
     DeviceEventBeforeDone,
@@ -1093,5 +1091,18 @@ impl Iterator for EiConvertEventIterator {
                 }
             }
         }
+    }
+}
+
+impl ei::Context {
+    pub fn handshake_blocking(
+        &self,
+        name: &str,
+        context_type: ei::handshake::ContextType,
+    ) -> Result<(crate::event::Connection, EiConvertEventIterator), Error> {
+        let resp = crate::handshake::ei_handshake_blocking(self, name, context_type)?;
+        let iterator = EiConvertEventIterator::new(self.clone(), resp);
+        let connection = iterator.converter.connection().clone();
+        Ok((connection, iterator))
     }
 }

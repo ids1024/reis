@@ -131,3 +131,17 @@ pub async fn ei_handshake(
     )
     .into())
 }
+
+impl ei::Context {
+    pub async fn handshake_tokio(
+        &self,
+        name: &str,
+        context_type: ei::handshake::ContextType,
+    ) -> Result<(crate::event::Connection, EiConvertEventStream), Error> {
+        let mut events = EiEventStream::new(self.clone())?;
+        let resp = ei_handshake(&mut events, name, context_type).await?;
+        let stream = EiConvertEventStream::new(events, resp);
+        let connection = stream.converter.connection().clone();
+        Ok((connection, stream))
+    }
+}

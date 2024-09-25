@@ -61,16 +61,10 @@ async fn open_connection() -> ei::Context {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let context = open_connection().await;
-    let mut events = EiEventStream::new(context.clone()).unwrap();
-    let resp = reis::tokio::ei_handshake(
-        &mut events,
-        "receive-example",
-        ei::handshake::ContextType::Receiver,
-    )
-    .await
-    .unwrap();
-
-    let mut events = EiConvertEventStream::new(events, resp);
+    let (connection, mut events) = context
+        .handshake_tokio("receive-example", ei::handshake::ContextType::Receiver)
+        .await
+        .unwrap();
     while let Some(event) = events.next().await {
         let event = event.unwrap();
         println!("{event:?}");
