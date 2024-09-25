@@ -1,8 +1,7 @@
 use ashpd::desktop::remote_desktop::{DeviceType, RemoteDesktop};
 use futures::stream::StreamExt;
-use once_cell::sync::Lazy;
 use reis::{ei, tokio::EiEventStream, PendingRequestResult};
-use std::{collections::HashMap, io, os::unix::net::UnixStream, process};
+use std::{collections::HashMap, os::unix::net::UnixStream, process};
 
 #[derive(Default)]
 struct SeatData {

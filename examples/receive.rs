@@ -1,13 +1,7 @@
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use futures::stream::StreamExt;
-use once_cell::sync::Lazy;
-use reis::{
-    ei,
-    event::DeviceCapability,
-    tokio::{EiConvertEventStream, EiEventStream},
-};
-use std::{collections::HashMap, os::unix::net::UnixStream};
-use xkbcommon::xkb;
+use reis::{ei, event::DeviceCapability};
+use std::os::unix::net::UnixStream;
 
 async fn open_connection() -> ei::Context {
     if let Some(context) = ei::Context::connect_to_env().unwrap() {
@@ -61,7 +55,7 @@ async fn open_connection() -> ei::Context {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let context = open_connection().await;
-    let (connection, mut events) = context
+    let (_connection, mut events) = context
         .handshake_tokio("receive-example", ei::handshake::ContextType::Receiver)
         .await
         .unwrap();

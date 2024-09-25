@@ -1,13 +1,11 @@
 // TODO: Require context_type
 
-use once_cell::sync::Lazy;
 use reis::{
     calloop::{EisListenerSource, EisRequestSource, EisRequestSourceEvent},
     eis::{self, device::DeviceType},
     request::{Connection, DeviceCapability, EisRequest},
 };
 use std::{
-    collections::HashMap,
     io,
     sync::{
         atomic::{AtomicBool, Ordering},

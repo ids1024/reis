@@ -1,12 +1,10 @@
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
-use once_cell::sync::Lazy;
 use pollster::FutureExt as _;
 use reis::{
     ei,
     event::{DeviceCapability, EiConvertEventIterator},
 };
-use std::{collections::HashMap, os::unix::net::UnixStream};
-use xkbcommon::xkb;
+use std::os::unix::net::UnixStream;
 
 async fn open_connection() -> ei::Context {
     if let Some(context) = ei::Context::connect_to_env().unwrap() {

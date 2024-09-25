@@ -11,7 +11,7 @@ jobs:
         rust_version: ['1.70.0', stable]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: hecrj/setup-rust-action@v1
       with:
         rust-version: ${{ matrix.rust_version }}
