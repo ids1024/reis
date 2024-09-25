@@ -15,7 +15,6 @@ pub use error::Error;
 pub mod event; // XXX reorganize?
 pub mod handshake; // XXX ^
 mod object;
-#[doc(hidden)] // TODO
 pub mod request;
 pub use object::Object;
 mod util;
