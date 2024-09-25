@@ -1,24 +1,26 @@
 // Generic `EiHandshaker` can be used in async or sync code
 
 use crate::{ei, eis, util, Error, PendingRequestResult};
-use once_cell::sync::Lazy;
-use std::{collections::HashMap, error, fmt, mem};
+use std::{collections::HashMap, error, fmt, mem, sync::OnceLock};
 
-static INTERFACES: Lazy<HashMap<&'static str, u32>> = Lazy::new(|| {
-    let mut m = HashMap::new();
-    m.insert("ei_connection", 1);
-    m.insert("ei_callback", 1);
-    m.insert("ei_pingpong", 1);
-    m.insert("ei_seat", 1);
-    m.insert("ei_device", 2);
-    m.insert("ei_pointer", 1);
-    m.insert("ei_pointer_absolute", 1);
-    m.insert("ei_scroll", 1);
-    m.insert("ei_button", 1);
-    m.insert("ei_keyboard", 1);
-    m.insert("ei_touchscreen", 1);
-    m
-});
+fn interfaces() -> &'static HashMap<&'static str, u32> {
+    static INTERFACES: OnceLock<HashMap<&'static str, u32>> = OnceLock::new();
+    INTERFACES.get_or_init(|| {
+        let mut m = HashMap::new();
+        m.insert("ei_connection", 1);
+        m.insert("ei_callback", 1);
+        m.insert("ei_pingpong", 1);
+        m.insert("ei_seat", 1);
+        m.insert("ei_device", 2);
+        m.insert("ei_pointer", 1);
+        m.insert("ei_pointer_absolute", 1);
+        m.insert("ei_scroll", 1);
+        m.insert("ei_button", 1);
+        m.insert("ei_keyboard", 1);
+        m.insert("ei_touchscreen", 1);
+        m
+    })
+}
 
 #[derive(Clone, Debug)]
 pub struct HandshakeResp {
@@ -77,7 +79,7 @@ impl<'a> EiHandshaker<'a> {
                 handshake.handshake_version(1);
                 handshake.name(self.name);
                 handshake.context_type(self.context_type);
-                for (interface, version) in INTERFACES.iter() {
+                for (interface, version) in interfaces().iter() {
                     handshake.interface_version(interface, *version);
                 }
                 handshake.finish();
@@ -183,7 +185,8 @@ impl EisHandshaker {
                 self.context_type = Some(context_type);
             }
             eis::handshake::Request::InterfaceVersion { name, version } => {
-                if let Some((interface, server_version)) = INTERFACES.get_key_value(name.as_str()) {
+                if let Some((interface, server_version)) = interfaces().get_key_value(name.as_str())
+                {
                     self.negotiated_interfaces
                         .insert(interface.to_string(), version.min(*server_version));
                 }
