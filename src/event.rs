@@ -1050,7 +1050,7 @@ pub struct EiConvertEventIterator {
 }
 
 impl EiConvertEventIterator {
-    pub fn new(context: ei::Context, handshake_resp: HandshakeResp) -> Self {
+    fn new(context: ei::Context, handshake_resp: HandshakeResp) -> Self {
         Self {
             converter: EiEventConverter::new(&context, handshake_resp),
             context,

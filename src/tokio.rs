@@ -66,7 +66,7 @@ pub struct EiConvertEventStream {
 }
 
 impl EiConvertEventStream {
-    pub fn new(inner: EiEventStream, handshake_resp: HandshakeResp) -> Self {
+    fn new(inner: EiEventStream, handshake_resp: HandshakeResp) -> Self {
         Self {
             converter: crate::event::EiEventConverter::new(inner.0.get_ref(), handshake_resp),
             inner,
