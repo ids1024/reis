@@ -6,10 +6,7 @@ use crate::{eis, handshake::EisHandshakeResp, wire::Interface, Error, Object};
 use std::{
     collections::{HashMap, VecDeque},
     fmt,
-    sync::{
-        atomic::{AtomicU32, Ordering},
-        Arc, Mutex, Weak,
-    },
+    sync::{Arc, Mutex, Weak},
 };
 
 pub use crate::event::DeviceCapability;
@@ -21,7 +18,7 @@ struct ConnectionInner {
     seats: Mutex<HashMap<eis::Seat, Seat>>,
     devices: Mutex<HashMap<eis::Device, Device>>,
     device_for_interface: Mutex<HashMap<Object, Device>>,
-    next_serial: AtomicU32,
+    next_serial: Mutex<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -61,11 +58,14 @@ impl Connection {
     }
 
     pub fn last_serial(&self) -> u32 {
-        self.0.next_serial.load(Ordering::Relaxed)
+        self.0.next_serial.lock().unwrap().wrapping_sub(1)
     }
 
-    pub fn next_serial(&self) -> u32 {
-        self.0.next_serial.fetch_add(1, Ordering::Relaxed)
+    pub fn with_next_serial<T, F: FnOnce(u32) -> T>(&self, cb: F) -> T {
+        let mut next_serial = self.0.next_serial.lock().unwrap();
+        let res = cb(*next_serial);
+        *next_serial = next_serial.wrapping_add(1);
+        res
     }
 
     fn device_for_interface<T: DeviceInterface>(&mut self, interface: &T) -> Option<Device> {
@@ -124,7 +124,7 @@ impl EisRequestConverter {
                 seats: Default::default(),
                 devices: Default::default(),
                 device_for_interface: Default::default(),
-                next_serial: AtomicU32::new(initial_serial),
+                next_serial: Mutex::new(initial_serial),
             })),
         }
     }
@@ -187,9 +187,8 @@ impl EisRequestConverter {
             },
             eis::Request::Seat(seat, request) => match request {
                 eis::seat::Request::Release => {
-                    // XXX
-                    let serial = self.handle.next_serial();
-                    seat.destroyed(serial);
+                    self.handle
+                        .with_next_serial(|serial| seat.destroyed(serial));
                 }
                 eis::seat::Request::Bind { capabilities } => {
                     let Some(seat) = self.handle.0.seats.lock().unwrap().get(&seat).cloned() else {
@@ -567,10 +566,10 @@ impl Device {
                     .lock()
                     .unwrap()
                     .remove(interface);
-                destroy_interface(interface.clone(), handle.next_serial());
+                handle.with_next_serial(|serial| destroy_interface(interface.clone(), serial));
             }
 
-            self.0.device.destroyed(handle.next_serial());
+            handle.with_next_serial(|serial| self.0.device.destroyed(serial));
             handle.0.devices.lock().unwrap().remove(&self.0.device);
         }
     }
