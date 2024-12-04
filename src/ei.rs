@@ -4,6 +4,7 @@ use std::{
         io::{AsFd, AsRawFd, BorrowedFd, RawFd},
         net::UnixStream,
     },
+    path::{Path, PathBuf},
 };
 
 use crate::{wire::Backend, PendingRequestResult};
@@ -36,6 +37,18 @@ impl Context {
         let Some(path) = env::var_os("LIBEI_SOCKET") else {
             // XXX return error type
             return Ok(None);
+        };
+        let path = PathBuf::from(path);
+        let path = if path.is_relative() {
+            let Some(runtime_dir) = env::var_os("XDG_RUNTIME_DIR") else {
+                // XXX return not found
+                return Ok(None);
+            };
+            let mut new_path = PathBuf::from(runtime_dir);
+            new_path.push(path);
+            new_path
+        } else {
+            path
         };
         let socket = UnixStream::connect(path)?;
         Self::new(socket).map(Some)
