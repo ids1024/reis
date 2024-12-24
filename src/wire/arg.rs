@@ -23,7 +23,7 @@ pub enum Arg<'a> {
     Id(u64),
 }
 
-impl<'a> fmt::Display for Arg<'a> {
+impl fmt::Display for Arg<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Uint32(value) => write!(f, "{value}"),
@@ -39,7 +39,7 @@ impl<'a> fmt::Display for Arg<'a> {
     }
 }
 
-impl<'a> Arg<'a> {
+impl Arg<'_> {
     pub fn write<T, U>(&self, buf: &mut T, fds: &mut U)
     where
         T: Extend<u8>,

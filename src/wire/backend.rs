@@ -326,5 +326,5 @@ impl Backend {
 }
 
 fn is_reis_debug() -> bool {
-    env::var_os("REIS_DEBUG").map_or(false, |value| !value.is_empty())
+    env::var_os("REIS_DEBUG").is_some_and(|value| !value.is_empty())
 }

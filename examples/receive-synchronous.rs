@@ -2,7 +2,7 @@ use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use pollster::FutureExt as _;
 use reis::{
     ei,
-    event::{DeviceCapability, EiConvertEventIterator},
+    event::DeviceCapability,
 };
 use std::os::unix::net::UnixStream;
 
@@ -15,7 +15,7 @@ async fn open_connection() -> ei::Context {
         let session = input_capture
             .create_session(
                 &ashpd::WindowIdentifier::default(),
-                (Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen).into(),
+                (Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen),
             )
             .await
             .unwrap()
@@ -61,7 +61,7 @@ fn main() {
         .handshake_blocking("receive-example", ei::handshake::ContextType::Receiver)
         .unwrap();
 
-    while let Some(event) = events.next() {
+    for event in events {
         let event = event.unwrap();
         println!("{event:?}");
         match &event {
