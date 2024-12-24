@@ -60,6 +60,10 @@ pub mod {{interface.plainname}} {
         pub fn version(&self) -> u32 {
             self.0.version()
         }
+
+	pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
+	}
     }
 
     impl crate::private::Sealed for {{interface.plainname|camel}} {}

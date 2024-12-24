@@ -263,6 +263,10 @@ impl Backend {
         self.0.state.lock().unwrap().objects.get(&id).cloned()
     }
 
+    pub(crate) fn has_object_for_id(&self, id: u64) -> bool {
+        self.0.state.lock().unwrap().objects.contains_key(&id)
+    }
+
     fn print_msg(&self, object_id: u64, opcode: u32, args: &[Arg], incoming: bool) {
         let object = self.object_for_id(object_id);
         let interface = object.as_ref().map_or("UNKNOWN", |x| x.interface());

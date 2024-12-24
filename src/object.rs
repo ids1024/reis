@@ -63,6 +63,14 @@ impl Object {
         &self.0.backend
     }
 
+    pub fn is_alive(&self) -> bool {
+        if let Some(backend) = self.backend() {
+            backend.has_object_for_id(self.id())
+        } else {
+            false
+        }
+    }
+
     pub fn id(&self) -> u64 {
         self.0.id
     }

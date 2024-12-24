@@ -42,6 +42,10 @@ pub mod handshake {
         pub fn version(&self) -> u32 {
             self.0.version()
         }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
+        }
     }
 
     impl crate::private::Sealed for Handshake {}
@@ -333,6 +337,10 @@ pub mod connection {
     impl Connection {
         pub fn version(&self) -> u32 {
             self.0.version()
+        }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
         }
     }
 
@@ -627,6 +635,10 @@ pub mod callback {
         pub fn version(&self) -> u32 {
             self.0.version()
         }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
+        }
     }
 
     impl crate::private::Sealed for Callback {}
@@ -729,6 +741,10 @@ pub mod pingpong {
     impl Pingpong {
         pub fn version(&self) -> u32 {
             self.0.version()
+        }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
         }
     }
 
@@ -835,6 +851,10 @@ pub mod seat {
     impl Seat {
         pub fn version(&self) -> u32 {
             self.0.version()
+        }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
         }
     }
 
@@ -1084,6 +1104,10 @@ pub mod device {
     impl Device {
         pub fn version(&self) -> u32 {
             self.0.version()
+        }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
         }
     }
 
@@ -1642,6 +1666,10 @@ pub mod pointer {
         pub fn version(&self) -> u32 {
             self.0.version()
         }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
+        }
     }
 
     impl crate::private::Sealed for Pointer {}
@@ -1804,6 +1832,10 @@ pub mod pointer_absolute {
     impl PointerAbsolute {
         pub fn version(&self) -> u32 {
             self.0.version()
+        }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
         }
     }
 
@@ -1969,6 +2001,10 @@ pub mod scroll {
     impl Scroll {
         pub fn version(&self) -> u32 {
             self.0.version()
+        }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
         }
     }
 
@@ -2249,6 +2285,10 @@ pub mod button {
         pub fn version(&self) -> u32 {
             self.0.version()
         }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
+        }
     }
 
     impl crate::private::Sealed for Button {}
@@ -2421,6 +2461,10 @@ pub mod keyboard {
     impl Keyboard {
         pub fn version(&self) -> u32 {
             self.0.version()
+        }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
         }
     }
 
@@ -2704,6 +2748,10 @@ pub mod touchscreen {
     impl Touchscreen {
         pub fn version(&self) -> u32 {
             self.0.version()
+        }
+
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
         }
     }
 
