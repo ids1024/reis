@@ -2451,12 +2451,33 @@ pub mod keyboard {
         /**
         Notification that the EIS implementation has changed group or modifier
         states on this device, but not necessarily in response to an
-        ei_keyboard.key event. Future ei_keyboard.key requests must take the
-        new group or modifier state into account.
+        ei_keyboard.key event or request. Future ei_keyboard.key requests must
+        take the new group and modifier state into account.
 
-        This event should not be sent in response to ei_keyboard.key events
-        that change the group or modifier state according to the keymap. The
-        client is expected to track such group or modifier states on its own.
+        This event should be sent any time the modifier state or effective group
+        has changed, whether caused by an ei_keyboard.key event in accordance
+        with the keymap, indirectly due to further handling of an
+        ei_keyboard.key event (e.g., because it triggered a keyboard shortcut
+        that then changed the state), or caused by an unrelated an event (e.g.,
+        input from a different keyboard, or a group change triggered by a layout
+        selection widget).
+
+        For receiver clients, modifiers events will always be properly ordered
+        with received key events, so each key event should be interpreted using
+        the most recently-received modifier state. The server should send this
+        event immediately following the ei_device.frame event for the key press
+        that caused the change. If the state change impacts multiple keyboards,
+        this event should be sent for all of them.
+
+        For sender clients, the modifiers event is not inherently synchronized
+        with key requests, but the client may send an ei_connection.sync request
+        when synchronization is required. When the corresponding
+        ei_callback.done event is received, all key requests sent prior to the
+        sync request are guaranteed to have been processed, and any
+        directly-resulting modifiers events are guaranteed to have been
+        received. Note, however, that it is still possible for
+        indirectly-triggered state changes, such as via a keyboard shortcut not
+        encoded in the keymap, to be reported after the done event.
 
         A client must assume that all modifiers are lifted when it
         receives an ei_device.paused event. The EIS implementation
@@ -2467,6 +2488,12 @@ pub mod keyboard {
         be processed immediately by the client.
 
         This event is only sent for devices with an ei_keyboard.keymap.
+
+        Note: A previous version of the documentation instead specified that
+        this event should not be sent in response to ei_keyboard.key events
+        that change the group or modifier state according to the keymap.
+        However, this complicated client implementation and resulted in
+        situations where the client state could get out of sync with the server.
          */
         pub fn modifiers(
             &self,
@@ -2688,6 +2715,10 @@ pub mod touchscreen {
         It is a protocol violation to send this request for a client
         of an ei_handshake.context_type other than receiver.
 
+        If a touch is released via ei_touchscreen.up, no ei_touchscreen.cancel
+        event is sent for this same touch. Likewise, a touch released
+        with ei_touchscreen.cancel must not be released via ei_touchscreen.up.
+
         It is a protocol violation to send a touch up in the same
         frame as a touch motion or touch down.
          */
@@ -2698,15 +2729,36 @@ pub mod touchscreen {
 
             ()
         }
+
+        /**
+        See the ei_touchscreen.cancel request for details.
+
+        It is a protocol violation to send this event for a client
+        of an ei_handshake.context_type other than receiver.
+
+        If a touch is cancelled via ei_touchscreen.cancel, no ei_touchscreen.up
+        event is sent for this same touch. Likewise, a touch released
+        with ei_touchscreen.up must not be cancelled via ei_touchscreen.cancel.
+
+        It is a protocol violation to send a touch cancel event in the same
+        frame as a touch motion or touch down.
+         */
+        pub fn cancel(&self, touchid: u32) -> () {
+            let args = &[wire::Arg::Uint32(touchid.into())];
+
+            self.0.request(4, args);
+
+            ()
+        }
     }
 
     #[non_exhaustive]
     #[derive(Debug)]
     pub enum Request {
         /**
-        Notification that the client is no longer interested in this touch.
+        Notification that the client is no longer interested in this touchscreen.
         The EIS implementation will release any resources related to this touch and
-        send the ei_touch.destroyed event once complete.
+        send the ei_touchscreen.destroyed event once complete.
          */
         Release,
         /**
@@ -2752,12 +2804,38 @@ pub mod touchscreen {
         up. The touchid is the unique id for this touch previously
         sent with ei_touchscreen.down.
 
+        If a touch is cancelled via ei_touchscreen.cancel, the ei_touchscreen.up
+        request must not be sent for this same touch. Likewise, a touch released
+        with ei_touchscreen.up must not be cancelled.
+
         The touchid may be re-used after this request.
 
         It is a protocol violation to send a touch up in the same
         frame as a touch motion or touch down.
          */
         Up {
+            /** a unique touch id to identify this touch */
+            touchid: u32,
+        },
+        /**
+        Notifies the EIS implementation about an existing touch being cancelled.
+        This typically means that any effects the touch may have had on the
+        user interface should be reverted or otherwise made inconsequential.
+
+        This request replaces ei_touchscreen.up for the same touch.
+        If a touch is cancelled via ei_touchscreen.cancel, the ei_touchscreen.up
+        request must not be sent for this same touch. Likewise, a touch released
+        with ei_touchscreen.up must not be cancelled.
+
+        The touchid is the unique id for this touch previously
+        sent with ei_touchscreen.down.
+
+        The touchid may be re-used after this request.
+
+        It is a protocol violation to send a touch cancel
+        in the same frame as a touch motion or touch down.
+         */
+        Cancel {
             /** a unique touch id to identify this touch */
             touchid: u32,
         },
@@ -2770,6 +2848,7 @@ pub mod touchscreen {
                 1 => Some("down"),
                 2 => Some("motion"),
                 3 => Some("up"),
+                4 => Some("cancel"),
                 _ => None,
             }
         }
@@ -2799,6 +2878,11 @@ pub mod touchscreen {
 
                     Ok(Self::Up { touchid })
                 }
+                4 => {
+                    let touchid = _bytes.read_arg()?;
+
+                    Ok(Self::Cancel { touchid })
+                }
                 opcode => Err(wire::ParseError::InvalidOpcode("touchscreen", opcode)),
             }
         }
@@ -2826,6 +2910,9 @@ pub mod touchscreen {
                     args.push(y.as_arg());
                 }
                 Self::Up { touchid } => {
+                    args.push(touchid.as_arg());
+                }
+                Self::Cancel { touchid } => {
                     args.push(touchid.as_arg());
                 }
                 _ => unreachable!(),
