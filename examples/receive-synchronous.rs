@@ -1,9 +1,6 @@
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use pollster::FutureExt as _;
-use reis::{
-    ei,
-    event::DeviceCapability,
-};
+use reis::{ei, event::DeviceCapability};
 use std::os::unix::net::UnixStream;
 
 async fn open_connection() -> ei::Context {
