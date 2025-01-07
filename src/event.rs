@@ -567,6 +567,13 @@ impl EiEventConverter {
                             touch_id: touchid,
                         }));
                     }
+                    ei::touchscreen::Event::Cancel { touchid } => {
+                        self.queue_event(EiEvent::TouchCancel(TouchCancel {
+                            device: device.clone(),
+                            time: 0,
+                            touch_id: touchid,
+                        }));
+                    }
                     ei::touchscreen::Event::Destroyed { serial } => {
                         self.connection.update_serial(serial);
                         // TODO does interface need to be removed from `Device`?
@@ -792,6 +799,7 @@ pub enum EiEvent {
     TouchDown(TouchDown),
     TouchUp(TouchUp),
     TouchMotion(TouchMotion),
+    TouchCancel(TouchCancel),
 }
 
 impl EiEvent {
@@ -810,6 +818,7 @@ impl EiEvent {
             Self::TouchDown(evt) => Some(&mut evt.time),
             Self::TouchUp(evt) => Some(&mut evt.time),
             Self::TouchMotion(evt) => Some(&mut evt.time),
+            Self::TouchCancel(evt) => Some(&mut evt.time),
             _ => None,
         }
     }
@@ -973,6 +982,13 @@ pub struct TouchUp {
     pub touch_id: u32,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct TouchCancel {
+    pub device: Device,
+    pub time: u64,
+    pub touch_id: u32,
+}
+
 pub trait SeatEvent {
     fn seat(&self) -> &Seat;
 }
@@ -1043,6 +1059,7 @@ impl_device_trait!(KeyboardKey; time);
 impl_device_trait!(TouchDown; time);
 impl_device_trait!(TouchUp; time);
 impl_device_trait!(TouchMotion; time);
+impl_device_trait!(TouchCancel; time);
 
 pub struct EiConvertEventIterator {
     context: ei::Context,

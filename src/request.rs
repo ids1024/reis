@@ -389,6 +389,13 @@ impl EisRequestConverter {
                             time: 0,
                         }));
                     }
+                    eis::touchscreen::Request::Cancel { touchid } => {
+                        self.queue_request(EisRequest::TouchCancel(TouchCancel {
+                            device,
+                            touch_id: touchid,
+                            time: 0,
+                        }));
+                    }
                 }
             }
         }
@@ -677,6 +684,7 @@ pub enum EisRequest {
     TouchDown(TouchDown),
     TouchUp(TouchUp),
     TouchMotion(TouchMotion),
+    TouchCancel(TouchCancel),
 }
 
 impl EisRequest {
@@ -695,6 +703,7 @@ impl EisRequest {
             Self::TouchDown(evt) => Some(&mut evt.time),
             Self::TouchUp(evt) => Some(&mut evt.time),
             Self::TouchMotion(evt) => Some(&mut evt.time),
+            Self::TouchCancel(evt) => Some(&mut evt.time),
             _ => None,
         }
     }
@@ -810,6 +819,13 @@ pub struct TouchMotion {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchUp {
+    pub device: Device,
+    pub time: u64,
+    pub touch_id: u32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TouchCancel {
     pub device: Device,
     pub time: u64,
     pub touch_id: u32,
