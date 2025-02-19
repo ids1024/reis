@@ -12,7 +12,7 @@ async fn open_connection() -> ei::Context {
         let session = input_capture
             .create_session(
                 None,
-                (Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen),
+                Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen,
             )
             .await
             .unwrap()
@@ -54,7 +54,7 @@ async fn open_connection() -> ei::Context {
 
 fn main() {
     let context = open_connection().block_on();
-    let (_connection, mut events) = context
+    let (_connection, events) = context
         .handshake_blocking("receive-example", ei::handshake::ContextType::Receiver)
         .unwrap();
 

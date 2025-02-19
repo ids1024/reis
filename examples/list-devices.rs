@@ -135,7 +135,7 @@ async fn open_connection() -> ei::Context {
         remote_desktop
             .select_devices(
                 &session,
-                (DeviceType::Keyboard | DeviceType::Pointer | DeviceType::Touchscreen).into(),
+                DeviceType::Keyboard | DeviceType::Pointer | DeviceType::Touchscreen,
                 None,
                 ashpd::desktop::PersistMode::DoNot,
             )
