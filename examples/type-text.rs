@@ -246,10 +246,7 @@ async fn open_connection() -> ei::Context {
             )
             .await
             .unwrap();
-        remote_desktop
-            .start(&session, &ashpd::WindowIdentifier::default())
-            .await
-            .unwrap();
+        remote_desktop.start(&session, None).await.unwrap();
         let fd = remote_desktop.connect_to_eis(&session).await.unwrap();
         let stream = UnixStream::from(fd);
         ei::Context::new(stream).unwrap()

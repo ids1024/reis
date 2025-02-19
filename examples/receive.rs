@@ -1,7 +1,7 @@
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use futures::stream::StreamExt;
 use reis::{ei, event::DeviceCapability};
-use std::os::unix::net::UnixStream;
+use std::{num::NonZero, os::unix::net::UnixStream};
 
 async fn open_connection() -> ei::Context {
     if let Some(context) = ei::Context::connect_to_env().unwrap() {
@@ -11,7 +11,7 @@ async fn open_connection() -> ei::Context {
         let input_capture = InputCapture::new().await.unwrap();
         let session = input_capture
             .create_session(
-                &ashpd::WindowIdentifier::default(),
+                None,
                 (Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen).into(),
             )
             .await
@@ -35,7 +35,7 @@ async fn open_connection() -> ei::Context {
                 let y = region.y_offset();
                 let w = region.width() as i32;
                 let h = region.height() as i32;
-                Barrier::new(n as u32 + 1, (x, y, x + w - 1, y))
+                Barrier::new(NonZero::new(n as u32 + 1).unwrap(), (x, y, x + w - 1, y))
             })
             .collect::<Vec<_>>();
         let resp = input_capture
