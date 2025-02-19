@@ -24,7 +24,7 @@ jobs:
       if: matrix.rust_version != 'stable'
     - run: cargo build --all-features --examples
       if: matrix.rust_version == 'stable'
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: reis-demo-server
         path: target/debug/examples/reis-demo-server
@@ -33,7 +33,7 @@ jobs:
     needs: check-and-build
     steps:
     - run: git clone https://gitlab.freedesktop.org/libinput/libei .
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: reis-demo-server
     - run: chmod +x reis-demo-server
