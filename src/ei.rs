@@ -4,7 +4,7 @@ use std::{
         io::{AsFd, AsRawFd, BorrowedFd, RawFd},
         net::UnixStream,
     },
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use crate::{wire::Backend, PendingRequestResult};

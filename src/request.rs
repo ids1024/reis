@@ -390,6 +390,12 @@ impl EisRequestConverter {
                         }));
                     }
                     eis::touchscreen::Request::Cancel { touchid } => {
+                        if touchscreen.version() < 2 {
+                            return Err(Error::InvalidInterfaceVersion(
+                                "ei_touchscreen",
+                                touchscreen.version(),
+                            ));
+                        }
                         self.queue_request(EisRequest::TouchCancel(TouchCancel {
                             device,
                             touch_id: touchid,

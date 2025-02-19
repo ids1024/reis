@@ -108,6 +108,9 @@ impl ContextState {
 
                 // TODO create devices; compare against current bitflag
             }
+            EisRequest::TouchCancel(request) => {
+                // TODO protocol error if version wrong
+            }
             _ => {}
         }
 
