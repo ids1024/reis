@@ -10,7 +10,7 @@ rust-version = "1.70.0"
 
 [dependencies]
 calloop = { version = "0.14.0", optional = true }
-rustix = { version = "0.38.3", features = ["event", "fs", "net"] }
+rustix = { version = "0.38.3", features = ["event", "fs", "net", "time"] }
 futures = { version = "0.3.28", optional = true }
 tokio = { version = "1.31.0", features = ["net"], optional = true }
 

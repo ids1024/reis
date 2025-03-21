@@ -118,6 +118,13 @@ impl Connection {
     }
 }
 
+// TODO libei has a `eis_clock_set_now_func`
+// Return time in us
+fn eis_now() -> u64 {
+    let time = rustix::time::clock_gettime(rustix::time::ClockId::Monotonic);
+    time.tv_sec as u64 * 1_000_000 + time.tv_nsec as u64 / 1_000
+}
+
 // need way to add seat/device?
 #[derive(Debug)]
 pub struct EisRequestConverter {
@@ -150,6 +157,14 @@ impl EisRequestConverter {
         &self.handle
     }
 
+    fn queue_frame_event(&mut self, device: &Device) {
+        self.queue_request(EisRequest::Frame(Frame {
+            time: eis_now(),
+            device: device.clone(),
+            last_serial: self.handle.last_serial(),
+        }))
+    }
+
     // Based on behavior of `eis_queue_request` in libeis
     fn queue_request(&mut self, mut request: EisRequest) {
         if request.time_mut().is_some() {
@@ -164,7 +179,11 @@ impl EisRequestConverter {
             }
             self.requests.push_back(request);
         } else {
-            // TODO: If a device request, queue a frame if anything is pending
+            if let Some(device) = request.device() {
+                if !self.pending_requests.is_empty() {
+                    self.queue_frame_event(device);
+                }
+            }
             self.requests.push_back(request);
         }
     }
