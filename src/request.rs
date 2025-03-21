@@ -717,6 +717,27 @@ impl EisRequest {
             | Self::DeviceStopEmulating(_) => None,
         }
     }
+
+    pub fn device(&self) -> Option<&Device> {
+        match self {
+            Self::Frame(evt) => Some(&evt.device),
+            Self::DeviceStartEmulating(evt) => Some(&evt.device),
+            Self::DeviceStopEmulating(evt) => Some(&evt.device),
+            Self::PointerMotion(evt) => Some(&evt.device),
+            Self::PointerMotionAbsolute(evt) => Some(&evt.device),
+            Self::Button(evt) => Some(&evt.device),
+            Self::ScrollDelta(evt) => Some(&evt.device),
+            Self::ScrollStop(evt) => Some(&evt.device),
+            Self::ScrollCancel(evt) => Some(&evt.device),
+            Self::ScrollDiscrete(evt) => Some(&evt.device),
+            Self::KeyboardKey(evt) => Some(&evt.device),
+            Self::TouchDown(evt) => Some(&evt.device),
+            Self::TouchUp(evt) => Some(&evt.device),
+            Self::TouchMotion(evt) => Some(&evt.device),
+            Self::TouchCancel(evt) => Some(&evt.device),
+            Self::Disconnect | Self::Bind(_) => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
