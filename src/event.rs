@@ -819,7 +819,17 @@ impl EiEvent {
             Self::TouchUp(evt) => Some(&mut evt.time),
             Self::TouchMotion(evt) => Some(&mut evt.time),
             Self::TouchCancel(evt) => Some(&mut evt.time),
-            _ => None,
+            Self::Disconnected(_)
+            | Self::SeatAdded(_)
+            | Self::SeatRemoved(_)
+            | Self::DeviceAdded(_)
+            | Self::DeviceRemoved(_)
+            | Self::DevicePaused(_)
+            | Self::DeviceResumed(_)
+            | Self::KeyboardModifiers(_)
+            | Self::Frame(_)
+            | Self::DeviceStartEmulating(_)
+            | Self::DeviceStopEmulating(_) => None,
         }
     }
 }

@@ -710,7 +710,11 @@ impl EisRequest {
             Self::TouchUp(evt) => Some(&mut evt.time),
             Self::TouchMotion(evt) => Some(&mut evt.time),
             Self::TouchCancel(evt) => Some(&mut evt.time),
-            _ => None,
+            Self::Disconnect
+            | Self::Bind(_)
+            | Self::Frame(_)
+            | Self::DeviceStartEmulating(_)
+            | Self::DeviceStopEmulating(_) => None,
         }
     }
 }
