@@ -3,7 +3,7 @@
 set -e
 
 if [ "$#" -ne 1 ]; then
-	>&2 echo "Usage: update-protocol-bindings.sh [path/to/libei]"
+	>&2 echo "Usage: update-protocol-bindings.sh <path/to/libei>"
 	exit 1
 fi
 
