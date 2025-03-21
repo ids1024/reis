@@ -17,7 +17,7 @@ fn interfaces() -> &'static HashMap<&'static str, u32> {
         m.insert("ei_scroll", 1);
         m.insert("ei_button", 1);
         m.insert("ei_keyboard", 1);
-        m.insert("ei_touchscreen", 1);
+        m.insert("ei_touchscreen", 2);
         m
     })
 }
