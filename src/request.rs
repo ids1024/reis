@@ -438,6 +438,18 @@ struct SeatInner {
 #[derive(Clone)]
 pub struct Seat(Arc<SeatInner>);
 
+fn add_interface<I: eis::Interface>(
+    device: &eis::Device,
+    connection: Option<&Connection>,
+) -> Object {
+    // TODO better way to handle dead connection?
+    let version = connection
+        .as_ref()
+        .and_then(|c| c.interface_version(I::NAME))
+        .unwrap_or(1);
+    device.interface::<I>(version).as_object().clone()
+}
+
 impl Seat {
     pub fn eis_seat(&self) -> &eis::Seat {
         &self.0.seat
@@ -459,11 +471,6 @@ impl Seat {
             device.name(name);
         }
         device.device_type(device_type);
-        // TODO better way to handle verison? Or dead connection.
-        let touchscreen_version = connection
-            .as_ref()
-            .and_then(|c| c.interface_version("ei_touchscreen"))
-            .unwrap_or(1);
         // TODO
         // dimensions
         // regions; region_mapping_id
@@ -472,14 +479,24 @@ impl Seat {
         let mut interfaces = HashMap::new();
         for capability in capabilities {
             let object = match capability {
-                DeviceCapability::Pointer => device.interface::<eis::Pointer>(1).0,
-                DeviceCapability::PointerAbsolute => device.interface::<eis::PointerAbsolute>(1).0,
-                DeviceCapability::Keyboard => device.interface::<eis::Keyboard>(1).0,
-                DeviceCapability::Touch => {
-                    device.interface::<eis::Touchscreen>(touchscreen_version).0
+                DeviceCapability::Pointer => {
+                    add_interface::<eis::Pointer>(&device, connection.as_ref())
                 }
-                DeviceCapability::Scroll => device.interface::<eis::Scroll>(1).0,
-                DeviceCapability::Button => device.interface::<eis::Button>(1).0,
+                DeviceCapability::PointerAbsolute => {
+                    add_interface::<eis::PointerAbsolute>(&device, connection.as_ref())
+                }
+                DeviceCapability::Keyboard => {
+                    add_interface::<eis::Keyboard>(&device, connection.as_ref())
+                }
+                DeviceCapability::Touch => {
+                    add_interface::<eis::Touchscreen>(&device, connection.as_ref())
+                }
+                DeviceCapability::Scroll => {
+                    add_interface::<eis::Scroll>(&device, connection.as_ref())
+                }
+                DeviceCapability::Button => {
+                    add_interface::<eis::Button>(&device, connection.as_ref())
+                }
             };
             interfaces.insert(object.interface().to_string(), object);
         }
