@@ -452,11 +452,18 @@ impl Seat {
         // TODO: better solution; keymap, etc.
         before_done_cb: impl for<'a> FnOnce(&'a Device),
     ) -> Device {
+        let connection = self.0.handle.upgrade().map(Connection);
+
         let device = self.0.seat.device(1);
         if let Some(name) = name {
             device.name(name);
         }
         device.device_type(device_type);
+        // TODO better way to handle verison? Or dead connection.
+        let touchscreen_version = connection
+            .as_ref()
+            .and_then(|c| c.interface_version("ei_touchscreen"))
+            .unwrap_or(1);
         // TODO
         // dimensions
         // regions; region_mapping_id
@@ -468,7 +475,9 @@ impl Seat {
                 DeviceCapability::Pointer => device.interface::<eis::Pointer>(1).0,
                 DeviceCapability::PointerAbsolute => device.interface::<eis::PointerAbsolute>(1).0,
                 DeviceCapability::Keyboard => device.interface::<eis::Keyboard>(1).0,
-                DeviceCapability::Touch => device.interface::<eis::Touchscreen>(1).0,
+                DeviceCapability::Touch => {
+                    device.interface::<eis::Touchscreen>(touchscreen_version).0
+                }
                 DeviceCapability::Scroll => device.interface::<eis::Scroll>(1).0,
                 DeviceCapability::Button => device.interface::<eis::Button>(1).0,
             };
@@ -482,7 +491,7 @@ impl Seat {
             interfaces,
             handle: self.0.handle.clone(),
         }));
-        if let Some(handle) = self.0.handle.upgrade().map(Connection) {
+        if let Some(handle) = connection {
             for interface in device.0.interfaces.values() {
                 handle
                     .0
