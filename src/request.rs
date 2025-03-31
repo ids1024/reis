@@ -959,3 +959,4 @@ impl_device_trait!(KeyboardKey; time);
 impl_device_trait!(TouchDown; time);
 impl_device_trait!(TouchUp; time);
 impl_device_trait!(TouchMotion; time);
+impl_device_trait!(TouchCancel; time);
