@@ -2786,7 +2786,7 @@ pub mod touchscreen {
 
     impl wire::Interface for Touchscreen {
         const NAME: &'static str = "ei_touchscreen";
-        const VERSION: u32 = 1;
+        const VERSION: u32 = 2;
         const CLIENT_SIDE: bool = true;
 
         fn new_unchecked(object: crate::Object) -> Self {
