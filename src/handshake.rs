@@ -4,21 +4,26 @@ use crate::{ei, eis, util, Error, PendingRequestResult};
 use std::{collections::HashMap, error, fmt, mem, sync::OnceLock};
 
 fn interfaces() -> &'static HashMap<&'static str, u32> {
+    fn iface<I: ei::Interface>() -> (&'static str, u32) {
+        (I::NAME, I::VERSION)
+    }
     static INTERFACES: OnceLock<HashMap<&'static str, u32>> = OnceLock::new();
     INTERFACES.get_or_init(|| {
-        let mut m = HashMap::new();
-        m.insert("ei_connection", 1);
-        m.insert("ei_callback", 1);
-        m.insert("ei_pingpong", 1);
-        m.insert("ei_seat", 1);
-        m.insert("ei_device", 2);
-        m.insert("ei_pointer", 1);
-        m.insert("ei_pointer_absolute", 1);
-        m.insert("ei_scroll", 1);
-        m.insert("ei_button", 1);
-        m.insert("ei_keyboard", 1);
-        m.insert("ei_touchscreen", 2);
-        m
+        [
+            iface::<ei::Connection>(),
+            iface::<ei::Callback>(),
+            iface::<ei::Pingpong>(),
+            iface::<ei::Seat>(),
+            iface::<ei::Device>(),
+            iface::<ei::Pointer>(),
+            iface::<ei::PointerAbsolute>(),
+            iface::<ei::Scroll>(),
+            iface::<ei::Button>(),
+            iface::<ei::Keyboard>(),
+            iface::<ei::Touchscreen>(),
+        ]
+        .into_iter()
+        .collect()
     })
 }
 
