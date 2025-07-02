@@ -5,6 +5,10 @@ use crate::{
     Interface,
 };
 
+/// Representation of
+/// [an object](https://libinput.pages.freedesktop.org/libei/doc/overview/index.html).
+///
+/// Contains all information required to send requests and events for the object.
 #[derive(Clone)]
 pub struct Object(Arc<ObjectInner>);
 
@@ -55,14 +59,21 @@ impl Object {
         }))
     }
 
+    /// Returns a handle to the backend.
+    ///
+    /// Returns `None` if the backend has been destroyed.
     pub fn backend(&self) -> Option<Backend> {
         self.0.backend.upgrade()
     }
 
+    /// Returns a weak handle to the backend, which works even after the backend has been
+    /// destroyed.
     pub(crate) fn backend_weak(&self) -> &BackendWeak {
         &self.0.backend
     }
 
+    /// Returns true if the backend has this object, and false otherwise or if the backend
+    /// has been destroyed.
     pub fn is_alive(&self) -> bool {
         if let Some(backend) = self.backend() {
             backend.has_object_for_id(self.id())
@@ -71,32 +82,63 @@ impl Object {
         }
     }
 
+    /// Returns the object's
+    /// [ID](https://libinput.pages.freedesktop.org/libei/doc/types/index.html#object-ids).
     pub fn id(&self) -> u64 {
         self.0.id
     }
 
+    /// Returns the tracked interface name, like `ei_device`.
+    ///
+    /// Interface names for new objects aren't usually transmitted, but rather come from
+    /// the protocol definition.
     pub fn interface(&self) -> &str {
         &self.0.interface
     }
 
+    /// Returns the version of the interface of this object.
     pub fn version(&self) -> u32 {
         self.0.version
     }
 
+    /// Sends a request if running in a client or emits an event if running in a server.
+    // TODO(axka, 2025-07-02): rename to "message" or "send"
     pub fn request(&self, opcode: u32, args: &[Arg]) {
         if let Some(backend) = self.backend() {
             backend.request(self.0.id, opcode, args);
         }
     }
 
+    /// Returns an interface proxy without checking [`Object::interface`].
     pub(crate) fn downcast_unchecked<T: Interface>(self) -> T {
         T::new_unchecked(self)
     }
 
+    /// Returns an `Arg` to reference this object in events or requests.
     pub(crate) fn as_arg(&self) -> Arg<'_> {
         Arg::Id(self.0.id)
     }
 
+    /// Returns an interface proxy if it matches the tracked interface name and connection side
+    /// (client or server).
+    ///
+    /// # Example
+    ///
+    /// Turning a generic object into a
+    /// [client-side `ei_keyboard` proxy](crate::ei::keyboard::Keyboard).
+    ///
+    /// ```no_run
+    /// use reis::{Object, ei::keyboard::{Keyboard, KeyState}};
+    ///
+    /// let object: Object;
+    /// # object = todo!();
+    ///
+    /// assert_eq!(object.interface(), "ei_keyboard");
+    /// let keyboard = object.downcast::<Keyboard>().unwrap();
+    ///
+    /// keyboard.key(0x41, KeyState::Press);
+    /// ```
+    // TODO(axka, 2025-07-02): return Result<T, Self>
     pub fn downcast<T: Interface>(self) -> Option<T> {
         if (self.0.client_side, self.interface()) == (T::CLIENT_SIDE, T::NAME) {
             Some(self.downcast_unchecked())

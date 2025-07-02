@@ -42,15 +42,22 @@ impl Header {
     }
 }
 
+/// Trait for interface proxies
 pub trait Interface: crate::private::Sealed {
+    /// The name of the interface like `ei_device`.
     const NAME: &'static str;
+    /// The version of the interface this interface proxy supports.
     const VERSION: u32;
+    /// Whether this interface proxy is to be used on the client or the server side.
     const CLIENT_SIDE: bool;
 
+    /// Returns an interface proxy without checking [`Object::interface`].
     fn new_unchecked(object: Object) -> Self;
 
+    /// Returns a reference to the object contained in the interface proxy.
     fn as_object(&self) -> &Object;
 
+    /// Returns an `Arg` to reference this object in events or requests.
     fn as_arg(&self) -> Arg<'_>;
 }
 
