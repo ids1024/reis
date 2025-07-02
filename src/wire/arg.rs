@@ -9,6 +9,7 @@ use std::{
 
 use super::{ByteStream, ParseError};
 
+/// An argument in an event or a request.
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum Arg<'a> {

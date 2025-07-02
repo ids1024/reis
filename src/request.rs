@@ -787,12 +787,14 @@ impl EisRequest {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Bind {
+    /// The seat object
     pub seat: Seat,
     pub capabilities: u64,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Frame {
+    /// The device object
     pub device: Device,
     pub last_serial: u32,
     pub time: u64,
@@ -800,6 +802,7 @@ pub struct Frame {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceStartEmulating {
+    /// The device object
     pub device: Device,
     pub last_serial: u32,
     pub sequence: u32,
@@ -807,12 +810,14 @@ pub struct DeviceStartEmulating {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceStopEmulating {
+    /// The device object
     pub device: Device,
     pub last_serial: u32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PointerMotion {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub dx: f32,
@@ -821,6 +826,7 @@ pub struct PointerMotion {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PointerMotionAbsolute {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub dx_absolute: f32,
@@ -829,6 +835,7 @@ pub struct PointerMotionAbsolute {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Button {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub button: u32,
@@ -837,6 +844,7 @@ pub struct Button {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollDelta {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub dx: f32,
@@ -845,6 +853,7 @@ pub struct ScrollDelta {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollStop {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub x: bool,
@@ -853,6 +862,7 @@ pub struct ScrollStop {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollCancel {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub x: bool,
@@ -861,6 +871,7 @@ pub struct ScrollCancel {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollDiscrete {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub discrete_dx: i32,
@@ -869,14 +880,20 @@ pub struct ScrollDiscrete {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyboardKey {
+    /// The device object
     pub device: Device,
     pub time: u64,
+    /// Key code
+    ///
+    /// If a keymap was specified by the server, this key code corresponds to that keymap.
     pub key: u32,
+    /// The logical state of a key
     pub state: eis::keyboard::KeyState,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchDown {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub touch_id: u32,
@@ -886,6 +903,7 @@ pub struct TouchDown {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchMotion {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub touch_id: u32,
@@ -895,6 +913,7 @@ pub struct TouchMotion {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchUp {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub touch_id: u32,
@@ -902,6 +921,7 @@ pub struct TouchUp {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchCancel {
+    /// The device object
     pub device: Device,
     pub time: u64,
     pub touch_id: u32,

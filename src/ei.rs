@@ -1,3 +1,10 @@
+//! EI client implementation.
+//!
+//! Create a connection over a Unix socket with [`Context`].
+//!
+//! Client-side protocol bindings are exported here, and they consist of interface proxies (like
+//! [`device::Device`]) and event enums (like [`device::Event`]).
+
 use std::{
     env, io,
     os::unix::{
@@ -12,6 +19,7 @@ use crate::{wire::Backend, PendingRequestResult};
 // Re-export generate bindings
 pub use crate::eiproto_ei::*;
 
+/// A connection, seen from the client side.
 #[derive(Clone, Debug)]
 pub struct Context(pub(crate) Backend);
 
@@ -28,11 +36,33 @@ impl AsRawFd for Context {
 }
 
 impl Context {
-    // TODO way to connect
+    /// Creates a `Context` from a `UnixStream`.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::os::unix::net::UnixStream;
+    /// use reis::ei::Context;
+    ///
+    /// let socket = UnixStream::connect("/example/path");
+    /// // Or receive from, for example, the RemoteDesktop XDG desktop protal.
+    ///
+    /// let context = Context::new(socket).unwrap();
+    /// ```
     pub fn new(socket: UnixStream) -> io::Result<Self> {
         Ok(Self(Backend::new(socket, true)?))
     }
 
+    /// Connects to a socket based on the `LIBEI_SOCKET` environment variable, and creates
+    /// a `Context` from it.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use reis::ei::Context;
+    ///
+    /// let context = Context::connect_to_env().expect("Shouldn't error").unwrap();
+    /// ```
     pub fn connect_to_env() -> io::Result<Option<Self>> {
         let Some(path) = env::var_os("LIBEI_SOCKET") else {
             // XXX return error type

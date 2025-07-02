@@ -19,8 +19,7 @@ pub mod request;
 pub use object::Object;
 mod util;
 mod wire;
-// TODO make (a version of) this public and documented?
-#[doc(hidden)]
+
 pub use wire::Interface;
 pub use wire::ParseError;
 
