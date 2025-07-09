@@ -1,3 +1,5 @@
+//! High-level client-side wrappers for common objects and their events.
+
 // libei has user_data for seat, device, etc. Do we need that?
 // Want clarification in ei docs about events before/after done in some places?
 
@@ -54,17 +56,21 @@ impl std::error::Error for EventError {}
 struct ConnectionInner {
     context: ei::Context,
     handshake_resp: HandshakeResp,
+    /// The last serial number used in an event by the server.
     serial: AtomicU32,
 }
 
+/// High-level client-side wrapper for `ei_connection`.
 #[derive(Clone, Debug)]
 pub struct Connection(Arc<ConnectionInner>);
 
 impl Connection {
+    /// Returns the interface proxy for the underlying `ei_connection` object.
     pub fn connection(&self) -> &ei::Connection {
         &self.0.handshake_resp.connection
     }
 
+    /// Sends buffered messages. Call after you're finished with sending requests.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.context.flush()
     }
@@ -73,11 +79,16 @@ impl Connection {
         self.0.serial.store(value, Ordering::Relaxed);
     }
 
+    // TODO(axka, 2025-07-08): specify in the function name that this is the last serial from
+    // the server, and not the client, and create a function for the other way around.
+    /// Returns the last serial number used in an event by the server.
     pub fn serial(&self) -> u32 {
         self.0.serial.load(Ordering::Relaxed)
     }
 }
 
+/// Utility that converts low-level protocol-level events into high-level events defined in this
+/// module.
 pub struct EiEventConverter {
     pending_seats: HashMap<ei::Seat, SeatInner>,
     seats: HashMap<ei::Seat, Seat>,
@@ -598,24 +609,37 @@ impl EiEventConverter {
     }
 }
 
+/// A [`Region`] defines the area that is accessible by a device.
 #[derive(Debug)]
 pub struct Region {
+    /// X offset in logical pixels.
     pub x: u32,
+    /// Y offset in logical pixels.
     pub y: u32,
+    /// Width in logical pixels.
     pub width: u32,
+    /// Height in logical pixels.
     pub height: u32,
+    /// Physical scale for this region.
     pub scale: f32,
+    /// ID that can be used by the client to, for example, match a video stream with a region.
     pub mapping_id: Option<String>,
 }
 
+/// A keymap from the server.
 #[derive(Debug)]
 pub struct Keymap {
+    /// File descriptor to the keymap.
     pub fd: OwnedFd,
+    /// The size of the keymap in bytes.
     pub size: u32,
+    /// Keymap type.
     pub type_: ei::keyboard::KeymapType,
 }
 
-// bitflags?
+/// A capability of a seat used when advertising seats and binding to capabilities in seats.
+// TODO: bitflags?
+// TODO(axka, 2025-07-08): rename to SeatCapability?
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 #[repr(u64)]
 pub enum DeviceCapability {
@@ -628,6 +652,7 @@ pub enum DeviceCapability {
 }
 
 impl DeviceCapability {
+    /// Returns the name of the interface for this capability.
     pub(crate) fn name(self) -> &'static str {
         match self {
             DeviceCapability::Pointer => ei::Pointer::NAME,
@@ -646,6 +671,7 @@ struct SeatInner {
     capabilities: HashMap<String, u64>,
 }
 
+/// High-level client-side wrapper for `ei_seat`.
 #[derive(Clone)]
 pub struct Seat(Arc<SeatInner>);
 
@@ -674,6 +700,7 @@ impl std::hash::Hash for Seat {
 }
 
 impl Seat {
+    /// Returns the name of the seat, as provided by the server.
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
     }
@@ -708,6 +735,7 @@ struct DeviceInner {
     keymap: Option<Keymap>,
 }
 
+/// High-level client-side wrapper for `ei_device`.
 #[derive(Clone)]
 pub struct Device(Arc<DeviceInner>);
 
@@ -722,38 +750,49 @@ impl fmt::Debug for Device {
 }
 
 impl Device {
+    /// Returns the high-level [`Seat`] wrapper for the device.
     pub fn seat(&self) -> &Seat {
         &self.0.seat
     }
 
+    /// Returns the interface proxy for the underlying `ei_device` object.
     pub fn device(&self) -> &ei::Device {
         &self.0.device
     }
 
+    /// Returns the name of the device, as provided by the server.
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
     }
 
+    /// Returns the device's type.
     pub fn device_type(&self) -> ei::device::DeviceType {
         self.0.device_type.unwrap()
     }
 
+    /// Returns the device's dimensions, if applicable.
     pub fn dimensions(&self) -> Option<(u32, u32)> {
         self.0.dimensions
     }
 
+    /// Returns the device's regions.
     pub fn regions(&self) -> &[Region] {
         &self.0.regions
     }
 
+    /// Returns the device's keymap, if applicable.
     pub fn keymap(&self) -> Option<&Keymap> {
         self.0.keymap.as_ref()
     }
 
+    /// Returns an interface proxy if it is implemented for this device.
+    ///
+    /// Interfaces of devices are implemented, such that there is one `ei_device` object and other objects (for example `ei_keyboard`) denoting capabilities.
     pub fn interface<T: ei::Interface>(&self) -> Option<T> {
         self.0.interfaces.get(T::NAME)?.clone().downcast()
     }
 
+    /// Returns `true` if this device has an interface matching the provided capability.
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
         self.0.interfaces.contains_key(capability.name())
     }
@@ -773,6 +812,7 @@ impl std::hash::Hash for Device {
     }
 }
 
+/// Enum containing all possible events the high-level utilities will give for a client implementation to handle.
 #[derive(Clone, Debug, PartialEq)]
 pub enum EiEvent {
     // Connected,
@@ -805,6 +845,7 @@ pub enum EiEvent {
 impl EiEvent {
     // Events that are grouped by frames need their times set when the
     // frame event occurs.
+    /// Returns the `time` property of this event, if applicable.
     fn time_mut(&mut self) -> Option<&mut u64> {
         match self {
             Self::PointerMotion(evt) => Some(&mut evt.time),
@@ -834,6 +875,7 @@ impl EiEvent {
     }
 }
 
+/// High-level translation of [`ei_connection.disconnected`](ei::connection::Event::Disconnected).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Disconnected {
     pub last_serial: u32,
@@ -841,40 +883,58 @@ pub struct Disconnected {
     pub explanation: String,
 }
 
+/// High-level translation of the seat description events ending with [`ei_seat.done`](ei::seat::Event::Done).
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeatAdded {
     pub seat: Seat,
 }
 
+/// High-level translation of [`ei_seat.destroyed`](ei::seat::Event::Destroyed).
+///
+/// The seat was removed from the tracking data structure, and this is the last time it will appear
+/// in an event.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeatRemoved {
     pub seat: Seat,
 }
 
+/// High-level translation of events leading up to [`ei_device.done`](ei::device::Event::Done).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceAdded {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
 }
 
+/// High-level translation of [`ei_device.destroyed`](ei::device::Event::Destroyed).
+///
+/// The device was removed from the tracking data structure, and this is the last time it will
+/// appear in an event.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceRemoved {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
 }
 
+/// High-level translation of [`ei_device.paused`](ei::device::Event::Paused).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DevicePaused {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
     pub serial: u32,
 }
 
+/// High-level translation of [`ei_device.resumed`](ei::device::Event::Resumed).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceResumed {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
     pub serial: u32,
 }
 
+/// High-level translation of [`ei_keyboard.modifiers`](ei::keyboard::Event::Modifiers).
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyboardModifiers {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
     pub serial: u32,
     pub depressed: u32,
@@ -883,131 +943,186 @@ pub struct KeyboardModifiers {
     pub group: u32,
 }
 
+/// High-level translation of [`ei_device.frame`](ei::device::Event::Frame).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Frame {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
     pub serial: u32,
+    /// Timestamp in microseconds.
     pub time: u64,
 }
 
+/// High-level translation of [`ei_device.start_emulating`](ei::device::Event::StartEmulating).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceStartEmulating {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
     pub serial: u32,
     pub sequence: u32,
 }
 
+/// High-level translation of [`ei_device.stop_emulating`](ei::device::Event::StopEmulating).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceStopEmulating {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
     pub serial: u32,
 }
 
+/// High-level translation of [`ei_pointer.motion_relative`](ei::pointer::Event::MotionRelative).
 #[derive(Clone, Debug, PartialEq)]
 pub struct PointerMotion {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub dx: f32,
     pub dy: f32,
 }
 
+/// High-level translation of [`ei_pointer_absolute.motion_absolute`](ei::pointer_absolute::Event::MotionAbsolute).
 #[derive(Clone, Debug, PartialEq)]
 pub struct PointerMotionAbsolute {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub dx_absolute: f32,
     pub dy_absolute: f32,
 }
 
+/// High-level translation of [`ei_button.button`](ei::button::Event::Button).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Button {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub button: u32,
     pub state: ei::button::ButtonState,
 }
 
+/// High-level translation of [`ei_scroll.scroll`](ei::scroll::Event::Scroll).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollDelta {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub dx: f32,
     pub dy: f32,
 }
 
+/// High-level translation of [`ei_scroll.scroll_stop`](ei::scroll::Event::ScrollStop) when its `is_cancel` is zero.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollStop {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub x: bool,
     pub y: bool,
 }
 
+/// High-level translation of [`ei_scroll.scroll_stop`](ei::scroll::Event::ScrollStop) when its `is_cancel` is nonzero.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollCancel {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub x: bool,
     pub y: bool,
 }
 
+/// High-level translation of [`ei_scroll.scroll_discrete`](ei::scroll::Event::ScrollDiscrete).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollDiscrete {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub discrete_dx: i32,
     pub discrete_dy: i32,
 }
 
+/// High-level translation of [`ei_keyboard.key`](ei::keyboard::Event::Key).
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyboardKey {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
+    /// Key code (according to the current keymap, if any).
     pub key: u32,
+    /// Logical key state.
     pub state: ei::keyboard::KeyState,
 }
 
+/// High-level translation of [`ei_touchscreen.down`](ei::touchscreen::Event::Down).
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchDown {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
+    /// Unique touch ID, defined in this event.
     pub touch_id: u32,
     pub x: f32,
     pub y: f32,
 }
 
+/// High-level translation of [`ei_touchscreen.motion`](ei::touchscreen::Event::Motion).
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchMotion {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
+    /// Unique touch ID, defined in [`TouchDown`].
     pub touch_id: u32,
     pub x: f32,
     pub y: f32,
 }
 
+/// High-level translation of [`ei_touchscreen.up`](ei::touchscreen::Event::Up).
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchUp {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
+    /// Unique touch ID, defined in [`TouchDown`]. It may be reused after this event.
     pub touch_id: u32,
 }
 
+/// High-level translation of [`ei_touchscreen.chcancel`](ei::touchscreen::Event::Cancel).
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchCancel {
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
+    /// Unique touch ID, defined in [`TouchDown`].
     pub touch_id: u32,
 }
 
+/// Trait marking events that happen on a seat.
 pub trait SeatEvent {
+    /// Returns the high-level [`Seat`] wrapper for this event.
     fn seat(&self) -> &Seat;
 }
 
+/// Trait marking events that happen on a device.
 pub trait DeviceEvent: SeatEvent {
+    /// Returns the high-level [`Device`] wrapper for this event.
     fn device(&self) -> &Device;
 }
 
+/// Trait marking events that have microsecond-precision timestamps.
 pub trait EventTime: DeviceEvent {
+    /// Returns the timestamp in microseconds of `CLOCK_MONOTONIC`.
     fn time(&self) -> u64;
 }
 
@@ -1071,6 +1186,8 @@ impl_device_trait!(TouchUp; time);
 impl_device_trait!(TouchMotion; time);
 impl_device_trait!(TouchCancel; time);
 
+/// An iterator that uses [`EiEventConverter`] to convert low-level protocol-level events into
+/// high-level events defined in this module.
 pub struct EiConvertEventIterator {
     context: ei::Context,
     converter: EiEventConverter,

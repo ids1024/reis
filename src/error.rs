@@ -1,6 +1,7 @@
 use crate::{event::EventError, handshake::HandshakeError, ParseError};
 use std::{fmt, io};
 
+/// An error coming from the `reis` crate
 #[derive(Debug)]
 pub enum Error {
     UnexpectedHandshakeEvent,
