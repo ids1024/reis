@@ -132,7 +132,7 @@ impl Backend {
         BackendWeak(Arc::downgrade(&self.0))
     }
 
-    /// Read any pending data on socket into buffer
+    /// Reads any pending data on the socket into the backend's internal buffer.
     ///
     /// Returns `UnexpectedEof` if end-of-file is reached.
     pub fn read(&self) -> io::Result<usize> {
@@ -165,6 +165,7 @@ impl Backend {
         }
     }
 
+    /// Returns a message that is readily available.
     pub(crate) fn pending<T: wire::MessageEnum>(
         &self,
         parse: fn(Object, u32, &mut ByteStream) -> Result<T, ParseError>,
@@ -320,6 +321,7 @@ impl Backend {
         }
     }
 
+    /// Sends buffered messages.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.write.lock().unwrap().flush_write(&self.0.socket)
     }

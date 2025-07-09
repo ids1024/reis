@@ -1,8 +1,13 @@
+//! High-level server-side wrappers for common objects and their requests.
+
 #![allow(clippy::derive_partial_eq_without_eq)]
 
 // TODO: rename/reorganize things; doc comments on public types/methods
 
-use crate::{eis, handshake::EisHandshakeResp, wire::Interface, Error, Object};
+use crate::{
+    ei::connection::DisconnectReason, eis, handshake::EisHandshakeResp, wire::Interface, Error,
+    Object,
+};
 use std::{
     collections::{HashMap, VecDeque},
     fmt,
@@ -21,15 +26,27 @@ struct ConnectionInner {
     last_serial: Mutex<u32>,
 }
 
+/// High-level server-side wrapper for `ei_connection`.
 #[derive(Clone, Debug)]
 pub struct Connection(Arc<ConnectionInner>);
 
 impl Connection {
+    /// Returns the interface proxy for the underlying `ei_connection` object.
     pub fn connection(&self) -> &eis::Connection {
         &self.0.handshake_resp.connection
     }
 
-    pub fn disconnected(&self, reason: eis::connection::DisconnectReason, explanation: &str) {
+    /// Notifies the client that the connection will close.
+    ///
+    /// When a client is disconnected due to an error, `reason` must be something other than
+    /// [`DisconnectReason::Disconnected`], and `explanation` may contain a string explaining
+    /// why.
+    ///
+    /// When a client is disconnected on purpose, for example after a user interaction,
+    /// `reason` must be [`DisconnectReason::Disconnected`], and `explanation` must be `None`.
+    // TODO(axka, 2025-07-08): rename to something imperative like `notify_disconnection`
+    // TODO(axka, 2025-07-08): `explanation` must support NULL: https://gitlab.freedesktop.org/libinput/libei/-/commit/267716a7609730914b24adf5860ec8d2cf2e7636
+    pub fn disconnected(&self, reason: DisconnectReason, explanation: &str) {
         let seats = self
             .0
             .seats
@@ -45,19 +62,26 @@ impl Connection {
             .disconnected(self.last_serial(), reason, explanation);
     }
 
+    /// Sends buffered messages. Call after you're finished with sending events.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.context.flush()
     }
 
+    /// Returns the context type of this this connection.
+    ///
+    /// That is — whether the client emulates input events via requests or receives
+    /// input events.
     pub fn context_type(&self) -> eis::handshake::ContextType {
         self.0.handshake_resp.context_type
     }
 
+    /// Returns the human-readable name of the client.
     pub fn name(&self) -> Option<&str> {
         self.0.handshake_resp.name.as_deref()
     }
 
     // Use type instead of string?
+    /// Returns `true` if the connection supports the named interface.
     pub fn has_interface(&self, interface: &str) -> bool {
         self.0
             .handshake_resp
@@ -65,6 +89,8 @@ impl Connection {
             .contains_key(interface)
     }
 
+    /// Returns the version of the named interface if it's supported on this
+    /// connection. Otherwise returns `None`.
     pub fn interface_version(&self, interface: &str) -> Option<u32> {
         self.0
             .handshake_resp
@@ -73,10 +99,14 @@ impl Connection {
             .copied()
     }
 
+    // TODO(axka, 2025-07-08): specify in the function name that this is the last serial from
+    // the server, and not the client, and create a function for the other way around.
+    /// Returns the last serial used in an event sent by the server.
     pub fn last_serial(&self) -> u32 {
         *self.0.last_serial.lock().unwrap()
     }
 
+    /// Increments the current serial and runs the provided callback with it.
     pub fn with_next_serial<T, F: FnOnce(u32) -> T>(&self, cb: F) -> T {
         let mut last_serial = self.0.last_serial.lock().unwrap();
         let serial = last_serial.wrapping_add(1);
@@ -94,6 +124,7 @@ impl Connection {
             .cloned()
     }
 
+    /// Adds a seat to the connection.
     pub fn add_seat(&self, name: Option<&str>, capabilities: &[DeviceCapability]) -> Seat {
         let seat = self.connection().seat(1);
         if let Some(name) = name {
@@ -126,6 +157,8 @@ fn eis_now() -> u64 {
 }
 
 // need way to add seat/device?
+/// Utility that converts low-level protocol-level requests into high-level requests defined in
+/// this module.
 #[derive(Debug)]
 pub struct EisRequestConverter {
     requests: VecDeque<EisRequest>,
@@ -134,6 +167,7 @@ pub struct EisRequestConverter {
 }
 
 impl EisRequestConverter {
+    /// Creates a new converter.
     pub fn new(
         context: &eis::Context,
         handshake_resp: EisHandshakeResp,
@@ -435,6 +469,7 @@ struct SeatInner {
     handle: Weak<ConnectionInner>,
 }
 
+/// High-level server-side wrapper for `ei_seat`.
 #[derive(Clone)]
 pub struct Seat(Arc<SeatInner>);
 
@@ -451,11 +486,13 @@ fn add_interface<I: eis::Interface>(
 }
 
 impl Seat {
+    /// Returns the interface proxy for the underlying `ei_seat` object.
     pub fn eis_seat(&self) -> &eis::Seat {
         &self.0.seat
     }
 
     // builder pattern?
+    /// Adds a device to the connection.
     pub fn add_device(
         &self,
         name: Option<&str>,
@@ -531,6 +568,7 @@ impl Seat {
         device
     }
 
+    /// Removes this seat and associated devices from the connection.
     pub fn remove(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             let devices = handle
@@ -618,6 +656,7 @@ struct DeviceInner {
     handle: Weak<ConnectionInner>,
 }
 
+/// High-level server-side wrapper for `ei_device`.
 #[derive(Clone)]
 pub struct Device(Arc<DeviceInner>);
 
@@ -632,26 +671,34 @@ impl fmt::Debug for Device {
 }
 
 impl Device {
+    /// Returns the high-level [`Seat`] wrapper for this device.
     pub fn seat(&self) -> &Seat {
         &self.0.seat
     }
 
+    /// Returns the interface proxy for the underlying `ei_device` object.
     pub fn device(&self) -> &eis::Device {
         &self.0.device
     }
 
+    /// Returns the name of the device.
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
     }
 
+    /// Returns an interface proxy if it is implemented for this device.
+    ///
+    /// Interfaces of devices are implemented, such that there is one `ei_device` object and other objects (for example `ei_keyboard`) denoting capabilities.
     pub fn interface<T: DeviceInterface>(&self) -> Option<T> {
         self.0.interfaces.get(T::NAME)?.clone().downcast()
     }
 
+    /// Returns `true` if this device has an interface matching the provided capability.
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
         self.0.interfaces.contains_key(capability.name())
     }
 
+    /// Removes this device and associated interfaces from the connection.
     pub fn remove(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             for interface in self.0.interfaces.values() {
@@ -669,31 +716,55 @@ impl Device {
         }
     }
 
+    /// Notifies to the client that, depending on the context type, it may request to start emulating or receiving input events. A newly advertised device is in the [`paused`](Self::paused) state.
+    ///
+    /// See [`eis::Device::resumed`] for documentation from the protocol specification.
     pub fn resumed(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().resumed(serial))
         }
     }
 
+    /// Notifies to the client that, depending on the context type, no further input events
+    /// will be accepted for emulation or no further input events will be sent.
+    ///
+    /// See [`eis::Device::paused`] for documentation from the protocol specification.
     pub fn paused(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().paused(serial))
         }
     }
 
-    // TODO: statically restrict to receiver context?
+    // TODO: statically restrict the below to receiver context?
+
+    /// Notifies the client that the given device is about to start sending events.
+    ///
+    /// **Note:** Must only be sent in a receiver context.
+    ///
+    /// See [`eis::Device::start_emulating`] for documentation from the protocol specification.
     pub fn start_emulating(&self, sequence: u32) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().start_emulating(serial, sequence))
         }
     }
 
+    /// Notifies the client that the given device is no longer sending events.
+    ///
+    /// **Note:** Must only be sent in a receiver context.
+    ///
+    /// See [`eis::Device::stop_emulating`] for documentation from the protocol specification.
     pub fn stop_emulating(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().stop_emulating(serial))
         }
     }
 
+    /// Notifies the client to group the current set of events into a logical hardware
+    /// event.
+    ///
+    /// **Note:** Must only be sent in a receiver context.
+    ///
+    /// See [`eis::Device::frame`] for documentation from the protocol specification.
     pub fn frame(&self, time: u64) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().frame(serial, time))
@@ -715,6 +786,7 @@ impl std::hash::Hash for Device {
     }
 }
 
+/// Enum containing all possible requests the high-level utilities will give for a server implementation to handle.
 #[derive(Clone, Debug, PartialEq)]
 pub enum EisRequest {
     // TODO connect, disconnect, device closed
@@ -741,6 +813,7 @@ pub enum EisRequest {
 impl EisRequest {
     // Requests that are grouped by frames need their times set when the
     // frame request occurs.
+    /// Returns the `time` property of this request, if applicable.
     fn time_mut(&mut self) -> Option<&mut u64> {
         match self {
             Self::PointerMotion(evt) => Some(&mut evt.time),
@@ -763,6 +836,7 @@ impl EisRequest {
         }
     }
 
+    /// Returns the high-level [`Device`] wrapper for this request, if applicable.
     pub fn device(&self) -> Option<&Device> {
         match self {
             Self::Frame(evt) => Some(&evt.device),
@@ -785,157 +859,197 @@ impl EisRequest {
     }
 }
 
+/// High-level translation of [`ei_seat.bind`](eis::seat::Request::Bind).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Bind {
-    /// The seat object
+    /// High-level [`Seat`] wrapper.
     pub seat: Seat,
     pub capabilities: u64,
 }
 
+/// High-level translation of [`ei_device.frame`](eis::device::Request::Frame).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Frame {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
     pub last_serial: u32,
+    /// Timestamp in microseconds.
     pub time: u64,
 }
 
+/// High-level translation of [`ei_device.start_emulating`](eis::device::Request::StartEmulating).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceStartEmulating {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
     pub last_serial: u32,
     pub sequence: u32,
 }
 
+/// High-level translation of [`ei_device.stop_emulating`](eis::device::Request::StopEmulating).
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeviceStopEmulating {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
     pub last_serial: u32,
 }
 
+/// High-level translation of [`ei_pointer.motion_relative`](eis::pointer::Request::MotionRelative).
 #[derive(Clone, Debug, PartialEq)]
 pub struct PointerMotion {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub dx: f32,
     pub dy: f32,
 }
 
+/// High-level translation of [`ei_pointer_absolute.motion_absolute`](eis::pointer_absolute::Request::MotionAbsolute).
 #[derive(Clone, Debug, PartialEq)]
 pub struct PointerMotionAbsolute {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub dx_absolute: f32,
     pub dy_absolute: f32,
 }
 
+/// High-level translation of [`ei_button.button`](eis::button::Request::Button).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Button {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub button: u32,
     pub state: eis::button::ButtonState,
 }
 
+/// High-level translation of [`ei_scroll.scroll`](eis::scroll::Request::Scroll).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollDelta {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub dx: f32,
     pub dy: f32,
 }
 
+/// High-level translation of [`ei_scroll.scroll_stop`](eis::scroll::Request::ScrollStop) when its `is_cancel` is zero.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollStop {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub x: bool,
     pub y: bool,
 }
 
+/// High-level translation of [`ei_scroll.scroll_stop`](eis::scroll::Request::ScrollStop) when its `is_cancel` is nonzero.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollCancel {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub x: bool,
     pub y: bool,
 }
 
+/// High-level translation of [`ei_scroll.scroll_discrete`](eis::scroll::Request::ScrollDiscrete).
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrollDiscrete {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
     pub discrete_dx: i32,
     pub discrete_dy: i32,
 }
 
+/// High-level translation of [`ei_keyboard.key`](eis::keyboard::Request::Key).
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyboardKey {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
-    /// Key code
-    ///
-    /// If a keymap was specified by the server, this key code corresponds to that keymap.
+    /// Key code (according to the current keymap, if any).
     pub key: u32,
-    /// The logical state of a key
+    /// Logical key state.
     pub state: eis::keyboard::KeyState,
 }
 
+/// High-level translation of [`ei_touchscreen.down`](eis::touchscreen::Request::Down).
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchDown {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
+    /// Unique touch ID, defined in this request.
     pub touch_id: u32,
     pub x: f32,
     pub y: f32,
 }
 
+/// High-level translation of [`ei_touchscreen.motion`](eis::touchscreen::Request::Motion).
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchMotion {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
+    /// Unique touch ID, defined in [`TouchDown`].
     pub touch_id: u32,
     pub x: f32,
     pub y: f32,
 }
 
+/// High-level translation of [`ei_touchscreen.up`](eis::touchscreen::Request::Up).
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchUp {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
+    /// Unique touch ID, defined in [`TouchDown`]. It may be reused after this request.
     pub touch_id: u32,
 }
 
+/// High-level translation of [`ei_touchscreen.chcancel`](eis::touchscreen::Request::Cancel).
 #[derive(Clone, Debug, PartialEq)]
 pub struct TouchCancel {
-    /// The device object
+    /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Timestamp in microseconds.
     pub time: u64,
+    /// Unique touch ID, defined in [`TouchDown`].
     pub touch_id: u32,
 }
 
+// TODO(axka, 2025-07-08): event and request terms collide when the below traits are implemented on
+// variants of `EisRequest`. Furthermore, the name of the module is slightly confusing.
+
+/// Trait marking events that happen on a seat.
 pub trait SeatEvent {
+    /// Returns the high-level [`Seat`] wrapper for this event.
     fn seat(&self) -> &Seat;
 }
 
+/// Trait marking events that happen on a device.
 pub trait DeviceEvent: SeatEvent {
+    /// Returns the high-level [`Device`] wrapper for this event.
     fn device(&self) -> &Device;
 }
 
+/// Trait marking events that have microsecond-precision timestamps.
 pub trait EventTime: DeviceEvent {
+    /// Returns the timestamp in microseconds of `CLOCK_MONOTONIC`.
     fn time(&self) -> u64;
 }
 

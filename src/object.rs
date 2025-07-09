@@ -66,13 +66,13 @@ impl Object {
         self.0.backend.upgrade()
     }
 
-    /// Returns a weak handle to the backend, which works even after the backend has been
+    /// Returns a weak handle to the backend that works even after the backend has been
     /// destroyed.
     pub(crate) fn backend_weak(&self) -> &BackendWeak {
         &self.0.backend
     }
 
-    /// Returns true if the backend has this object, and false otherwise or if the backend
+    /// Returns `true` if the backend has this object, and false otherwise or if the backend
     /// has been destroyed.
     pub fn is_alive(&self) -> bool {
         if let Some(backend) = self.backend() {

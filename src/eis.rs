@@ -120,20 +120,25 @@ impl Context {
         Ok(Self(Backend::new(socket, false)?))
     }
 
-    /// Reads any pending data on socket into buffer
+    /// Reads any pending data on the socket into the internal buffer.
+    ///
+    /// Returns `UnexpectedEof` if end-of-file is reached.
     pub fn read(&self) -> io::Result<usize> {
         self.0.read()
     }
 
+    /// Returns a request that is readily available.
     // XXX iterator
     pub fn pending_request(&self) -> Option<PendingRequestResult<Request>> {
         self.0.pending(Request::parse)
     }
 
+    /// Returns the interface proxy for the `ei_handshake` object.
     pub fn handshake(&self) -> handshake::Handshake {
         self.0.object_for_id(0).unwrap().downcast_unchecked()
     }
 
+    /// Sends buffered messages. Call after you're finished with sending events.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.flush()
     }
