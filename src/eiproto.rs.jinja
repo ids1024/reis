@@ -40,6 +40,14 @@ use crate::wire;
     {% endif %}
 {%- endmacro %}
 
+{% macro connection_side() -%}
+    {%- if extra.eis -%}
+    Server-side
+    {%- else -%}
+    Client-side
+    {%- endif -%}
+{%- endmacro %}
+
 {% macro module() -%}
     {% if extra.eis %}
     crate::eis
@@ -49,21 +57,28 @@ use crate::wire;
 {%- endmacro %}
 
 {% for interface in interfaces %}
+/// {{connection_side()}} protocol definition module for interface `{{interface.protocol_name}}`.
+///
 /** {{interface.description.text|ei_escape_names}} */
 pub mod {{interface.plainname}} {
     use crate::wire;
 
+    /// {{connection_side()}} interface proxy for interface `{{interface.protocol_name}}`.
+    ///
+    /** {{interface.description.text|ei_escape_names}} */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct {{interface.plainname|camel}}(pub(crate) crate::Object);
 
     impl {{interface.plainname|camel}} {
+        /// Returns the negotiated version of the interface.
         pub fn version(&self) -> u32 {
             self.0.version()
         }
 
-	pub fn is_alive(&self) -> bool {
-            self.0.is_alive()
-	}
+        /// Returns `true` if the backend has this object.
+        pub fn is_alive(&self) -> bool {
+          self.0.is_alive()
+        }
     }
 
     impl crate::private::Sealed for {{interface.plainname|camel}} {}
@@ -81,9 +96,9 @@ pub mod {{interface.plainname}} {
             Self(object)
         }
 
-	fn as_object(&self) -> &crate::Object {
-            &self.0
-	}
+        fn as_object(&self) -> &crate::Object {
+          &self.0
+        }
 
         fn as_arg(&self) -> wire::Arg<'_> {
             self.0.as_arg()
@@ -164,6 +179,7 @@ pub mod {{interface.plainname}} {
     pub use crate::eiproto_enum::{{interface.plainname}}::{{enum.camel_name}};
     {% endfor %}
 
+    /// Representation of all {{incoming_enum()|lower}}s of `{{interface.protocol_name}}`.
     #[non_exhaustive]
     #[derive(Debug)]
     pub enum {{incoming_enum()}} {
@@ -214,7 +230,7 @@ pub mod {{interface.plainname}} {
                     {% endif %} )
                 }
             {% endfor %}
-         opcode => Err(wire::ParseError::InvalidOpcode("{{interface.plainname}}", opcode)),
+                opcode => Err(wire::ParseError::InvalidOpcode("{{interface.plainname}}", opcode)),
             }
         }
 

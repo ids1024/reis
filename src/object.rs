@@ -72,7 +72,7 @@ impl Object {
         &self.0.backend
     }
 
-    /// Returns `true` if the backend has this object, and false otherwise or if the backend
+    /// Returns `true` if the backend has this object, and `false` otherwise or if the backend
     /// has been destroyed.
     pub fn is_alive(&self) -> bool {
         if let Some(backend) = self.backend() {
