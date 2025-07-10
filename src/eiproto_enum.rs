@@ -12,18 +12,17 @@
 pub(crate) mod handshake {
     use crate::wire;
 
+    /// Context types for connections.
+    ///
     /**
-    This enum denotes context types for the libei context.
-
-    A context type of receiver is a libei context receiving events
-    from the EIS implementation. A context type of sender is a libei context
-    sending events to the EIS implementation.
+    Context types for connections. The context type for a connection is set
+    once in the `ei_handshake.context_type` request.
      */
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum ContextType {
-        /** this client receives events from the EIS implementation */
+        /// The client receives input events from the server.
         Receiver = 1,
-        /** this client sends events to the EIS implementation */
+        /// The client sends input events to the server.
         Sender = 2,
     }
 
@@ -61,6 +60,8 @@ pub(crate) mod handshake {
 pub(crate) mod connection {
     use crate::wire;
 
+    /// Disconnection reason.
+    ///
     /**
     A reason why a client was disconnected. This enum is intended to
     provide information to the client on whether it was disconnected as
@@ -75,17 +76,17 @@ pub(crate) mod connection {
      */
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum DisconnectReason {
-        /** client was purposely disconnected */
+        /// Client was purposely disconnected.
         Disconnected = 0,
-        /** an error caused the disconnection */
+        /// An error caused the disconnection.
         Error = 1,
-        /** sender/receiver client sent request for receiver/sender mode */
+        /// Sender/receiver client sent request for receiver/sender mode.
         Mode = 2,
-        /** client committed a protocol violation */
+        /// Client committed a protocol violation.
         Protocol = 3,
-        /** client sent an invalid value */
+        /// Client sent an invalid value.
         Value = 4,
-        /** error on the transport layer */
+        /// Error on the transport layer.
         Transport = 5,
     }
 
@@ -146,13 +147,15 @@ pub(crate) mod seat {
 pub(crate) mod device {
     use crate::wire;
 
+    /// Device type.
+    ///
     /**
     If the device type is `ei_device.device_type.virtual`, the device is a
     virtual device representing input as applied on the EIS implementation's
     screen. A relative virtual device generates input events in logical pixels,
     an absolute virtual device generates input events in logical pixels on one
     of the device's regions. Virtual devices do not have a `ei_device.dimension` but
-    it may have an `ei_device.region.`
+    it may have an `ei_device.region`.
 
     If the device type is `ei_device.device_type.physical`, the device is a
     representation of a physical device as if connected to the EIS
@@ -163,9 +166,9 @@ pub(crate) mod device {
      */
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum DeviceType {
-        /** a virtual device */
+        /// A virtual device.
         Virtual = 1,
-        /** representation of a physical device */
+        /// Representation of a physical device.
         Physical = 2,
     }
 
@@ -215,14 +218,16 @@ pub(crate) mod scroll {
 pub(crate) mod button {
     use crate::wire;
 
+    /// Button state.
+    ///
     /**
     The logical state of a button.
      */
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum ButtonState {
-        /** the button is logically up */
+        /// The button is logically up.
         Released = 0,
-        /** the button is logically down */
+        /// The button is logically down.
         Press = 1,
     }
 
@@ -260,14 +265,16 @@ pub(crate) mod button {
 pub(crate) mod keyboard {
     use crate::wire;
 
+    /// Key state.
+    ///
     /**
     The logical state of a key.
      */
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum KeyState {
-        /** the key is logically up */
+        /// The key is logically up.
         Released = 0,
-        /** the key is logically down */
+        /// The key is logically down.
         Press = 1,
     }
 
@@ -300,13 +307,15 @@ pub(crate) mod keyboard {
             ))
         }
     }
+    /// The keymap type.
+    ///
     /**
     The keymap type describes how the keymap in the `ei_keyboard.keymap` event
     should be parsed.
      */
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum KeymapType {
-        /** a libxkbcommon-compatible XKB keymap */
+        /// A libxkbcommon-compatible xkb keymap.
         Xkb = 1,
     }
 
