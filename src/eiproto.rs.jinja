@@ -3,67 +3,75 @@
 
 // GENERATED FILE
 
-{# TODO handle destructor #}
 {# TODO handle context_type #}
 
 use crate::wire;
 
-{% macro interface_type(interface) -%}
+{%- macro interface_type(interface) -%}
     super::{{interface.plainname}}::{{interface.plainname|camel}}
-{%- endmacro %}
+{% endmacro -%}
 
-{% macro arg_type(arg, owned, generic) -%}
-    {% if arg.enum != None %} {{ arg.enum.name|camel }}
-    {% elif arg.protocol_type == 'string' and owned %} String
-    {% elif arg.protocol_type == 'string' %} &str
-    {% elif arg.protocol_type == 'int32' %} i32
-    {% elif arg.protocol_type == 'uint32' %} u32
-    {% elif arg.protocol_type == 'int64' %} i64
-    {% elif arg.protocol_type == 'uint64' %} u64
-    {% elif arg.protocol_type == 'object' and owned %} {{interface_type(arg.interface)}}
-    {% elif arg.protocol_type == 'object' %} &{{interface_type(arg.interface)}}
-    {% elif arg.protocol_type == 'new_id' and arg.interface %} {{interface_type(arg.interface)}}
-    {% elif arg.protocol_type == 'new_id' and arg.interface_arg and generic %} {{arg.interface_arg.name|camel}}
-    {% elif arg.protocol_type == 'new_id' and arg.interface_arg %} crate::Object
-    {% elif arg.protocol_type == 'float' %} f32
-    {% elif arg.protocol_type == 'fd' and owned %} std::os::unix::io::OwnedFd
-    {% elif arg.protocol_type == 'fd' %} std::os::unix::io::BorrowedFd
-    {% else %} unhandled_arg_type_{{arg.protocol_type}}
-    {% endif %}
-{%- endmacro %}
-
-{% macro incoming_enum() -%}
-    {% if extra.eis %}
-    Request
-    {% else %}
-    Event
-    {% endif %}
-{%- endmacro %}
-
-{% macro connection_side() -%}
-    {%- if extra.eis -%}
-    Server-side
-    {%- else -%}
-    Client-side
+{%- macro arg_type(arg, owned, generic) -%}
+    {%- if arg.enum != None -%} {{ arg.enum.name|camel }}
+    {%- elif arg.protocol_type == 'string' and owned -%} String
+    {%- elif arg.protocol_type == 'string' -%} &str
+    {%- elif arg.protocol_type == 'int32' -%} i32
+    {%- elif arg.protocol_type == 'uint32' -%} u32
+    {%- elif arg.protocol_type == 'int64' -%} i64
+    {%- elif arg.protocol_type == 'uint64' -%} u64
+    {%- elif arg.protocol_type == 'object' and owned -%} {{interface_type(arg.interface)}}
+    {%- elif arg.protocol_type == 'object' -%} &{{interface_type(arg.interface)}}
+    {%- elif arg.protocol_type == 'new_id' and arg.interface -%} {{interface_type(arg.interface)}}
+    {%- elif arg.protocol_type == 'new_id' and arg.interface_arg and generic -%} {{arg.interface_arg.name|camel}}
+    {%- elif arg.protocol_type == 'new_id' and arg.interface_arg -%} crate::Object
+    {%- elif arg.protocol_type == 'float' -%} f32
+    {%- elif arg.protocol_type == 'fd' and owned -%} std::os::unix::io::OwnedFd
+    {%- elif arg.protocol_type == 'fd' -%} std::os::unix::io::BorrowedFd
+    {%- else -%} unhandled_arg_type_{{arg.protocol_type}}
     {%- endif -%}
-{%- endmacro %}
+{% endmacro -%}
 
-{% macro module() -%}
-    {% if extra.eis %}
-    crate::eis
-    {% else %}
-    crate::ei
+{#- Required because combining /// and /** */ comments doesn't work with indentation -#}
+{%- macro doc_commentize(text) %}
+  {#- lstrip is required because there's an empty line before each description -#}
+  {%- for line in text.lstrip().splitlines() %}
+/// {{line}}
+  {% endfor %}
+{% endmacro -%}
+
+{%- set message_enum_from = {'server': 'Event', 'client': 'Request'} -%}
+{%- set current_actor = 'server' if extra.eis else 'client' -%}
+{%- set opposite_actor = 'client' if extra.eis else 'server' -%}
+{%- set module = 'crate::eis' if extra.eis else 'crate::ei' -%}
+
+{%- set incoming_enum = message_enum_from[opposite_actor] -%}
+
+{%- macro message_doc_comment(message, sender_actor) %}
+    /// {{message.description.summary|capitalize}}.
+    ///
+    {% if message.context_type %}
+    /// **Note:** This {{ message_enum_from[sender_actor] | lower }} may only be used in a {{message.context_type}} [context type]({{module}}::handshake::ContextType).
+    ///
     {% endif %}
-{%- endmacro %}
+    {% if message.is_destructor %}
+    /// **Note:** This {{ message_enum_from[sender_actor] | lower }} is a destructor.
+    ///
+    {% endif %}
+    {{- doc_commentize(message.description.text|ei_escape_names) -}}
+{% endmacro -%}
 
 {% for interface in interfaces %}
-/// {{connection_side()}} protocol definition module for interface `{{interface.protocol_name}}`.
+/// {{interface.description.summary|capitalize}}.
+///
+/// {{current_actor|capitalize}}-side protocol definition module for interface `{{interface.protocol_name}}`.
 ///
 /** {{interface.description.text|ei_escape_names}} */
 pub mod {{interface.plainname}} {
     use crate::wire;
 
-    /// {{connection_side()}} interface proxy for interface `{{interface.protocol_name}}`.
+    /// {{interface.description.summary|capitalize}}.
+    ///
+    /// {{current_actor|capitalize}}-side interface proxy for interface `{{interface.protocol_name}}`.
     ///
     /** {{interface.description.text|ei_escape_names}} */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
@@ -105,15 +113,29 @@ pub mod {{interface.plainname}} {
         }
     }
 
-    impl {{module()}}::Interface for {{interface.plainname|camel}} {}
+    impl {{module}}::Interface for {{interface.plainname|camel}} {}
 
     impl {{interface.plainname|camel}} {
         {% for outgoing in interface.outgoing %}
-        /** {{outgoing.description.text|ei_escape_names}} */
+        {{ message_doc_comment(outgoing, current_actor) -}}
+        {% if outgoing.arguments %}
+        /// # Parameters
+        ///
+        {% for arg in outgoing.arguments %}
+        {% if arg.protocol_type != 'new_id' and not arg.interface_arg_for %}
+        {% if arg.summary %}
+        /// - `{{arg.name}}`: {{arg.summary|capitalize}}.
+        {% else %}
+        /// - `{{arg.name}}`
+        {% endif %}
+        {% endif %}
+        {% endfor %}
+        ///
+        {% endif %}
         pub fn {{outgoing.name}}<
             {%- for arg in outgoing.arguments %}
             {% if arg.interface_arg_for %}
-            {{arg.name|camel}}: {{module()}}::Interface
+            {{arg.name|camel}}: {{module}}::Interface
             {% endif %}
             {% endfor -%}
         >(
@@ -179,17 +201,19 @@ pub mod {{interface.plainname}} {
     pub use crate::eiproto_enum::{{interface.plainname}}::{{enum.camel_name}};
     {% endfor %}
 
-    /// Representation of all {{incoming_enum()|lower}}s of `{{interface.protocol_name}}`.
+    /// All {{incoming_enum|lower}}s of interface `{{interface.protocol_name}}`.
+    ///
+    /// {{incoming_enum}}s are messages that come from {{opposite_actor}}s.
     #[non_exhaustive]
     #[derive(Debug)]
-    pub enum {{incoming_enum()}} {
+    pub enum {{incoming_enum}} {
         {% for incoming in interface.incoming %}
-            /** {{incoming.description.text|ei_escape_names}} */
+            {{ message_doc_comment(incoming, opposite_actor) -}}
             {{ incoming.name|camel }}
                 {% if incoming.arguments %}
                 { {% for arg in incoming.arguments %}
                     {% if not (arg.version_arg_for or arg.interface_arg_for) %}
-                    /** {{arg.summary}} */
+                    /// {{arg.summary|capitalize}}.
                     {{arg.name}}: {{arg_type(arg, true, false)}},
                     {% endif %}
                 {% endfor %} }
@@ -197,7 +221,7 @@ pub mod {{interface.plainname}} {
         {% endfor %}
     }
 
-    impl {{incoming_enum()}} {
+    impl {{incoming_enum}} {
         pub(super) fn op_name(operand: u32) -> Option<&'static str> {
             match operand {
             {% for incoming in interface.incoming %}
@@ -269,20 +293,23 @@ pub use {{interface.plainname}}::{{interface.plainname|camel}};
 
 {% endfor %}
 
+/// All {{incoming_enum|lower}}s of all interfaces.
+///
+/// {{incoming_enum}}s are messages that come from {{opposite_actor}}s.
 #[non_exhaustive]
 #[derive(Debug)]
-pub enum {{incoming_enum()}} {
+pub enum {{incoming_enum}} {
     {% for interface in interfaces %}
-        {{interface.plainname|camel}}({{interface.plainname}}::{{interface.plainname|camel}}, {{interface.plainname}}::{{incoming_enum()}}),
+        {{interface.plainname|camel}}({{interface.plainname}}::{{interface.plainname|camel}}, {{interface.plainname}}::{{incoming_enum}}),
     {% endfor %}
 }
 
-impl {{incoming_enum()}} {
+impl {{incoming_enum}} {
     pub(crate) fn op_name(interface: &str, operand: u32) -> Option<&'static str> {
         match interface {
             {% for interface in interfaces %}
                 "{{interface.protocol_name}}" =>
-                    {{interface.plainname}}::{{incoming_enum()}}::op_name(operand),
+                    {{interface.plainname}}::{{incoming_enum}}::op_name(operand),
             {% endfor %}
             _ => None,
         }
@@ -293,7 +320,7 @@ impl {{incoming_enum()}} {
             {% for interface in interfaces %}
                 "{{interface.protocol_name}}" => Ok(Self::{{interface.plainname|camel}}(
                     object.downcast_unchecked(), 
-                    {{interface.plainname}}::{{incoming_enum()}}::parse(operand, bytes)?)
+                    {{interface.plainname}}::{{incoming_enum}}::parse(operand, bytes)?)
                 ),
             {% endfor %}
             intr => Err(wire::ParseError::InvalidInterface(intr.to_owned())),
@@ -301,7 +328,7 @@ impl {{incoming_enum()}} {
     }
 }
 
-impl wire::MessageEnum for {{incoming_enum()}} {
+impl wire::MessageEnum for {{incoming_enum}} {
     fn args(&self) -> Vec<wire::Arg<'_>> {
         match self {
             {% for interface in interfaces %}
