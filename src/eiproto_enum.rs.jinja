@@ -8,11 +8,13 @@ pub(crate) mod {{interface.plainname}} {
     use crate::wire;
 
     {% for enum in interface.enums %}
-     /** {{enum.description.text|ei_escape_names}} */
+    /// {{enum.description.summary|capitalize}}.
+    ///
+    /** {{enum.description.text|ei_escape_names}} */
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum {{enum.camel_name}} {
         {% for entry in enum.entries %}
-        /** {{entry.summary}} */
+        /// {{entry.summary|capitalize}}.
         {{entry.name|camel}} = {{entry.value}},
         {% endfor %}
     }
