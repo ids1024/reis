@@ -5,7 +5,9 @@ use rustix::{
 };
 use std::{
     collections::VecDeque,
-    fs, io, ops,
+    fs, io,
+    mem::MaybeUninit,
+    ops,
     os::unix::{
         fs::OpenOptionsExt,
         io::{AsFd, BorrowedFd, OwnedFd},
@@ -32,7 +34,7 @@ pub fn send_with_fds(
     fds: &[BorrowedFd],
 ) -> rustix::io::Result<usize> {
     #[allow(clippy::manual_slice_size_calculation)]
-    let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(fds.len()))];
+    let mut cmsg_space = vec![MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(fds.len()))];
     let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
     cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(fds));
     retry_on_intr(|| net::sendmsg(socket, buf, &mut cmsg_buffer, net::SendFlags::NOSIGNAL))
@@ -46,7 +48,7 @@ pub fn recv_with_fds(
     const MAX_FDS: usize = 32;
 
     #[allow(clippy::manual_slice_size_calculation)]
-    let mut cmsg_space = vec![0; rustix::cmsg_space!(ScmRights(MAX_FDS))];
+    let mut cmsg_space = vec![MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(MAX_FDS))];
     let mut cmsg_buffer = net::RecvAncillaryBuffer::new(&mut cmsg_space);
     let response = retry_on_intr(|| {
         net::recvmsg(
@@ -126,7 +128,7 @@ pub fn poll_readable<T: AsFd>(fd: &T) -> io::Result<()> {
     rustix::io::retry_on_intr(|| {
         rustix::event::poll(
             &mut [rustix::event::PollFd::new(fd, rustix::event::PollFlags::IN)],
-            0,
+            None,
         )
     })?;
     Ok(())
