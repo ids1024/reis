@@ -17,15 +17,13 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::UnexpectedHandshakeEvent => write!(f, "unexpected handshake event"),
-            Self::InvalidInterfaceVersion(interface, version) => write!(
-                f,
-                "invalid version {} for interface '{}'",
-                version, interface
-            ),
-            Self::Event(err) => write!(f, "event error: {}", err),
-            Self::Io(err) => write!(f, "IO error: {}", err),
-            Self::Handshake(err) => write!(f, "handshake error: {}", err),
-            Self::Parse(err) => write!(f, "parse error: {}", err),
+            Self::InvalidInterfaceVersion(interface, version) => {
+                write!(f, "invalid version {version} for interface '{interface}'")
+            }
+            Self::Event(err) => write!(f, "event error: {err}"),
+            Self::Io(err) => write!(f, "IO error: {err}"),
+            Self::Handshake(err) => write!(f, "handshake error: {err}"),
+            Self::Parse(err) => write!(f, "parse error: {err}"),
         }
     }
 }

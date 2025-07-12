@@ -46,7 +46,7 @@ pub enum HandshakeError {
 impl fmt::Display for HandshakeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::InvalidObject(id) => write!(f, "invalid object {} during handshake", id),
+            Self::InvalidObject(id) => write!(f, "invalid object {id} during handshake"),
             Self::NonHandshakeEvent => write!(f, "non-handshake event during handshake"),
             Self::MissingInterface => write!(f, "missing required interface"),
             Self::DuplicateEvent => write!(f, "duplicate event during handshake"),

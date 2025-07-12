@@ -88,7 +88,7 @@ impl BackendWeak {
 }
 
 impl AsFd for Backend {
-    fn as_fd(&self) -> BorrowedFd {
+    fn as_fd(&self) -> BorrowedFd<'_> {
         self.0.socket.as_fd()
     }
 }
@@ -287,7 +287,7 @@ impl Backend {
                 eprint!(", ");
             }
             first = false;
-            eprint!("{}", arg);
+            eprint!("{arg}");
         }
         eprintln!(")");
     }

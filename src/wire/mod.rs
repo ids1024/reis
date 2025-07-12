@@ -118,19 +118,19 @@ impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::EndOfMessage => write!(f, "found end of message while parsing argument"),
-            Self::Utf8(e) => write!(f, "invalid UTF-8 string in message: {}", e),
-            Self::InvalidId(id) => write!(f, "new object id '{}' invalid", id),
+            Self::Utf8(e) => write!(f, "invalid UTF-8 string in message: {e}"),
+            Self::InvalidId(id) => write!(f, "new object id '{id}' invalid"),
             Self::NoFd => write!(f, "expected fd"),
             Self::InvalidOpcode(intr, op) => {
-                write!(f, "opcode '{}' invallid for interface '{}'", op, intr)
+                write!(f, "opcode '{op}' invallid for interface '{intr}'")
             }
             Self::InvalidVariant(enum_, var) => {
-                write!(f, "variant '{}' invallid for enum '{}'", var, enum_)
+                write!(f, "variant '{var}' invallid for enum '{enum_}'")
             }
-            Self::InvalidInterface(intr) => write!(f, "unknown interface '{}'", intr),
-            Self::HeaderLength(len) => write!(f, "header length {} < 16", len),
+            Self::InvalidInterface(intr) => write!(f, "unknown interface '{intr}'"),
+            Self::HeaderLength(len) => write!(f, "header length {len} < 16"),
             Self::MessageLength(a, b) => {
-                write!(f, "message length didn't match header ({} != {})", a, b)
+                write!(f, "message length didn't match header ({a} != {b})")
             }
         }
     }

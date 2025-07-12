@@ -24,7 +24,7 @@ pub use crate::eiproto_ei::*;
 pub struct Context(pub(crate) Backend);
 
 impl AsFd for Context {
-    fn as_fd(&self) -> BorrowedFd {
+    fn as_fd(&self) -> BorrowedFd<'_> {
         self.0.as_fd()
     }
 }

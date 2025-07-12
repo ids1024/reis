@@ -206,7 +206,7 @@ impl calloop::EventSource for EisRequestSource {
                                 }
                                 Err(err) => {
                                     // TODO return handshake errors?
-                                    eprintln!("Client handshake failed: {}", err);
+                                    eprintln!("Client handshake failed: {err}");
                                     Ok(calloop::PostAction::Remove)
                                 }
                             }

@@ -593,7 +593,7 @@ impl Seat {
 impl fmt::Debug for Seat {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(name) = &self.0.name {
-            write!(f, "Seat(\"{}\")", name)
+            write!(f, "Seat(\"{name}\")")
         } else {
             write!(f, "Seat(None)")
         }
@@ -663,7 +663,7 @@ pub struct Device(Arc<DeviceInner>);
 impl fmt::Debug for Device {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(name) = self.name() {
-            write!(f, "Device(\"{}\")", name)
+            write!(f, "Device(\"{name}\")")
         } else {
             write!(f, "Device(None)")
         }
