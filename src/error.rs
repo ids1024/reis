@@ -1,4 +1,4 @@
-use crate::{event::EventError, handshake::HandshakeError, ParseError};
+use crate::{event::EventError, handshake::HandshakeError, request::RequestError, ParseError};
 use std::{fmt, io};
 
 /// An error coming from the `reis` crate
@@ -8,6 +8,7 @@ pub enum Error {
     InvalidInterfaceVersion(&'static str, u32),
     // TODO better error type here?
     Event(EventError),
+    Request(RequestError),
     Parse(ParseError),
     Handshake(HandshakeError),
     Io(io::Error),
@@ -21,6 +22,7 @@ impl fmt::Display for Error {
                 write!(f, "invalid version {version} for interface '{interface}'")
             }
             Self::Event(err) => write!(f, "event error: {err}"),
+            Self::Request(err) => write!(f, "request error: {}", err),
             Self::Io(err) => write!(f, "IO error: {err}"),
             Self::Handshake(err) => write!(f, "handshake error: {err}"),
             Self::Parse(err) => write!(f, "parse error: {err}"),
@@ -31,6 +33,12 @@ impl fmt::Display for Error {
 impl From<EventError> for Error {
     fn from(err: EventError) -> Self {
         Self::Event(err)
+    }
+}
+
+impl From<RequestError> for Error {
+    fn from(err: RequestError) -> Self {
+        Self::Request(err)
     }
 }
 

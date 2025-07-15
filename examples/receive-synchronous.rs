@@ -64,14 +64,14 @@ fn main() {
         match &event {
             reis::event::EiEvent::SeatAdded(evt) => {
                 // println!("    capabilities: {:?}", evt.seat);
-                evt.seat.bind_capabilities(&[
-                    DeviceCapability::Pointer,
-                    DeviceCapability::PointerAbsolute,
-                    DeviceCapability::Keyboard,
-                    DeviceCapability::Touch,
-                    DeviceCapability::Scroll,
-                    DeviceCapability::Button,
-                ]);
+                evt.seat.bind_capabilities(
+                    DeviceCapability::Pointer
+                        | DeviceCapability::PointerAbsolute
+                        | DeviceCapability::Keyboard
+                        | DeviceCapability::Touch
+                        | DeviceCapability::Scroll
+                        | DeviceCapability::Button,
+                );
                 context.flush();
             }
             reis::event::EiEvent::DeviceAdded(evt) => {
