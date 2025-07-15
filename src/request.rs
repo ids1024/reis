@@ -4,6 +4,8 @@
 
 // TODO: rename/reorganize things; doc comments on public types/methods
 
+use enumflags2::{BitFlag, BitFlags};
+
 use crate::{
     ei::connection::DisconnectReason, eis, handshake::EisHandshakeResp, wire::Interface, Error,
     Object,
@@ -15,6 +17,18 @@ use std::{
 };
 
 pub use crate::event::DeviceCapability;
+
+#[derive(Debug)]
+pub enum RequestError {
+    InvalidCapabilities,
+}
+impl fmt::Display for RequestError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::InvalidCapabilities => write!(f, "invalid capabilities"),
+        }
+    }
+}
 
 #[derive(Debug)]
 struct ConnectionInner {
@@ -81,7 +95,7 @@ impl Connection {
     }
 
     // Use type instead of string?
-    /// Returns `true` if the connection supports the named interface.
+    /// Returns `true` if the connection has negotiated support for the named interface.
     pub fn has_interface(&self, interface: &str) -> bool {
         self.0
             .handshake_resp
@@ -125,20 +139,30 @@ impl Connection {
     }
 
     /// Adds a seat to the connection.
-    pub fn add_seat(&self, name: Option<&str>, capabilities: &[DeviceCapability]) -> Seat {
+    pub fn add_seat(&self, name: Option<&str>, capabilities: BitFlags<DeviceCapability>) -> Seat {
         let seat = self.connection().seat(1);
         if let Some(name) = name {
             seat.name(name);
         }
+
         for capability in capabilities {
-            // TODO only send negotiated interfaces
-            seat.capability(2 << *capability as u64, capability.name());
+            let interface_name = capability.interface_name();
+
+            if !self.has_interface(interface_name) {
+                // Not negotiated
+                continue;
+            }
+
+            // Using bitflag value because as the server we control its meaning
+            seat.capability(capability as u64, interface_name);
         }
+
         seat.done();
         let seat = Seat(Arc::new(SeatInner {
             seat,
             name: name.map(|x| x.to_owned()),
             handle: Arc::downgrade(&self.0),
+            advertised_capabilities: capabilities,
         }));
         self.0
             .seats
@@ -264,6 +288,13 @@ impl EisRequestConverter {
                     let Some(seat) = self.handle.0.seats.lock().unwrap().get(&seat).cloned() else {
                         return Ok(());
                     };
+
+                    let capabilities = DeviceCapability::from_bits(capabilities)
+                        .map_err(|_err| RequestError::InvalidCapabilities)?;
+                    if !seat.0.advertised_capabilities.contains(capabilities) {
+                        return Err(RequestError::InvalidCapabilities.into());
+                    }
+
                     self.queue_request(EisRequest::Bind(Bind { seat, capabilities }));
                 }
             },
@@ -465,8 +496,8 @@ impl EisRequestConverter {
 struct SeatInner {
     seat: eis::Seat,
     name: Option<String>,
-    //capabilities: HashMap<String, u64>,
     handle: Weak<ConnectionInner>,
+    advertised_capabilities: BitFlags<DeviceCapability>,
 }
 
 /// High-level server-side wrapper for `ei_seat`.
@@ -497,7 +528,7 @@ impl Seat {
         &self,
         name: Option<&str>,
         device_type: eis::device::DeviceType,
-        capabilities: &[DeviceCapability],
+        capabilities: BitFlags<DeviceCapability>,
         // TODO: better solution; keymap, etc.
         before_done_cb: impl for<'a> FnOnce(&'a Device),
     ) -> Device {
@@ -695,7 +726,7 @@ impl Device {
 
     /// Returns `true` if this device has an interface matching the provided capability.
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
-        self.0.interfaces.contains_key(capability.name())
+        self.0.interfaces.contains_key(capability.interface_name())
     }
 
     /// Removes this device and associated interfaces from the connection.
@@ -864,7 +895,7 @@ impl EisRequest {
 pub struct Bind {
     /// High-level [`Seat`] wrapper.
     pub seat: Seat,
-    pub capabilities: u64,
+    pub capabilities: BitFlags<DeviceCapability>,
 }
 
 /// High-level translation of [`ei_device.frame`](eis::device::Request::Frame).

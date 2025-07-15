@@ -12,7 +12,7 @@ async fn open_connection() -> ei::Context {
         let session = input_capture
             .create_session(
                 None,
-                (Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen).into(),
+                Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen,
             )
             .await
             .unwrap()
@@ -65,14 +65,14 @@ async fn main() {
         match &event {
             reis::event::EiEvent::SeatAdded(evt) => {
                 // println!("    capabilities: {:?}", evt.seat);
-                evt.seat.bind_capabilities(&[
-                    DeviceCapability::Pointer,
-                    DeviceCapability::PointerAbsolute,
-                    DeviceCapability::Keyboard,
-                    DeviceCapability::Touch,
-                    DeviceCapability::Scroll,
-                    DeviceCapability::Button,
-                ]);
+                evt.seat.bind_capabilities(
+                    DeviceCapability::Pointer
+                        | DeviceCapability::PointerAbsolute
+                        | DeviceCapability::Keyboard
+                        | DeviceCapability::Touch
+                        | DeviceCapability::Scroll
+                        | DeviceCapability::Button,
+                );
                 context.flush();
             }
             reis::event::EiEvent::DeviceAdded(evt) => {

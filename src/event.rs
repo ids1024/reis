@@ -16,6 +16,8 @@
 
 #![allow(clippy::derive_partial_eq_without_eq)]
 
+use enumflags2::BitFlags;
+
 use crate::{ei, handshake::HandshakeResp, util, Error, Interface, Object, PendingRequestResult};
 use std::{
     collections::{HashMap, VecDeque},
@@ -35,6 +37,7 @@ pub enum EventError {
     SeatEventBeforeDone,
     NoDeviceType,
     UnexpectedHandshakeEvent,
+    UnknownCapabilityInterface,
 }
 
 impl fmt::Display for EventError {
@@ -46,6 +49,9 @@ impl fmt::Display for EventError {
             Self::SeatEventBeforeDone => write!(f, "seat event before done"),
             Self::NoDeviceType => write!(f, "no device"),
             Self::UnexpectedHandshakeEvent => write!(f, "unexpected handshake event"),
+            Self::UnknownCapabilityInterface => {
+                write!(f, "unknown interface in ei_seat.capability")
+            }
         }
     }
 }
@@ -143,6 +149,12 @@ impl EiEventConverter {
         }
     }
 
+    /// Handles a low-level protocol-level [`ei::Event`], possibly converting it into a high-level
+    /// [`EiEvent`].
+    ///
+    /// # Errors
+    ///
+    /// The errors returned are protocol violations.
     pub fn handle_event(&mut self, event: ei::Event) -> Result<(), EventError> {
         match event {
             ei::Event::Handshake(_handshake, _event) => {
@@ -153,9 +165,9 @@ impl EiEventConverter {
                     self.pending_seats.insert(
                         seat.clone(),
                         SeatInner {
-                            seat,
+                            proto_seat: seat,
                             name: None,
-                            capabilities: HashMap::new(),
+                            capability_map: Default::default(),
                         },
                     );
                 }
@@ -205,7 +217,11 @@ impl EiEventConverter {
                         .pending_seats
                         .get_mut(&seat)
                         .ok_or(EventError::SeatSetupEventAfterDone)?;
-                    seat.capabilities.insert(interface, mask);
+                    seat.capability_map.set(
+                        DeviceCapability::from_interface_name(&interface)
+                            .ok_or(EventError::UnknownCapabilityInterface)?,
+                        mask,
+                    );
                 }
                 ei::seat::Event::Done => {
                     let seat = self
@@ -213,7 +229,7 @@ impl EiEventConverter {
                         .remove(&seat)
                         .ok_or(EventError::SeatSetupEventAfterDone)?;
                     let seat = Seat(Arc::new(seat));
-                    self.seats.insert(seat.0.seat.clone(), seat.clone());
+                    self.seats.insert(seat.0.proto_seat.clone(), seat.clone());
                     self.queue_event(EiEvent::SeatAdded(SeatAdded { seat }));
                 }
                 ei::seat::Event::Device { device } => {
@@ -637,23 +653,24 @@ pub struct Keymap {
     pub type_: ei::keyboard::KeymapType,
 }
 
-/// A capability of a seat used when advertising seats and binding to capabilities in seats.
-// TODO: bitflags?
-// TODO(axka, 2025-07-08): rename to SeatCapability?
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+/// Capabilities of devices used when advertising seats and devices, and binding to capabilities in seats.
+#[enumflags2::bitflags]
 #[repr(u64)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum DeviceCapability {
-    Pointer,
-    PointerAbsolute,
-    Keyboard,
-    Touch,
-    Scroll,
-    Button,
+    Pointer = 1 << 0,
+    PointerAbsolute = 1 << 1,
+    Keyboard = 1 << 2,
+    Touch = 1 << 3,
+    Scroll = 1 << 4,
+    Button = 1 << 5,
 }
 
 impl DeviceCapability {
-    /// Returns the name of the interface for this capability.
-    pub(crate) fn name(self) -> &'static str {
+    /// Returns the name of the interface for the first matched capability.
+    ///
+    /// `None` is returned if none of the flags match
+    pub(crate) fn interface_name(self) -> &'static str {
         match self {
             DeviceCapability::Pointer => ei::Pointer::NAME,
             DeviceCapability::PointerAbsolute => ei::PointerAbsolute::NAME,
@@ -663,12 +680,49 @@ impl DeviceCapability {
             DeviceCapability::Button => ei::Button::NAME,
         }
     }
+
+    /// Returns the capability for the interface.
+    ///
+    /// `None` is returned if there is no match
+    pub(crate) fn from_interface_name(interface_name: &str) -> Option<Self> {
+        match interface_name {
+            ei::Pointer::NAME => Some(DeviceCapability::Pointer),
+            ei::PointerAbsolute::NAME => Some(DeviceCapability::PointerAbsolute),
+            ei::Keyboard::NAME => Some(DeviceCapability::Keyboard),
+            ei::Touchscreen::NAME => Some(DeviceCapability::Touch),
+            ei::Scroll::NAME => Some(DeviceCapability::Scroll),
+            ei::Button::NAME => Some(DeviceCapability::Button),
+            _ => None,
+        }
+    }
+
+    /// Returns the binary logarithm of the capability's bitwise value, useful for indexing
+    /// lookup tables.
+    fn index(&self) -> usize {
+        (*self as u64).trailing_zeros() as usize
+    }
+}
+
+/// Lookup table from a single capability of [`SeatCapabilities`] to a protocol capability.
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+struct CapabilityMap([u64; BitFlags::<DeviceCapability>::ALL.bits_c().count_ones() as usize]);
+
+impl CapabilityMap {
+    /// Returns the matching protocol capability for the library capability. Defaults to 0.
+    fn get(&self, capability: DeviceCapability) -> u64 {
+        self.0[capability.index()]
+    }
+
+    /// Sets the protocol capability for the library capability.
+    fn set(&mut self, capability: DeviceCapability, proto_capability: u64) {
+        self.0[capability.index()] = proto_capability;
+    }
 }
 
 struct SeatInner {
-    seat: ei::Seat,
+    proto_seat: ei::Seat,
     name: Option<String>,
-    capabilities: HashMap<String, u64>,
+    capability_map: CapabilityMap,
 }
 
 /// High-level client-side wrapper for `ei_seat`.
@@ -695,7 +749,7 @@ impl Eq for Seat {}
 
 impl std::hash::Hash for Seat {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.seat.0.id().hash(state);
+        self.0.proto_seat.0.id().hash(state);
     }
 }
 
@@ -707,14 +761,14 @@ impl Seat {
 
     // TODO has_capability
 
-    pub fn bind_capabilities(&self, capabilities: &[DeviceCapability]) {
-        let mut caps = 0;
-        for i in capabilities {
-            if let Some(value) = self.0.capabilities.get(i.name()) {
-                caps |= value;
-            }
+    /// Binds to a selection of the advertised capabilities received through
+    /// [`EiEvent::SeatAdded`].
+    pub fn bind_capabilities(&self, capabilities: BitFlags<DeviceCapability>) {
+        let mut proto_caps = 0;
+        for cap in capabilities {
+            proto_caps |= self.0.capability_map.get(cap);
         }
-        self.0.seat.bind(caps);
+        self.0.proto_seat.bind(proto_caps);
     }
 
     // TODO: mirror C API more?
@@ -794,7 +848,7 @@ impl Device {
 
     /// Returns `true` if this device has an interface matching the provided capability.
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
-        self.0.interfaces.contains_key(capability.name())
+        self.0.interfaces.contains_key(capability.interface_name())
     }
 }
 
