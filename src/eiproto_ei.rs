@@ -7,7 +7,15 @@
     clippy::match_single_binding,
     clippy::unused_unit,
     clippy::empty_docs,
-    clippy::doc_lazy_continuation
+    clippy::doc_lazy_continuation,
+
+    // Explicitly set to warn
+    clippy::doc_markdown,
+    clippy::must_use_candidate,
+    clippy::semicolon_if_nothing_returned,
+    clippy::used_underscore_binding,
+    clippy::match_same_arms,
+    clippy::str_to_string,
 )]
 
 // GENERATED FILE

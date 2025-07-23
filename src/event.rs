@@ -78,6 +78,10 @@ impl Connection {
     }
 
     /// Sends buffered messages. Call after you're finished with sending requests.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned if sending the buffered messages fails.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.context.flush()
     }
@@ -159,6 +163,7 @@ impl EiEventConverter {
     /// # Errors
     ///
     /// The errors returned are protocol violations.
+    #[allow(clippy::too_many_lines)] // Handler is allowed to be big
     pub fn handle_event(&mut self, event: ei::Event) -> Result<(), EventError> {
         match event {
             ei::Event::Handshake(_handshake, _event) => {
@@ -171,7 +176,7 @@ impl EiEventConverter {
                         SeatInner {
                             proto_seat: seat,
                             name: None,
-                            capability_map: Default::default(),
+                            capability_map: CapabilityMap::default(),
                         },
                     );
                 }
@@ -286,7 +291,7 @@ impl EiEventConverter {
                         .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     device
                         .interfaces
-                        .insert(object.interface().to_string(), object);
+                        .insert(object.interface().to_owned(), object);
                 }
                 ei::device::Event::Dimensions { width, height } => {
                     let device = self
@@ -702,8 +707,8 @@ impl DeviceCapability {
 
     /// Returns the binary logarithm of the capability's bitwise value, useful for indexing
     /// lookup tables.
-    fn index(&self) -> usize {
-        (*self as u64).trailing_zeros() as usize
+    fn index(self) -> usize {
+        (self as u64).trailing_zeros() as usize
     }
 }
 
@@ -829,6 +834,7 @@ impl Device {
 
     /// Returns the device's type.
     #[must_use]
+    #[allow(clippy::missing_panics_doc)] // EiEventConverter makes sure to not return Device if device_type is None
     pub fn device_type(&self) -> ei::device::DeviceType {
         self.0.device_type.unwrap()
     }
@@ -1307,6 +1313,11 @@ impl Iterator for EiConvertEventIterator {
 }
 
 impl ei::Context {
+    /// Executes the handshake in blocking mode.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if there is an I/O error or a protocol violation.
     pub fn handshake_blocking(
         &self,
         name: &str,

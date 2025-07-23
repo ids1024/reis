@@ -101,10 +101,16 @@ pub enum PendingRequestResult<T> {
 }
 
 impl Backend {
+    /// Creates a [`Backend`] based on the given `socket`, and whether this is the `client`
+    /// side or not.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if setting the socket to non-blocking mode fails.
     pub fn new(socket: UnixStream, client: bool) -> io::Result<Self> {
         socket.set_nonblocking(true)?;
-        let next_id = if client { 1 } else { 0xff00000000000000 };
-        let next_peer_id = if client { 0xff00000000000000 } else { 1 };
+        let next_id = if client { 1 } else { 0xff00_0000_0000_0000 };
+        let next_peer_id = if client { 0xff00_0000_0000_0000 } else { 1 };
         let backend = Self(Arc::new(BackendInner {
             socket,
             client,
@@ -117,13 +123,8 @@ impl Backend {
             write: Mutex::new(Buffer::default()),
             debug: is_reis_debug(),
         }));
-        let handshake = Object::for_new_id(
-            backend.downgrade(),
-            0,
-            client,
-            "ei_handshake".to_string(),
-            1,
-        );
+        let handshake =
+            Object::for_new_id(backend.downgrade(), 0, client, "ei_handshake".to_owned(), 1);
         backend.0.state.lock().unwrap().objects.insert(0, handshake);
         Ok(backend)
     }
@@ -149,15 +150,12 @@ impl Backend {
                         "unexpected EOF reading ei socket",
                     ));
                 }
-                Ok(0) => {
-                    return Ok(total_count);
-                }
                 Ok(count) => {
                     read.buf.extend(&buf[0..count]);
                     total_count += count;
                 }
                 #[allow(unreachable_patterns)] // `WOULDBLOCK` and `AGAIN` typically equal
-                Err(Errno::WOULDBLOCK | Errno::AGAIN) => {
+                Ok(0) | Err(Errno::WOULDBLOCK | Errno::AGAIN) => {
                     return Ok(total_count);
                 }
                 Err(err) => return Err(err.into()),
@@ -235,7 +233,7 @@ impl Backend {
     ) -> Result<crate::Object, ParseError> {
         let mut state = self.0.state.lock().unwrap();
 
-        if id < state.next_peer_id || (!self.0.client && id >= 0xff00000000000000) {
+        if id < state.next_peer_id || (!self.0.client && id >= 0xff00_0000_0000_0000) {
             return Err(ParseError::InvalidId(id));
         }
         state.next_peer_id = id + 1;
@@ -252,7 +250,7 @@ impl Backend {
         version: u32,
     ) -> Result<T, ParseError> {
         Ok(self
-            .new_peer_object(id, T::NAME.to_string(), version)?
+            .new_peer_object(id, T::NAME.to_owned(), version)?
             .downcast_unchecked())
     }
 
