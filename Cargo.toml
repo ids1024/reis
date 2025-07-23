@@ -24,6 +24,17 @@ tokio = { version = "1.31.0", features = ["rt", "macros"] }
 signal-hook = "0.3.17"
 pollster = "0.4.0"
 
+[lints.clippy]
+pedantic = "warn"
+# Blocked by MSRV
+#allow_attributes = "warn"
+#allow_attributes_without_reason = "warn"
+#should_panic_without_expect = "warn"
+str_to_string = "warn"
+string_to_string = "warn"
+cast_possible_wrap = { level = "allow", priority = 1 }
+cast_possible_truncation = { level = "allow", priority = 1 }
+
 [features]
 tokio = ["dep:tokio", "futures"]
 # Experimental and somewhat incomplete

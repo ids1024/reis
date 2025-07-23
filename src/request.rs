@@ -59,6 +59,10 @@ impl Connection {
     ///
     /// When a client is disconnected on purpose, for example after a user interaction,
     /// `reason` must be [`DisconnectReason::Disconnected`], and `explanation` must be `None`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     // TODO(axka, 2025-07-08): rename to something imperative like `notify_disconnection`
     // TODO(axka, 2025-07-08): `explanation` must support NULL: https://gitlab.freedesktop.org/libinput/libei/-/commit/267716a7609730914b24adf5860ec8d2cf2e7636
     pub fn disconnected(&self, reason: DisconnectReason, explanation: &str) {
@@ -78,6 +82,10 @@ impl Connection {
     }
 
     /// Sends buffered messages. Call after you're finished with sending events.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned if sending the buffered messages fails.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.context.flush()
     }
@@ -121,12 +129,20 @@ impl Connection {
     // TODO(axka, 2025-07-08): specify in the function name that this is the last serial from
     // the server, and not the client, and create a function for the other way around.
     /// Returns the last serial used in an event sent by the server.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     #[must_use]
     pub fn last_serial(&self) -> u32 {
         *self.0.last_serial.lock().unwrap()
     }
 
     /// Increments the current serial and runs the provided callback with it.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn with_next_serial<T, F: FnOnce(u32) -> T>(&self, cb: F) -> T {
         let mut last_serial = self.0.last_serial.lock().unwrap();
         let serial = last_serial.wrapping_add(1);
@@ -145,6 +161,10 @@ impl Connection {
     }
 
     /// Adds a seat to the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     #[must_use]
     pub fn add_seat(&self, name: Option<&str>, capabilities: BitFlags<DeviceCapability>) -> Seat {
         let seat = self.connection().seat(1);
@@ -182,6 +202,7 @@ impl Connection {
 
 // TODO libei has a `eis_clock_set_now_func`
 // Return time in us
+#[allow(clippy::cast_sign_loss)] // Monotonic clock never returns negatives
 fn eis_now() -> u64 {
     let time = rustix::time::clock_gettime(rustix::time::ClockId::Monotonic);
     time.tv_sec as u64 * 1_000_000 + time.tv_nsec as u64 / 1_000
@@ -194,7 +215,7 @@ fn eis_now() -> u64 {
 pub struct EisRequestConverter {
     requests: VecDeque<EisRequest>,
     pending_requests: VecDeque<EisRequest>,
-    handle: Connection,
+    connection: Connection,
 }
 
 impl EisRequestConverter {
@@ -208,12 +229,12 @@ impl EisRequestConverter {
         Self {
             requests: VecDeque::new(),
             pending_requests: VecDeque::new(),
-            handle: Connection(Arc::new(ConnectionInner {
+            connection: Connection(Arc::new(ConnectionInner {
                 context: context.clone(),
                 handshake_resp,
-                seats: Default::default(),
-                devices: Default::default(),
-                device_for_interface: Default::default(),
+                seats: Mutex::default(),
+                devices: Mutex::default(),
+                device_for_interface: Mutex::default(),
                 last_serial: Mutex::new(initial_serial),
             })),
         }
@@ -221,14 +242,14 @@ impl EisRequestConverter {
 
     #[must_use]
     pub fn handle(&self) -> &Connection {
-        &self.handle
+        &self.connection
     }
 
     fn queue_frame_event(&mut self, device: &Device) {
         self.queue_request(EisRequest::Frame(Frame {
             time: eis_now(),
             device: device.clone(),
-            last_serial: self.handle.last_serial(),
+            last_serial: self.connection.last_serial(),
         }));
     }
 
@@ -259,93 +280,34 @@ impl EisRequestConverter {
         self.requests.pop_front()
     }
 
+    /// Handles a low-level protocol-level [`eis::Request`], possibly converting it into
+    /// a high-level [`EisRequest`].
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    ///
+    /// # Errors
+    ///
+    /// The errors returned are protocol violations.
     pub fn handle_request(&mut self, request: eis::Request) -> Result<(), Error> {
         match request {
             eis::Request::Handshake(_handshake, _request) => {
                 return Err(Error::UnexpectedHandshakeEvent);
             }
-            eis::Request::Connection(_connection, request) => match request {
-                eis::connection::Request::Sync { callback } => {
-                    if callback.version() != 1 {
-                        return Err(Error::InvalidInterfaceVersion(
-                            "ei_callback",
-                            callback.version(),
-                        ));
-                    }
-                    callback.done(0);
-                    if let Some(backend) = callback.0.backend() {
-                        // XXX Error?
-                        let _ = backend.flush();
-                    }
-                }
-                eis::connection::Request::Disconnect => {
-                    self.queue_request(EisRequest::Disconnect);
-                }
-            },
+            eis::Request::Connection(_connection, request) => {
+                self.handle_connection_request(request)?;
+            }
             eis::Request::Callback(_callback, request) => match request {},
             eis::Request::Pingpong(_ping_pong, request) => match request {
                 eis::pingpong::Request::Done { callback_data: _ } => {
                     // TODO
                 }
             },
-            eis::Request::Seat(seat, request) => match request {
-                eis::seat::Request::Release => {
-                    self.handle
-                        .with_next_serial(|serial| seat.destroyed(serial));
-                }
-                eis::seat::Request::Bind { capabilities } => {
-                    let Some(seat) = self.handle.0.seats.lock().unwrap().get(&seat).cloned() else {
-                        return Ok(());
-                    };
-
-                    let capabilities = DeviceCapability::from_bits(capabilities)
-                        .map_err(|_err| RequestError::InvalidCapabilities)?;
-                    if !seat.0.advertised_capabilities.contains(capabilities) {
-                        return Err(RequestError::InvalidCapabilities.into());
-                    }
-
-                    self.queue_request(EisRequest::Bind(Bind { seat, capabilities }));
-                }
-            },
-            eis::Request::Device(device, request) => {
-                let Some(device) = self.handle.0.devices.lock().unwrap().get(&device).cloned()
-                else {
-                    return Ok(());
-                };
-                match request {
-                    eis::device::Request::Release => {}
-                    eis::device::Request::StartEmulating {
-                        last_serial,
-                        sequence,
-                    } => {
-                        self.queue_request(EisRequest::DeviceStartEmulating(
-                            DeviceStartEmulating {
-                                device,
-                                last_serial,
-                                sequence,
-                            },
-                        ));
-                    }
-                    eis::device::Request::StopEmulating { last_serial } => {
-                        self.queue_request(EisRequest::DeviceStopEmulating(DeviceStopEmulating {
-                            device,
-                            last_serial,
-                        }));
-                    }
-                    eis::device::Request::Frame {
-                        last_serial,
-                        timestamp,
-                    } => {
-                        self.queue_request(EisRequest::Frame(Frame {
-                            device,
-                            last_serial,
-                            time: timestamp,
-                        }));
-                    }
-                }
-            }
+            eis::Request::Seat(seat, request) => self.handle_seat_request(&seat, &request)?,
+            eis::Request::Device(device, request) => self.handle_device_request(device, request),
             eis::Request::Keyboard(keyboard, request) => {
-                let Some(device) = self.handle.device_for_interface(&keyboard) else {
+                let Some(device) = self.connection.device_for_interface(&keyboard) else {
                     return Ok(());
                 };
                 match request {
@@ -361,7 +323,7 @@ impl EisRequestConverter {
                 }
             }
             eis::Request::Pointer(pointer, request) => {
-                let Some(device) = self.handle.device_for_interface(&pointer) else {
+                let Some(device) = self.connection.device_for_interface(&pointer) else {
                     return Ok(());
                 };
                 match request {
@@ -377,7 +339,7 @@ impl EisRequestConverter {
                 }
             }
             eis::Request::PointerAbsolute(pointer_absolute, request) => {
-                let Some(device) = self.handle.device_for_interface(&pointer_absolute) else {
+                let Some(device) = self.connection.device_for_interface(&pointer_absolute) else {
                     return Ok(());
                 };
                 match request {
@@ -395,48 +357,10 @@ impl EisRequestConverter {
                 }
             }
             eis::Request::Scroll(scroll, request) => {
-                let Some(device) = self.handle.device_for_interface(&scroll) else {
-                    return Ok(());
-                };
-                match request {
-                    eis::scroll::Request::Release => {}
-                    eis::scroll::Request::Scroll { x, y } => {
-                        self.queue_request(EisRequest::ScrollDelta(ScrollDelta {
-                            device,
-                            dx: x,
-                            dy: y,
-                            time: 0,
-                        }));
-                    }
-                    eis::scroll::Request::ScrollDiscrete { x, y } => {
-                        self.queue_request(EisRequest::ScrollDiscrete(ScrollDiscrete {
-                            device,
-                            discrete_dx: x,
-                            discrete_dy: y,
-                            time: 0,
-                        }));
-                    }
-                    eis::scroll::Request::ScrollStop { x, y, is_cancel } => {
-                        if is_cancel != 0 {
-                            self.queue_request(EisRequest::ScrollCancel(ScrollCancel {
-                                device,
-                                time: 0,
-                                x: x != 0,
-                                y: y != 0,
-                            }));
-                        } else {
-                            self.queue_request(EisRequest::ScrollStop(ScrollStop {
-                                device,
-                                time: 0,
-                                x: x != 0,
-                                y: y != 0,
-                            }));
-                        }
-                    }
-                }
+                self.handle_scroll_request(scroll, request);
             }
             eis::Request::Button(button, request) => {
-                let Some(device) = self.handle.device_for_interface(&button) else {
+                let Some(device) = self.connection.device_for_interface(&button) else {
                     return Ok(());
                 };
                 match request {
@@ -452,50 +376,200 @@ impl EisRequestConverter {
                 }
             }
             eis::Request::Touchscreen(touchscreen, request) => {
-                let Some(device) = self.handle.device_for_interface(&touchscreen) else {
+                self.handle_touchscreen_request(touchscreen, request)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_connection_request(
+        &mut self,
+        request: eis::connection::Request,
+    ) -> Result<(), Error> {
+        match request {
+            eis::connection::Request::Sync { callback } => {
+                if callback.version() != 1 {
+                    return Err(Error::InvalidInterfaceVersion(
+                        "ei_callback",
+                        callback.version(),
+                    ));
+                }
+                callback.done(0);
+                if let Some(backend) = callback.0.backend() {
+                    // XXX Error?
+                    let _ = backend.flush();
+                }
+            }
+            eis::connection::Request::Disconnect => {
+                self.queue_request(EisRequest::Disconnect);
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_seat_request(
+        &mut self,
+        seat: &eis::Seat,
+        request: &eis::seat::Request,
+    ) -> Result<(), Error> {
+        match request {
+            eis::seat::Request::Release => {
+                self.connection
+                    .with_next_serial(|serial| seat.destroyed(serial));
+            }
+            eis::seat::Request::Bind { capabilities } => {
+                let Some(seat) = self.connection.0.seats.lock().unwrap().get(seat).cloned() else {
                     return Ok(());
                 };
-                match request {
-                    eis::touchscreen::Request::Release => {}
-                    eis::touchscreen::Request::Down { touchid, x, y } => {
-                        self.queue_request(EisRequest::TouchDown(TouchDown {
-                            device,
-                            touch_id: touchid,
-                            x,
-                            y,
-                            time: 0,
-                        }));
-                    }
-                    eis::touchscreen::Request::Motion { touchid, x, y } => {
-                        self.queue_request(EisRequest::TouchMotion(TouchMotion {
-                            device,
-                            touch_id: touchid,
-                            x,
-                            y,
-                            time: 0,
-                        }));
-                    }
-                    eis::touchscreen::Request::Up { touchid } => {
-                        self.queue_request(EisRequest::TouchUp(TouchUp {
-                            device,
-                            touch_id: touchid,
-                            time: 0,
-                        }));
-                    }
-                    eis::touchscreen::Request::Cancel { touchid } => {
-                        if touchscreen.version() < 2 {
-                            return Err(Error::InvalidInterfaceVersion(
-                                "ei_touchscreen",
-                                touchscreen.version(),
-                            ));
-                        }
-                        self.queue_request(EisRequest::TouchCancel(TouchCancel {
-                            device,
-                            touch_id: touchid,
-                            time: 0,
-                        }));
-                    }
+
+                let capabilities = DeviceCapability::from_bits(*capabilities)
+                    .map_err(|_err| RequestError::InvalidCapabilities)?;
+                if !seat.0.advertised_capabilities.contains(capabilities) {
+                    return Err(RequestError::InvalidCapabilities.into());
                 }
+
+                self.queue_request(EisRequest::Bind(Bind { seat, capabilities }));
+                return Ok(());
+            }
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::needless_pass_by_value)] // Arguably better code when we don't have to dereference data
+    fn handle_device_request(&mut self, device: eis::Device, request: eis::device::Request) {
+        let Some(device) = self
+            .connection
+            .0
+            .devices
+            .lock()
+            .unwrap()
+            .get(&device)
+            .cloned()
+        else {
+            return;
+        };
+        match request {
+            eis::device::Request::Release => {}
+            eis::device::Request::StartEmulating {
+                last_serial,
+                sequence,
+            } => {
+                self.queue_request(EisRequest::DeviceStartEmulating(DeviceStartEmulating {
+                    device,
+                    last_serial,
+                    sequence,
+                }));
+            }
+            eis::device::Request::StopEmulating { last_serial } => {
+                self.queue_request(EisRequest::DeviceStopEmulating(DeviceStopEmulating {
+                    device,
+                    last_serial,
+                }));
+            }
+            eis::device::Request::Frame {
+                last_serial,
+                timestamp,
+            } => {
+                self.queue_request(EisRequest::Frame(Frame {
+                    device,
+                    last_serial,
+                    time: timestamp,
+                }));
+            }
+        }
+    }
+
+    #[allow(clippy::needless_pass_by_value)] // Arguably better code when we don't have to dereference data
+    fn handle_scroll_request(&mut self, scroll: eis::Scroll, request: eis::scroll::Request) {
+        let Some(device) = self.connection.device_for_interface(&scroll) else {
+            return;
+        };
+        match request {
+            eis::scroll::Request::Release => {}
+            eis::scroll::Request::Scroll { x, y } => {
+                self.queue_request(EisRequest::ScrollDelta(ScrollDelta {
+                    device,
+                    dx: x,
+                    dy: y,
+                    time: 0,
+                }));
+            }
+            eis::scroll::Request::ScrollDiscrete { x, y } => {
+                self.queue_request(EisRequest::ScrollDiscrete(ScrollDiscrete {
+                    device,
+                    discrete_dx: x,
+                    discrete_dy: y,
+                    time: 0,
+                }));
+            }
+            eis::scroll::Request::ScrollStop { x, y, is_cancel } => {
+                if is_cancel != 0 {
+                    self.queue_request(EisRequest::ScrollCancel(ScrollCancel {
+                        device,
+                        time: 0,
+                        x: x != 0,
+                        y: y != 0,
+                    }));
+                } else {
+                    self.queue_request(EisRequest::ScrollStop(ScrollStop {
+                        device,
+                        time: 0,
+                        x: x != 0,
+                        y: y != 0,
+                    }));
+                }
+            }
+        }
+    }
+
+    #[allow(clippy::needless_pass_by_value)] // Arguably better code when we don't have to dereference data
+    fn handle_touchscreen_request(
+        &mut self,
+        touchscreen: eis::Touchscreen,
+        request: eis::touchscreen::Request,
+    ) -> Result<(), Error> {
+        let Some(device) = self.connection.device_for_interface(&touchscreen) else {
+            return Ok(());
+        };
+        match request {
+            eis::touchscreen::Request::Release => {}
+            eis::touchscreen::Request::Down { touchid, x, y } => {
+                self.queue_request(EisRequest::TouchDown(TouchDown {
+                    device,
+                    touch_id: touchid,
+                    x,
+                    y,
+                    time: 0,
+                }));
+            }
+            eis::touchscreen::Request::Motion { touchid, x, y } => {
+                self.queue_request(EisRequest::TouchMotion(TouchMotion {
+                    device,
+                    touch_id: touchid,
+                    x,
+                    y,
+                    time: 0,
+                }));
+            }
+            eis::touchscreen::Request::Up { touchid } => {
+                self.queue_request(EisRequest::TouchUp(TouchUp {
+                    device,
+                    touch_id: touchid,
+                    time: 0,
+                }));
+            }
+            eis::touchscreen::Request::Cancel { touchid } => {
+                if touchscreen.version() < 2 {
+                    return Err(Error::InvalidInterfaceVersion(
+                        "ei_touchscreen",
+                        touchscreen.version(),
+                    ));
+                }
+                self.queue_request(EisRequest::TouchCancel(TouchCancel {
+                    device,
+                    touch_id: touchid,
+                    time: 0,
+                }));
             }
         }
         Ok(())
@@ -534,6 +608,10 @@ impl Seat {
 
     // builder pattern?
     /// Adds a device to the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn add_device(
         &self,
         name: Option<&str>,
@@ -576,7 +654,7 @@ impl Seat {
                     add_interface::<eis::Button>(&device, connection.as_ref())
                 }
             };
-            interfaces.insert(object.interface().to_string(), object);
+            interfaces.insert(object.interface().to_owned(), object);
         }
 
         let device = Device(Arc::new(DeviceInner {
@@ -610,6 +688,10 @@ impl Seat {
     }
 
     /// Removes this seat and associated devices from the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             let devices = handle
@@ -745,6 +827,10 @@ impl Device {
     }
 
     /// Removes this device and associated interfaces from the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             for interface in self.0.interfaces.values() {

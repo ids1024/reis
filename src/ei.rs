@@ -49,6 +49,10 @@ impl Context {
     ///
     /// let context = Context::new(socket).unwrap();
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if setting the socket to non-blocking mode fails.
     pub fn new(socket: UnixStream) -> io::Result<Self> {
         Ok(Self(Backend::new(socket, true)?))
     }
@@ -63,6 +67,11 @@ impl Context {
     ///
     /// let context = Context::connect_to_env().expect("Shouldn't error").unwrap();
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if the resolved socket path cannot be connected to or if
+    /// [`Context::new`] fails.
     pub fn connect_to_env() -> io::Result<Option<Self>> {
         let Some(path) = env::var_os("LIBEI_SOCKET") else {
             // XXX return error type
@@ -87,6 +96,10 @@ impl Context {
     /// Reads any pending data on the socket into the internal buffer.
     ///
     /// Returns `UnexpectedEof` if end-of-file is reached.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if there is an I/O error.
     pub fn read(&self) -> io::Result<usize> {
         self.0.read()
     }
@@ -99,11 +112,16 @@ impl Context {
 
     /// Returns the interface proxy for the `ei_handshake` object.
     #[must_use]
+    #[allow(clippy::missing_panics_doc)] // infallible; Backend always creates ei_handshake object at 0
     pub fn handshake(&self) -> handshake::Handshake {
         self.0.object_for_id(0).unwrap().downcast_unchecked()
     }
 
     /// Sends buffered messages. Call after you're finished with sending requests.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned if sending the buffered messages fails.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.flush()
     }
