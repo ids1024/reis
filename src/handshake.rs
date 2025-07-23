@@ -64,6 +64,7 @@ pub struct EiHandshaker<'a> {
 }
 
 impl<'a> EiHandshaker<'a> {
+    #[must_use]
     pub fn new(name: &'a str, context_type: ei::handshake::ContextType) -> Self {
         Self {
             name,
@@ -84,7 +85,7 @@ impl<'a> EiHandshaker<'a> {
                 handshake.handshake_version(1);
                 handshake.name(self.name);
                 handshake.context_type(self.context_type);
-                for (interface, version) in interfaces().iter() {
+                for (interface, version) in interfaces() {
                     handshake.interface_version(interface, *version);
                 }
                 handshake.finish();
@@ -154,6 +155,7 @@ pub struct EisHandshaker {
 }
 
 impl EisHandshaker {
+    #[must_use]
     pub fn new(context: &eis::Context, initial_serial: u32) -> Self {
         let handshake = context.handshake();
         handshake.handshake_version(1);
@@ -193,11 +195,11 @@ impl EisHandshaker {
                 if let Some((interface, server_version)) = interfaces().get_key_value(name.as_str())
                 {
                     self.negotiated_interfaces
-                        .insert(interface.to_string(), version.min(*server_version));
+                        .insert((*interface).to_string(), version.min(*server_version));
                 }
             }
             eis::handshake::Request::Finish => {
-                for (interface, version) in self.negotiated_interfaces.iter() {
+                for (interface, version) in &self.negotiated_interfaces {
                     handshake.interface_version(interface, *version);
                 }
 

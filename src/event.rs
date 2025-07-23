@@ -72,6 +72,7 @@ pub struct Connection(Arc<ConnectionInner>);
 
 impl Connection {
     /// Returns the interface proxy for the underlying `ei_connection` object.
+    #[must_use]
     pub fn connection(&self) -> &ei::Connection {
         &self.0.handshake_resp.connection
     }
@@ -88,6 +89,7 @@ impl Connection {
     // TODO(axka, 2025-07-08): specify in the function name that this is the last serial from
     // the server, and not the client, and create a function for the other way around.
     /// Returns the last serial number used in an event by the server.
+    #[must_use]
     pub fn serial(&self) -> u32 {
         self.0.serial.load(Ordering::Relaxed)
     }
@@ -108,6 +110,7 @@ pub struct EiEventConverter {
 }
 
 impl EiEventConverter {
+    #[must_use]
     pub fn new(context: &ei::Context, handshake_resp: HandshakeResp) -> Self {
         Self {
             pending_seats: HashMap::new(),
@@ -126,6 +129,7 @@ impl EiEventConverter {
         }
     }
 
+    #[must_use]
     pub fn connection(&self) -> &Connection {
         &self.connection
     }
@@ -755,6 +759,7 @@ impl std::hash::Hash for Seat {
 
 impl Seat {
     /// Returns the name of the seat, as provided by the server.
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
     }
@@ -805,36 +810,43 @@ impl fmt::Debug for Device {
 
 impl Device {
     /// Returns the high-level [`Seat`] wrapper for the device.
+    #[must_use]
     pub fn seat(&self) -> &Seat {
         &self.0.seat
     }
 
     /// Returns the interface proxy for the underlying `ei_device` object.
+    #[must_use]
     pub fn device(&self) -> &ei::Device {
         &self.0.device
     }
 
     /// Returns the name of the device, as provided by the server.
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
     }
 
     /// Returns the device's type.
+    #[must_use]
     pub fn device_type(&self) -> ei::device::DeviceType {
         self.0.device_type.unwrap()
     }
 
     /// Returns the device's dimensions, if applicable.
+    #[must_use]
     pub fn dimensions(&self) -> Option<(u32, u32)> {
         self.0.dimensions
     }
 
     /// Returns the device's regions.
+    #[must_use]
     pub fn regions(&self) -> &[Region] {
         &self.0.regions
     }
 
     /// Returns the device's keymap, if applicable.
+    #[must_use]
     pub fn keymap(&self) -> Option<&Keymap> {
         self.0.keymap.as_ref()
     }
@@ -842,11 +854,13 @@ impl Device {
     /// Returns an interface proxy if it is implemented for this device.
     ///
     /// Interfaces of devices are implemented, such that there is one `ei_device` object and other objects (for example `ei_keyboard`) denoting capabilities.
+    #[must_use]
     pub fn interface<T: ei::Interface>(&self) -> Option<T> {
         self.0.interfaces.get(T::NAME)?.clone().downcast()
     }
 
     /// Returns `true` if this device has an interface matching the provided capability.
+    #[must_use]
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
         self.0.interfaces.contains_key(capability.interface_name())
     }
@@ -1271,7 +1285,7 @@ impl Iterator for EiConvertEventIterator {
                 Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return None,
                 Err(err) => return Some(Err(err.into())),
                 Ok(_) => {}
-            };
+            }
             while let Some(result) = self.context.pending_event() {
                 let request = match result {
                     PendingRequestResult::Request(request) => request,

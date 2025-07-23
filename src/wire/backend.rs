@@ -161,7 +161,7 @@ impl Backend {
                     return Ok(total_count);
                 }
                 Err(err) => return Err(err.into()),
-            };
+            }
         }
     }
 
@@ -271,10 +271,10 @@ impl Backend {
     fn print_msg(&self, object_id: u64, opcode: u32, args: &[Arg], incoming: bool) {
         let object = self.object_for_id(object_id);
         let interface = object.as_ref().map_or("UNKNOWN", |x| x.interface());
-        let op_name = if self.0.client != incoming {
-            eis::Request::op_name(interface, opcode)
-        } else {
+        let op_name = if self.0.client == incoming {
             ei::Event::op_name(interface, opcode)
+        } else {
+            eis::Request::op_name(interface, opcode)
         }
         .unwrap_or("UNKNOWN");
         if incoming {

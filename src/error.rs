@@ -22,7 +22,7 @@ impl fmt::Display for Error {
                 write!(f, "invalid version {version} for interface '{interface}'")
             }
             Self::Event(err) => write!(f, "event error: {err}"),
-            Self::Request(err) => write!(f, "request error: {}", err),
+            Self::Request(err) => write!(f, "request error: {err}"),
             Self::Io(err) => write!(f, "IO error: {err}"),
             Self::Handshake(err) => write!(f, "handshake error: {err}"),
             Self::Parse(err) => write!(f, "parse error: {err}"),
