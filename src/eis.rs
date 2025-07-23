@@ -29,6 +29,11 @@ pub struct Listener {
 impl Listener {
     // TODO Use a lock here
     /// Listens on a specific path.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if binding to the given path or setting the socket to
+    /// non-blocking mode fails.
     pub fn bind(path: &Path) -> io::Result<Self> {
         Self::bind_inner(PathBuf::from(path), None)
     }
@@ -36,6 +41,11 @@ impl Listener {
     // XXX result type?
     // Error if XDG_RUNTIME_DIR not set?
     /// Listens on a file in `XDG_RUNTIME_DIR`.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if a lock file cannot be locked, binding to the generated path
+    /// fails or setting the socket to non-blocking mode fails.
     pub fn bind_auto() -> io::Result<Option<Self>> {
         let xdg_dir = if let Some(var) = env::var_os("XDG_RUNTIME_DIR") {
             PathBuf::from(var)
@@ -65,6 +75,10 @@ impl Listener {
     }
 
     /// Accepts a connection from a client. Returns `Ok(Some(_)` if an incoming connection is ready, and `Ok(None)` if there is no connection ready (would block).
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if [`Context::new`] fails.
     pub fn accept(&self) -> io::Result<Option<Context>> {
         match self.listener.accept() {
             Ok((socket, _)) => Ok(Some(Context::new(socket)?)),
@@ -116,6 +130,10 @@ impl Context {
     ///
     /// // Pass the `b` file descriptor to implement the RemoteDesktop XDG desktop portal
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if setting the socket to non-blocking mode fails.
     pub fn new(socket: UnixStream) -> io::Result<Self> {
         Ok(Self(Backend::new(socket, false)?))
     }
@@ -123,6 +141,10 @@ impl Context {
     /// Reads any pending data on the socket into the internal buffer.
     ///
     /// Returns `UnexpectedEof` if end-of-file is reached.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if there is an I/O error.
     pub fn read(&self) -> io::Result<usize> {
         self.0.read()
     }
@@ -135,11 +157,16 @@ impl Context {
 
     /// Returns the interface proxy for the `ei_handshake` object.
     #[must_use]
+    #[allow(clippy::missing_panics_doc)] // infallible; Backend always creates ei_handshake object at 0
     pub fn handshake(&self) -> handshake::Handshake {
         self.0.object_for_id(0).unwrap().downcast_unchecked()
     }
 
     /// Sends buffered messages. Call after you're finished with sending events.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned if sending the buffered messages fails.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.flush()
     }
