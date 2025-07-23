@@ -112,7 +112,7 @@ struct State {
 
 impl State {
     fn handle_new_connection(&mut self, context: eis::Context) -> io::Result<calloop::PostAction> {
-        println!("New connection: {:?}", context);
+        println!("New connection: {context:?}");
 
         let source = EisRequestSource::new(context, 1);
         let mut context_state = ContextState { seat: None };

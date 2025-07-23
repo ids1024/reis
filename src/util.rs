@@ -19,7 +19,7 @@ pub fn array_from_iterator_unchecked<T: Copy + Default, I: Iterator<Item = T>, c
     mut iter: I,
 ) -> [T; N] {
     let mut arr = [T::default(); N];
-    for i in arr.iter_mut() {
+    for i in &mut arr {
         *i = iter.next().unwrap();
     }
     arr

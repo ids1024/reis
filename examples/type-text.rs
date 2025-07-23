@@ -54,7 +54,7 @@ impl State {
         &mut self,
         context: &mut ei::Context,
     ) -> io::Result<calloop::PostAction> {
-        if let Err(_) = context.read() {
+        if context.read().is_err() {
             return Ok(calloop::PostAction::Remove);
         }
 
@@ -193,31 +193,29 @@ impl State {
                     }
                 }
                 ei::Event::Keyboard(keyboard, request) => {
-                    match request {
-                        ei::keyboard::Event::Keymap {
-                            keymap_type,
-                            size,
-                            keymap,
-                        } => {
-                            // XXX format
-                            // flags?
-                            // handle multiple keyboard?
-                            let context = xkb::Context::new(0);
-                            self.keymap = Some(
-                                unsafe {
-                                    xkb::Keymap::new_from_fd(
-                                        &context,
-                                        keymap,
-                                        size as _,
-                                        xkb::KEYMAP_FORMAT_TEXT_V1,
-                                        0,
-                                    )
-                                }
-                                .unwrap()
-                                .unwrap(),
-                            );
-                        }
-                        _ => {}
+                    if let ei::keyboard::Event::Keymap {
+                        keymap_type,
+                        size,
+                        keymap,
+                    } = request
+                    {
+                        // XXX format
+                        // flags?
+                        // handle multiple keyboard?
+                        let context = xkb::Context::new(0);
+                        self.keymap = Some(
+                            unsafe {
+                                xkb::Keymap::new_from_fd(
+                                    &context,
+                                    keymap,
+                                    size as _,
+                                    xkb::KEYMAP_FORMAT_TEXT_V1,
+                                    0,
+                                )
+                            }
+                            .unwrap()
+                            .unwrap(),
+                        );
                     }
                 }
                 _ => {}
