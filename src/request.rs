@@ -46,6 +46,7 @@ pub struct Connection(Arc<ConnectionInner>);
 
 impl Connection {
     /// Returns the interface proxy for the underlying `ei_connection` object.
+    #[must_use]
     pub fn connection(&self) -> &eis::Connection {
         &self.0.handshake_resp.connection
     }
@@ -85,17 +86,20 @@ impl Connection {
     ///
     /// That is — whether the client emulates input events via requests or receives
     /// input events.
+    #[must_use]
     pub fn context_type(&self) -> eis::handshake::ContextType {
         self.0.handshake_resp.context_type
     }
 
     /// Returns the human-readable name of the client.
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.0.handshake_resp.name.as_deref()
     }
 
     // Use type instead of string?
     /// Returns `true` if the connection has negotiated support for the named interface.
+    #[must_use]
     pub fn has_interface(&self, interface: &str) -> bool {
         self.0
             .handshake_resp
@@ -105,6 +109,7 @@ impl Connection {
 
     /// Returns the version of the named interface if it's supported on this
     /// connection. Otherwise returns `None`.
+    #[must_use]
     pub fn interface_version(&self, interface: &str) -> Option<u32> {
         self.0
             .handshake_resp
@@ -116,6 +121,7 @@ impl Connection {
     // TODO(axka, 2025-07-08): specify in the function name that this is the last serial from
     // the server, and not the client, and create a function for the other way around.
     /// Returns the last serial used in an event sent by the server.
+    #[must_use]
     pub fn last_serial(&self) -> u32 {
         *self.0.last_serial.lock().unwrap()
     }
@@ -139,6 +145,7 @@ impl Connection {
     }
 
     /// Adds a seat to the connection.
+    #[must_use]
     pub fn add_seat(&self, name: Option<&str>, capabilities: BitFlags<DeviceCapability>) -> Seat {
         let seat = self.connection().seat(1);
         if let Some(name) = name {
@@ -160,7 +167,7 @@ impl Connection {
         seat.done();
         let seat = Seat(Arc::new(SeatInner {
             seat,
-            name: name.map(|x| x.to_owned()),
+            name: name.map(std::borrow::ToOwned::to_owned),
             handle: Arc::downgrade(&self.0),
             advertised_capabilities: capabilities,
         }));
@@ -192,6 +199,7 @@ pub struct EisRequestConverter {
 
 impl EisRequestConverter {
     /// Creates a new converter.
+    #[must_use]
     pub fn new(
         context: &eis::Context,
         handshake_resp: EisHandshakeResp,
@@ -211,6 +219,7 @@ impl EisRequestConverter {
         }
     }
 
+    #[must_use]
     pub fn handle(&self) -> &Connection {
         &self.handle
     }
@@ -220,7 +229,7 @@ impl EisRequestConverter {
             time: eis_now(),
             device: device.clone(),
             last_serial: self.handle.last_serial(),
-        }))
+        }));
     }
 
     // Based on behavior of `eis_queue_request` in libeis
@@ -518,6 +527,7 @@ fn add_interface<I: eis::Interface>(
 
 impl Seat {
     /// Returns the interface proxy for the underlying `ei_seat` object.
+    #[must_use]
     pub fn eis_seat(&self) -> &eis::Seat {
         &self.0.seat
     }
@@ -572,7 +582,7 @@ impl Seat {
         let device = Device(Arc::new(DeviceInner {
             device,
             seat: self.clone(),
-            name: name.map(|x| x.to_string()),
+            name: name.map(std::string::ToString::to_string),
             interfaces,
             handle: self.0.handle.clone(),
         }));
@@ -703,16 +713,19 @@ impl fmt::Debug for Device {
 
 impl Device {
     /// Returns the high-level [`Seat`] wrapper for this device.
+    #[must_use]
     pub fn seat(&self) -> &Seat {
         &self.0.seat
     }
 
     /// Returns the interface proxy for the underlying `ei_device` object.
+    #[must_use]
     pub fn device(&self) -> &eis::Device {
         &self.0.device
     }
 
     /// Returns the name of the device.
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
     }
@@ -720,11 +733,13 @@ impl Device {
     /// Returns an interface proxy if it is implemented for this device.
     ///
     /// Interfaces of devices are implemented, such that there is one `ei_device` object and other objects (for example `ei_keyboard`) denoting capabilities.
+    #[must_use]
     pub fn interface<T: DeviceInterface>(&self) -> Option<T> {
         self.0.interfaces.get(T::NAME)?.clone().downcast()
     }
 
     /// Returns `true` if this device has an interface matching the provided capability.
+    #[must_use]
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
         self.0.interfaces.contains_key(capability.interface_name())
     }
@@ -752,7 +767,7 @@ impl Device {
     /// See [`eis::Device::resumed`] for documentation from the protocol specification.
     pub fn resumed(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            handle.with_next_serial(|serial| self.device().resumed(serial))
+            handle.with_next_serial(|serial| self.device().resumed(serial));
         }
     }
 
@@ -762,7 +777,7 @@ impl Device {
     /// See [`eis::Device::paused`] for documentation from the protocol specification.
     pub fn paused(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            handle.with_next_serial(|serial| self.device().paused(serial))
+            handle.with_next_serial(|serial| self.device().paused(serial));
         }
     }
 
@@ -775,7 +790,7 @@ impl Device {
     /// See [`eis::Device::start_emulating`] for documentation from the protocol specification.
     pub fn start_emulating(&self, sequence: u32) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            handle.with_next_serial(|serial| self.device().start_emulating(serial, sequence))
+            handle.with_next_serial(|serial| self.device().start_emulating(serial, sequence));
         }
     }
 
@@ -786,7 +801,7 @@ impl Device {
     /// See [`eis::Device::stop_emulating`] for documentation from the protocol specification.
     pub fn stop_emulating(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            handle.with_next_serial(|serial| self.device().stop_emulating(serial))
+            handle.with_next_serial(|serial| self.device().stop_emulating(serial));
         }
     }
 
@@ -798,7 +813,7 @@ impl Device {
     /// See [`eis::Device::frame`] for documentation from the protocol specification.
     pub fn frame(&self, time: u64) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            handle.with_next_serial(|serial| self.device().frame(serial, time))
+            handle.with_next_serial(|serial| self.device().frame(serial, time));
         }
     }
 }
@@ -868,6 +883,7 @@ impl EisRequest {
     }
 
     /// Returns the high-level [`Device`] wrapper for this request, if applicable.
+    #[must_use]
     pub fn device(&self) -> Option<&Device> {
         match self {
             Self::Frame(evt) => Some(&evt.device),

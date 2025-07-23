@@ -79,11 +79,11 @@ async fn main() {
                 println!("  seat: {:?}", evt.device.seat().name());
                 println!("  type: {:?}", evt.device.device_type());
                 if let Some(dimensions) = evt.device.dimensions() {
-                    println!("  dimensions: {:?}", dimensions);
+                    println!("  dimensions: {dimensions:?}");
                 }
                 println!("  regions: {:?}", evt.device.regions());
                 if let Some(keymap) = evt.device.keymap() {
-                    println!("  keymap: {:?}", keymap);
+                    println!("  keymap: {keymap:?}");
                 }
                 // Interfaces?
             }

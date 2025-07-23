@@ -17,6 +17,7 @@ pub struct EisListenerSource {
 }
 
 impl EisListenerSource {
+    #[must_use]
     pub fn new(listener: eis::Listener) -> Self {
         Self {
             source: Generic::new(listener, Interest::READ, Mode::Level),
@@ -166,6 +167,7 @@ pub struct EisRequestSource {
 }
 
 impl EisRequestSource {
+    #[must_use]
     pub fn new(context: eis::Context, initial_serial: u32) -> Self {
         let handshaker = crate::handshake::EisHandshaker::new(&context, initial_serial);
         Self {

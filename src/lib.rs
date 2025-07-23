@@ -38,6 +38,7 @@ mod private {
 // XXX
 // Want to fallback to higher number if exists, on server?
 // create on server, not client.
+#[must_use]
 pub fn default_socket_path() -> Option<PathBuf> {
     let mut path = PathBuf::from(env::var_os("XDG_RUNTIME_DIR")?);
     path.push("eis-0");

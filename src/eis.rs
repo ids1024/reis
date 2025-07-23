@@ -134,6 +134,7 @@ impl Context {
     }
 
     /// Returns the interface proxy for the `ei_handshake` object.
+    #[must_use]
     pub fn handshake(&self) -> handshake::Handshake {
         self.0.object_for_id(0).unwrap().downcast_unchecked()
     }
