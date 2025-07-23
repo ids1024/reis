@@ -4,6 +4,8 @@
 
 // TODO: rename/reorganize things; doc comments on public types/methods
 
+use enumflags2::{BitFlag, BitFlags};
+
 use crate::{
     ei::connection::DisconnectReason, eis, handshake::EisHandshakeResp, wire::Interface, Error,
     Object,
@@ -15,6 +17,18 @@ use std::{
 };
 
 pub use crate::event::DeviceCapability;
+
+#[derive(Debug)]
+pub enum RequestError {
+    InvalidCapabilities,
+}
+impl fmt::Display for RequestError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::InvalidCapabilities => write!(f, "invalid capabilities"),
+        }
+    }
+}
 
 #[derive(Debug)]
 struct ConnectionInner {
@@ -32,6 +46,7 @@ pub struct Connection(Arc<ConnectionInner>);
 
 impl Connection {
     /// Returns the interface proxy for the underlying `ei_connection` object.
+    #[must_use]
     pub fn connection(&self) -> &eis::Connection {
         &self.0.handshake_resp.connection
     }
@@ -44,6 +59,10 @@ impl Connection {
     ///
     /// When a client is disconnected on purpose, for example after a user interaction,
     /// `reason` must be [`DisconnectReason::Disconnected`], and `explanation` must be `None`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     // TODO(axka, 2025-07-08): rename to something imperative like `notify_disconnection`
     // TODO(axka, 2025-07-08): `explanation` must support NULL: https://gitlab.freedesktop.org/libinput/libei/-/commit/267716a7609730914b24adf5860ec8d2cf2e7636
     pub fn disconnected(&self, reason: DisconnectReason, explanation: &str) {
@@ -63,6 +82,10 @@ impl Connection {
     }
 
     /// Sends buffered messages. Call after you're finished with sending events.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned if sending the buffered messages fails.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.context.flush()
     }
@@ -71,17 +94,20 @@ impl Connection {
     ///
     /// That is — whether the client emulates input events via requests or receives
     /// input events.
+    #[must_use]
     pub fn context_type(&self) -> eis::handshake::ContextType {
         self.0.handshake_resp.context_type
     }
 
     /// Returns the human-readable name of the client.
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.0.handshake_resp.name.as_deref()
     }
 
     // Use type instead of string?
-    /// Returns `true` if the connection supports the named interface.
+    /// Returns `true` if the connection has negotiated support for the named interface.
+    #[must_use]
     pub fn has_interface(&self, interface: &str) -> bool {
         self.0
             .handshake_resp
@@ -91,6 +117,7 @@ impl Connection {
 
     /// Returns the version of the named interface if it's supported on this
     /// connection. Otherwise returns `None`.
+    #[must_use]
     pub fn interface_version(&self, interface: &str) -> Option<u32> {
         self.0
             .handshake_resp
@@ -102,11 +129,20 @@ impl Connection {
     // TODO(axka, 2025-07-08): specify in the function name that this is the last serial from
     // the server, and not the client, and create a function for the other way around.
     /// Returns the last serial used in an event sent by the server.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
     pub fn last_serial(&self) -> u32 {
         *self.0.last_serial.lock().unwrap()
     }
 
     /// Increments the current serial and runs the provided callback with it.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn with_next_serial<T, F: FnOnce(u32) -> T>(&self, cb: F) -> T {
         let mut last_serial = self.0.last_serial.lock().unwrap();
         let serial = last_serial.wrapping_add(1);
@@ -125,20 +161,35 @@ impl Connection {
     }
 
     /// Adds a seat to the connection.
-    pub fn add_seat(&self, name: Option<&str>, capabilities: &[DeviceCapability]) -> Seat {
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn add_seat(&self, name: Option<&str>, capabilities: BitFlags<DeviceCapability>) -> Seat {
         let seat = self.connection().seat(1);
         if let Some(name) = name {
             seat.name(name);
         }
+
         for capability in capabilities {
-            // TODO only send negotiated interfaces
-            seat.capability(2 << *capability as u64, capability.name());
+            let interface_name = capability.interface_name();
+
+            if !self.has_interface(interface_name) {
+                // Not negotiated
+                continue;
+            }
+
+            // Using bitflag value because as the server we control its meaning
+            seat.capability(capability as u64, interface_name);
         }
+
         seat.done();
         let seat = Seat(Arc::new(SeatInner {
             seat,
-            name: name.map(|x| x.to_owned()),
+            name: name.map(std::borrow::ToOwned::to_owned),
             handle: Arc::downgrade(&self.0),
+            advertised_capabilities: capabilities,
         }));
         self.0
             .seats
@@ -151,6 +202,10 @@ impl Connection {
 
 // TODO libei has a `eis_clock_set_now_func`
 // Return time in us
+#[expect(
+    clippy::cast_sign_loss,
+    reason = "Monotonic clock never returns negatives"
+)]
 fn eis_now() -> u64 {
     let time = rustix::time::clock_gettime(rustix::time::ClockId::Monotonic);
     time.tv_sec as u64 * 1_000_000 + time.tv_nsec as u64 / 1_000
@@ -168,6 +223,7 @@ pub struct EisRequestConverter {
 
 impl EisRequestConverter {
     /// Creates a new converter.
+    #[must_use]
     pub fn new(
         context: &eis::Context,
         handshake_resp: EisHandshakeResp,
@@ -179,14 +235,15 @@ impl EisRequestConverter {
             handle: Connection(Arc::new(ConnectionInner {
                 context: context.clone(),
                 handshake_resp,
-                seats: Default::default(),
-                devices: Default::default(),
-                device_for_interface: Default::default(),
+                seats: Mutex::default(),
+                devices: Mutex::default(),
+                device_for_interface: Mutex::default(),
                 last_serial: Mutex::new(initial_serial),
             })),
         }
     }
 
+    #[must_use]
     pub fn handle(&self) -> &Connection {
         &self.handle
     }
@@ -196,7 +253,7 @@ impl EisRequestConverter {
             time: eis_now(),
             device: device.clone(),
             last_serial: self.handle.last_serial(),
-        }))
+        }));
     }
 
     // Based on behavior of `eis_queue_request` in libeis
@@ -226,6 +283,17 @@ impl EisRequestConverter {
         self.requests.pop_front()
     }
 
+    /// Handles a low-level protocol-level [`eis::Request`], possibly converting it into
+    /// a high-level [`EisRequest`].
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    ///
+    /// # Errors
+    ///
+    /// The errors returned are protocol violations.
+    #[expect(clippy::too_many_lines, reason = "Handler is allowed to be big")]
     pub fn handle_request(&mut self, request: eis::Request) -> Result<(), Error> {
         match request {
             eis::Request::Handshake(_handshake, _request) => {
@@ -264,6 +332,13 @@ impl EisRequestConverter {
                     let Some(seat) = self.handle.0.seats.lock().unwrap().get(&seat).cloned() else {
                         return Ok(());
                     };
+
+                    let capabilities = DeviceCapability::from_bits(capabilities)
+                        .map_err(|_err| RequestError::InvalidCapabilities)?;
+                    if !seat.0.advertised_capabilities.contains(capabilities) {
+                        return Err(RequestError::InvalidCapabilities.into());
+                    }
+
                     self.queue_request(EisRequest::Bind(Bind { seat, capabilities }));
                 }
             },
@@ -465,8 +540,8 @@ impl EisRequestConverter {
 struct SeatInner {
     seat: eis::Seat,
     name: Option<String>,
-    //capabilities: HashMap<String, u64>,
     handle: Weak<ConnectionInner>,
+    advertised_capabilities: BitFlags<DeviceCapability>,
 }
 
 /// High-level server-side wrapper for `ei_seat`.
@@ -487,17 +562,22 @@ fn add_interface<I: eis::Interface>(
 
 impl Seat {
     /// Returns the interface proxy for the underlying `ei_seat` object.
+    #[must_use]
     pub fn eis_seat(&self) -> &eis::Seat {
         &self.0.seat
     }
 
     // builder pattern?
     /// Adds a device to the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn add_device(
         &self,
         name: Option<&str>,
         device_type: eis::device::DeviceType,
-        capabilities: &[DeviceCapability],
+        capabilities: BitFlags<DeviceCapability>,
         // TODO: better solution; keymap, etc.
         before_done_cb: impl for<'a> FnOnce(&'a Device),
     ) -> Device {
@@ -535,13 +615,13 @@ impl Seat {
                     add_interface::<eis::Button>(&device, connection.as_ref())
                 }
             };
-            interfaces.insert(object.interface().to_string(), object);
+            interfaces.insert(object.interface().to_owned(), object);
         }
 
         let device = Device(Arc::new(DeviceInner {
             device,
             seat: self.clone(),
-            name: name.map(|x| x.to_string()),
+            name: name.map(std::string::ToString::to_string),
             interfaces,
             handle: self.0.handle.clone(),
         }));
@@ -569,6 +649,10 @@ impl Seat {
     }
 
     /// Removes this seat and associated devices from the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             let devices = handle
@@ -672,16 +756,19 @@ impl fmt::Debug for Device {
 
 impl Device {
     /// Returns the high-level [`Seat`] wrapper for this device.
+    #[must_use]
     pub fn seat(&self) -> &Seat {
         &self.0.seat
     }
 
     /// Returns the interface proxy for the underlying `ei_device` object.
+    #[must_use]
     pub fn device(&self) -> &eis::Device {
         &self.0.device
     }
 
     /// Returns the name of the device.
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
     }
@@ -689,16 +776,22 @@ impl Device {
     /// Returns an interface proxy if it is implemented for this device.
     ///
     /// Interfaces of devices are implemented, such that there is one `ei_device` object and other objects (for example `ei_keyboard`) denoting capabilities.
+    #[must_use]
     pub fn interface<T: DeviceInterface>(&self) -> Option<T> {
         self.0.interfaces.get(T::NAME)?.clone().downcast()
     }
 
     /// Returns `true` if this device has an interface matching the provided capability.
+    #[must_use]
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
-        self.0.interfaces.contains_key(capability.name())
+        self.0.interfaces.contains_key(capability.interface_name())
     }
 
     /// Removes this device and associated interfaces from the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             for interface in self.0.interfaces.values() {
@@ -721,7 +814,7 @@ impl Device {
     /// See [`eis::Device::resumed`] for documentation from the protocol specification.
     pub fn resumed(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            handle.with_next_serial(|serial| self.device().resumed(serial))
+            handle.with_next_serial(|serial| self.device().resumed(serial));
         }
     }
 
@@ -731,7 +824,7 @@ impl Device {
     /// See [`eis::Device::paused`] for documentation from the protocol specification.
     pub fn paused(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            handle.with_next_serial(|serial| self.device().paused(serial))
+            handle.with_next_serial(|serial| self.device().paused(serial));
         }
     }
 
@@ -744,7 +837,7 @@ impl Device {
     /// See [`eis::Device::start_emulating`] for documentation from the protocol specification.
     pub fn start_emulating(&self, sequence: u32) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            handle.with_next_serial(|serial| self.device().start_emulating(serial, sequence))
+            handle.with_next_serial(|serial| self.device().start_emulating(serial, sequence));
         }
     }
 
@@ -755,7 +848,7 @@ impl Device {
     /// See [`eis::Device::stop_emulating`] for documentation from the protocol specification.
     pub fn stop_emulating(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            handle.with_next_serial(|serial| self.device().stop_emulating(serial))
+            handle.with_next_serial(|serial| self.device().stop_emulating(serial));
         }
     }
 
@@ -767,7 +860,7 @@ impl Device {
     /// See [`eis::Device::frame`] for documentation from the protocol specification.
     pub fn frame(&self, time: u64) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            handle.with_next_serial(|serial| self.device().frame(serial, time))
+            handle.with_next_serial(|serial| self.device().frame(serial, time));
         }
     }
 }
@@ -837,6 +930,7 @@ impl EisRequest {
     }
 
     /// Returns the high-level [`Device`] wrapper for this request, if applicable.
+    #[must_use]
     pub fn device(&self) -> Option<&Device> {
         match self {
             Self::Frame(evt) => Some(&evt.device),
@@ -864,7 +958,7 @@ impl EisRequest {
 pub struct Bind {
     /// High-level [`Seat`] wrapper.
     pub seat: Seat,
-    pub capabilities: u64,
+    pub capabilities: BitFlags<DeviceCapability>,
 }
 
 /// High-level translation of [`ei_device.frame`](eis::device::Request::Frame).

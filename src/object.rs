@@ -30,7 +30,7 @@ impl Eq for Object {}
 
 impl hash::Hash for Object {
     fn hash<H: hash::Hasher>(&self, hasher: &mut H) {
-        self.0.id.hash(hasher)
+        self.0.id.hash(hasher);
     }
 }
 
@@ -52,8 +52,8 @@ impl Object {
     ) -> Self {
         Self(Arc::new(ObjectInner {
             backend,
-            id,
             client_side,
+            id,
             interface,
             version,
         }))
@@ -62,6 +62,7 @@ impl Object {
     /// Returns a handle to the backend.
     ///
     /// Returns `None` if the backend has been destroyed.
+    #[must_use]
     pub fn backend(&self) -> Option<Backend> {
         self.0.backend.upgrade()
     }
@@ -74,6 +75,7 @@ impl Object {
 
     /// Returns `true` if the backend has this object, and `false` otherwise or if the backend
     /// has been destroyed.
+    #[must_use]
     pub fn is_alive(&self) -> bool {
         if let Some(backend) = self.backend() {
             backend.has_object_for_id(self.id())
@@ -84,6 +86,7 @@ impl Object {
 
     /// Returns the object's
     /// [ID](https://libinput.pages.freedesktop.org/libei/doc/types/index.html#object-ids).
+    #[must_use]
     pub fn id(&self) -> u64 {
         self.0.id
     }
@@ -92,11 +95,13 @@ impl Object {
     ///
     /// Interface names for new objects aren't usually transmitted, but rather come from
     /// the protocol definition.
+    #[must_use]
     pub fn interface(&self) -> &str {
         &self.0.interface
     }
 
     /// Returns the version of the interface of this object.
+    #[must_use]
     pub fn version(&self) -> u32 {
         self.0.version
     }
@@ -139,6 +144,7 @@ impl Object {
     /// keyboard.key(0x41, KeyState::Press);
     /// ```
     // TODO(axka, 2025-07-02): return Result<T, Self>
+    #[must_use]
     pub fn downcast<T: Interface>(self) -> Option<T> {
         if (self.0.client_side, self.interface()) == (T::CLIENT_SIDE, T::NAME) {
             Some(self.downcast_unchecked())
