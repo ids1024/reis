@@ -59,6 +59,10 @@ impl Connection {
     ///
     /// When a client is disconnected on purpose, for example after a user interaction,
     /// `reason` must be [`DisconnectReason::Disconnected`], and `explanation` must be `None`.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     // TODO(axka, 2025-07-08): rename to something imperative like `notify_disconnection`
     // TODO(axka, 2025-07-08): `explanation` must support NULL: https://gitlab.freedesktop.org/libinput/libei/-/commit/267716a7609730914b24adf5860ec8d2cf2e7636
     pub fn disconnected(&self, reason: DisconnectReason, explanation: &str) {
@@ -78,6 +82,10 @@ impl Connection {
     }
 
     /// Sends buffered messages. Call after you're finished with sending events.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned if sending the buffered messages fails.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.context.flush()
     }
@@ -121,12 +129,20 @@ impl Connection {
     // TODO(axka, 2025-07-08): specify in the function name that this is the last serial from
     // the server, and not the client, and create a function for the other way around.
     /// Returns the last serial used in an event sent by the server.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     #[must_use]
     pub fn last_serial(&self) -> u32 {
         *self.0.last_serial.lock().unwrap()
     }
 
     /// Increments the current serial and runs the provided callback with it.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn with_next_serial<T, F: FnOnce(u32) -> T>(&self, cb: F) -> T {
         let mut last_serial = self.0.last_serial.lock().unwrap();
         let serial = last_serial.wrapping_add(1);
@@ -145,6 +161,10 @@ impl Connection {
     }
 
     /// Adds a seat to the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     #[must_use]
     pub fn add_seat(&self, name: Option<&str>, capabilities: BitFlags<DeviceCapability>) -> Seat {
         let seat = self.connection().seat(1);
@@ -182,6 +202,10 @@ impl Connection {
 
 // TODO libei has a `eis_clock_set_now_func`
 // Return time in us
+#[expect(
+    clippy::cast_sign_loss,
+    reason = "Monotonic clock never returns negatives"
+)]
 fn eis_now() -> u64 {
     let time = rustix::time::clock_gettime(rustix::time::ClockId::Monotonic);
     time.tv_sec as u64 * 1_000_000 + time.tv_nsec as u64 / 1_000
@@ -211,9 +235,9 @@ impl EisRequestConverter {
             handle: Connection(Arc::new(ConnectionInner {
                 context: context.clone(),
                 handshake_resp,
-                seats: Default::default(),
-                devices: Default::default(),
-                device_for_interface: Default::default(),
+                seats: Mutex::default(),
+                devices: Mutex::default(),
+                device_for_interface: Mutex::default(),
                 last_serial: Mutex::new(initial_serial),
             })),
         }
@@ -259,6 +283,17 @@ impl EisRequestConverter {
         self.requests.pop_front()
     }
 
+    /// Handles a low-level protocol-level [`eis::Request`], possibly converting it into
+    /// a high-level [`EisRequest`].
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    ///
+    /// # Errors
+    ///
+    /// The errors returned are protocol violations.
+    #[expect(clippy::too_many_lines, reason = "Handler is allowed to be big")]
     pub fn handle_request(&mut self, request: eis::Request) -> Result<(), Error> {
         match request {
             eis::Request::Handshake(_handshake, _request) => {
@@ -534,6 +569,10 @@ impl Seat {
 
     // builder pattern?
     /// Adds a device to the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn add_device(
         &self,
         name: Option<&str>,
@@ -576,7 +615,7 @@ impl Seat {
                     add_interface::<eis::Button>(&device, connection.as_ref())
                 }
             };
-            interfaces.insert(object.interface().to_string(), object);
+            interfaces.insert(object.interface().to_owned(), object);
         }
 
         let device = Device(Arc::new(DeviceInner {
@@ -610,6 +649,10 @@ impl Seat {
     }
 
     /// Removes this seat and associated devices from the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             let devices = handle
@@ -745,6 +788,10 @@ impl Device {
     }
 
     /// Removes this device and associated interfaces from the connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             for interface in self.0.interfaces.values() {

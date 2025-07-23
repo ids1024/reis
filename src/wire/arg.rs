@@ -49,7 +49,9 @@ impl Arg<'_> {
         match self {
             Arg::Uint32(value) => buf.extend(value.to_ne_bytes()),
             Arg::Int32(value) => buf.extend(value.to_ne_bytes()),
-            Arg::Uint64(value) => buf.extend(value.to_ne_bytes()),
+            Arg::Uint64(value) | Arg::NewId(value) | Arg::Id(value) => {
+                buf.extend(value.to_ne_bytes());
+            }
             Arg::Int64(value) => buf.extend(value.to_ne_bytes()),
             Arg::Float(value) => buf.extend(value.to_ne_bytes()),
             // XXX unwrap?
@@ -67,8 +69,6 @@ impl Arg<'_> {
                     buf.extend((0..4 - (len % 4)).map(|_| b'\0'));
                 }
             }
-            Arg::NewId(value) => buf.extend(value.to_ne_bytes()),
-            Arg::Id(value) => buf.extend(value.to_ne_bytes()),
         }
     }
 }
