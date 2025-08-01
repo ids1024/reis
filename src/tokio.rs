@@ -1,3 +1,5 @@
+//! Module containing [`tokio`] event streams.
+
 // TODO: Handle writable fd too?
 
 use futures::stream::{Stream, StreamExt};
@@ -12,6 +14,7 @@ pub use crate::handshake::{HandshakeError, HandshakeResp};
 use crate::{ei, handshake::EiHandshaker, Error, PendingRequestResult};
 
 // XXX make this ei::EventStream?
+/// Stream of `ei::Event`s.
 pub struct EiEventStream(AsyncFd<ei::Context>);
 
 impl EiEventStream {
@@ -65,6 +68,7 @@ impl Stream for EiEventStream {
 }
 
 // TODO rename EiProtoEventStream
+/// EI convert event stream.
 pub struct EiConvertEventStream {
     inner: EiEventStream,
     converter: crate::event::EiEventConverter,

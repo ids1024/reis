@@ -16,6 +16,7 @@
     clippy::used_underscore_binding,
     clippy::match_same_arms,
     clippy::str_to_string,
+    missing_docs,
 )]
 
 // GENERATED FILE

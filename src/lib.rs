@@ -1,3 +1,19 @@
+//! Reis 🍚 provides a Rust version of EI 🥚 and EIS 🍨 for emulated input on Wayland.
+//!
+//! See the upstream project [libei](https://gitlab.freedesktop.org/libinput/libei) for more information.
+//!
+//! This library is currently **incomplete** and subject to change. It should probably do more to provide a more high level API that handles the things a client/server needs to deal with.
+//!
+//! Setting the env var `REIS_DEBUG` will make the library print ei messages it sends and receives.
+//!
+//! # Features
+//!
+//! `reis` has the following Cargo features:
+//!
+//! - `tokio`: Enables tokio support for clients.
+//! - `calloop`: Enables calloop sources for EIS implementations. Somewhat experimental and
+//!   incomplete.
+
 #![forbid(unsafe_code)]
 
 // TODO split up
@@ -38,6 +54,7 @@ mod private {
 // XXX
 // Want to fallback to higher number if exists, on server?
 // create on server, not client.
+/// Returns the default socket path for EIS.
 #[must_use]
 pub fn default_socket_path() -> Option<PathBuf> {
     let mut path = PathBuf::from(env::var_os("XDG_RUNTIME_DIR")?);

@@ -1,3 +1,5 @@
+//! Capturing input asynchronously.
+
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use futures::stream::StreamExt;
 use reis::{ei, event::DeviceCapability};
