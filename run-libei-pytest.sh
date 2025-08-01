@@ -2,7 +2,7 @@
 
 set -e
 
-if [ "$#" -ne 1 ]; then
+if [ "$#" -lt 1 ]; then
 	>&2 echo "Usage: run-libei-pytest.sh <path/to/libei> [pytest arguments]"
 	exit 1
 fi
