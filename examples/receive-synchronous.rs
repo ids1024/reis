@@ -1,3 +1,5 @@
+//! Capturing input synchronously.
+
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use pollster::FutureExt as _;
 use reis::{ei, event::DeviceCapability};

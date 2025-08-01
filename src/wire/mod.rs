@@ -101,16 +101,26 @@ impl<'a> ByteStream<'a> {
     }
 }
 
+/// Wire format parse error.
 #[derive(Debug)]
 pub enum ParseError {
+    /// End of message while parsing argument.
     EndOfMessage,
+    /// Invalid UTF-8 string in message.
     Utf8(FromUtf8Error),
+    /// Invalid object ID.
     InvalidId(u64),
+    /// Expected file descriptor.
     NoFd,
+    /// Invalid opcode for interface.
     InvalidOpcode(&'static str, u32),
+    /// Invalid variant for enum.
     InvalidVariant(&'static str, u32),
+    /// Unknown interface.
     InvalidInterface(String),
+    /// Message header is too short.
     HeaderLength(u32),
+    /// Message length didn't match header.
     MessageLength(u32, u32),
 }
 
@@ -122,10 +132,10 @@ impl fmt::Display for ParseError {
             Self::InvalidId(id) => write!(f, "new object id '{id}' invalid"),
             Self::NoFd => write!(f, "expected fd"),
             Self::InvalidOpcode(intr, op) => {
-                write!(f, "opcode '{op}' invallid for interface '{intr}'")
+                write!(f, "opcode '{op}' invalid for interface '{intr}'")
             }
             Self::InvalidVariant(enum_, var) => {
-                write!(f, "variant '{var}' invallid for enum '{enum_}'")
+                write!(f, "variant '{var}' invalid for enum '{enum_}'")
             }
             Self::InvalidInterface(intr) => write!(f, "unknown interface '{intr}'"),
             Self::HeaderLength(len) => write!(f, "header length {len} < 16"),

@@ -1,3 +1,4 @@
+//! Demo server.
 // TODO: Require context_type
 
 use reis::{

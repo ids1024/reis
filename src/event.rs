@@ -29,14 +29,22 @@ use std::{
     },
 };
 
+/// Protocol errors of the server.
 #[derive(Debug)]
 pub enum EventError {
+    /// Non-setup device event before `done`.
     DeviceEventBeforeDone,
+    /// Device setup event after `done`.
     DeviceSetupEventAfterDone,
+    /// Seat setup event after `done`.
     SeatSetupEventAfterDone,
+    /// Non-setup seat event before `done`.
     SeatEventBeforeDone,
+    /// `ei_device.device_type` was not sent before `done`.
     NoDeviceType,
+    /// Handshake event after handshake.
     UnexpectedHandshakeEvent,
+    /// Non-negotiated interface advertised in `ei_device.capability`.
     UnknownCapabilityInterface,
 }
 
@@ -114,6 +122,7 @@ pub struct EiEventConverter {
 }
 
 impl EiEventConverter {
+    /// Creates a new converter.
     #[must_use]
     pub fn new(context: &ei::Context, handshake_resp: HandshakeResp) -> Self {
         Self {
@@ -133,6 +142,7 @@ impl EiEventConverter {
         }
     }
 
+    /// Returns a handle to the connection used by this converer.
     #[must_use]
     pub fn connection(&self) -> &Connection {
         &self.connection
@@ -621,10 +631,12 @@ impl EiEventConverter {
         Ok(())
     }
 
+    /// Returns the next queued request if one exists.
     pub fn next_event(&mut self) -> Option<EiEvent> {
         self.events.pop_front()
     }
 
+    /// Adds a function to execute when the server informs that the the associated request is done.
     pub fn add_callback_handler<F: FnOnce(u64) + 'static>(
         &mut self,
         callback: ei::Callback,
@@ -667,11 +679,17 @@ pub struct Keymap {
 #[repr(u64)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum DeviceCapability {
+    /// Capability for relative pointer motion.
     Pointer = 1 << 0,
+    /// Capability for absolute pointer motion.
     PointerAbsolute = 1 << 1,
+    /// Capability for keyboard input events.
     Keyboard = 1 << 2,
+    /// Capability for touch input events.
     Touch = 1 << 3,
+    /// Capability for scroll input events.
     Scroll = 1 << 4,
+    /// Capability for mouse button input events.
     Button = 1 << 5,
 }
 
@@ -888,6 +906,7 @@ impl std::hash::Hash for Device {
 
 /// Enum containing all possible events the high-level utilities will give for a client implementation to handle.
 #[derive(Clone, Debug, PartialEq)]
+#[allow(missing_docs)] // Inner types have docs
 pub enum EiEvent {
     // Connected,
     Disconnected(Disconnected),
@@ -952,14 +971,18 @@ impl EiEvent {
 /// High-level translation of [`ei_connection.disconnected`](ei::connection::Event::Disconnected).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Disconnected {
+    /// Last serial sent by the EIS implementation.
     pub last_serial: u32,
+    /// Reason for disconnection.
     pub reason: ei::connection::DisconnectReason,
+    /// Explanation for debugging purposes.
     pub explanation: String,
 }
 
 /// High-level translation of the seat description events ending with [`ei_seat.done`](ei::seat::Event::Done).
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeatAdded {
+    /// High-level [`Seat`] wrapper for the seat that was added.
     pub seat: Seat,
 }
 
@@ -969,6 +992,7 @@ pub struct SeatAdded {
 /// in an event.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeatRemoved {
+    /// High-level [`Seat`] wrapper for the seat that was removed.
     pub seat: Seat,
 }
 
@@ -994,6 +1018,7 @@ pub struct DeviceRemoved {
 pub struct DevicePaused {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
 }
 
@@ -1002,6 +1027,7 @@ pub struct DevicePaused {
 pub struct DeviceResumed {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
 }
 
@@ -1010,10 +1036,15 @@ pub struct DeviceResumed {
 pub struct KeyboardModifiers {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
+    /// Mask of modifiers in the depressed state.
     pub depressed: u32,
+    /// Mask of modifiers in the latched state.
     pub latched: u32,
+    /// Mask of modifiers in the locked state.
     pub locked: u32,
+    /// The current group or layout index in the keymap.
     pub group: u32,
 }
 
@@ -1022,6 +1053,7 @@ pub struct KeyboardModifiers {
 pub struct Frame {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
     /// Timestamp in microseconds.
     pub time: u64,
@@ -1032,7 +1064,9 @@ pub struct Frame {
 pub struct DeviceStartEmulating {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
+    /// The event's sequence number.
     pub sequence: u32,
 }
 
@@ -1041,6 +1075,7 @@ pub struct DeviceStartEmulating {
 pub struct DeviceStopEmulating {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
 }
 
@@ -1051,7 +1086,9 @@ pub struct PointerMotion {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Relative motion on the X axis.
     pub dx: f32,
+    /// Relative motion on the Y axis.
     pub dy: f32,
 }
 
@@ -1062,7 +1099,9 @@ pub struct PointerMotionAbsolute {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Absolute position on the X axis.
     pub dx_absolute: f32,
+    /// Absolute position on the Y axis.
     pub dy_absolute: f32,
 }
 
@@ -1073,7 +1112,9 @@ pub struct Button {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Button code, as in Linux's `input-event-codes.h`.
     pub button: u32,
+    /// State of the button.
     pub state: ei::button::ButtonState,
 }
 
@@ -1084,7 +1125,9 @@ pub struct ScrollDelta {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Motion on the X axis.
     pub dx: f32,
+    /// Motion on the Y axis.
     pub dy: f32,
 }
 
@@ -1095,7 +1138,9 @@ pub struct ScrollStop {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Whether motion on the X axis stopped.
     pub x: bool,
+    /// Whether motion on the Y axis stopped.
     pub y: bool,
 }
 
@@ -1106,7 +1151,9 @@ pub struct ScrollCancel {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Whether motion on the X axis was canceled.
     pub x: bool,
+    /// Whether motion on the Y axis was canceled.
     pub y: bool,
 }
 
@@ -1117,7 +1164,9 @@ pub struct ScrollDiscrete {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Discrete motion on the X axis.
     pub discrete_dx: i32,
+    /// Discrete motion on the Y axis.
     pub discrete_dy: i32,
 }
 
@@ -1143,7 +1192,9 @@ pub struct TouchDown {
     pub time: u64,
     /// Unique touch ID, defined in this event.
     pub touch_id: u32,
+    /// Absolute position on the X axis.
     pub x: f32,
+    /// Absolute position on the Y axis.
     pub y: f32,
 }
 
@@ -1156,7 +1207,9 @@ pub struct TouchMotion {
     pub time: u64,
     /// Unique touch ID, defined in [`TouchDown`].
     pub touch_id: u32,
+    /// Absolute position on the X axis.
     pub x: f32,
+    /// Absolute position on the Y axis.
     pub y: f32,
 }
 

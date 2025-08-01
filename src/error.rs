@@ -4,13 +4,20 @@ use std::{fmt, io};
 /// An error coming from the `reis` crate
 #[derive(Debug)]
 pub enum Error {
+    /// Handshake event after handshake.
     UnexpectedHandshakeEvent,
+    /// Invalid interface version
     InvalidInterfaceVersion(&'static str, u32),
     // TODO better error type here?
+    /// Protocol error caused by server.
     Event(EventError),
+    /// Protocol error caused by client.
     Request(RequestError),
+    /// Wire format parse error.
     Parse(ParseError),
+    /// Handshake error.
     Handshake(HandshakeError),
+    /// I/O error.
     Io(io::Error),
 }
 
