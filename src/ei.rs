@@ -44,7 +44,7 @@ impl Context {
     /// use std::os::unix::net::UnixStream;
     /// use reis::ei::Context;
     ///
-    /// let socket = UnixStream::connect("/example/path");
+    /// let socket = UnixStream::connect("/example/path").unwrap();
     /// // Or receive from, for example, the RemoteDesktop XDG desktop protal.
     ///
     /// let context = Context::new(socket).unwrap();
