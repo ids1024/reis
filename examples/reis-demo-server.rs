@@ -124,7 +124,19 @@ impl State {
                     connected_state,
                     event,
                 )),
-                Err(err) => Ok(context_state.protocol_error(connected_state, &err.to_string())),
+                Err(err) => {
+                    if let reis::Error::Request(reis::request::RequestError::InvalidCapabilities) =
+                        err
+                    {
+                        Ok(context_state.disconnected(
+                            connected_state,
+                            eis::connection::DisconnectReason::Value,
+                            &err.to_string(),
+                        ))
+                    } else {
+                        Ok(context_state.protocol_error(connected_state, &err.to_string()))
+                    }
+                }
             })
             .unwrap();
 
