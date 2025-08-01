@@ -93,10 +93,14 @@ impl AsFd for Backend {
     }
 }
 
+/// Pending message result.
 #[derive(Debug)]
 pub enum PendingRequestResult<T> {
+    /// The message. Either an event or a request.
     Request(T),
+    /// Wire format parse error.
     ParseError(ParseError),
+    /// Invalid object ID.
     InvalidObject(u64),
 }
 

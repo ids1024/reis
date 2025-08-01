@@ -1,3 +1,5 @@
+//! List devices with sender context type.
+
 use ashpd::desktop::remote_desktop::{DeviceType, RemoteDesktop};
 use futures::stream::StreamExt;
 use reis::{ei, tokio::EiEventStream, PendingRequestResult};

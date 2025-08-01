@@ -18,8 +18,10 @@ use std::{
 
 pub use crate::event::DeviceCapability;
 
+/// Protocol errors of the client.
 #[derive(Debug)]
 pub enum RequestError {
+    /// Invalid capabilities in `ei_seat.bind`.
     InvalidCapabilities,
 }
 impl fmt::Display for RequestError {
@@ -240,6 +242,7 @@ impl EisRequestConverter {
         }
     }
 
+    /// Returns a handle to the connection used by this converer.
     #[must_use]
     pub fn handle(&self) -> &Connection {
         &self.connection
@@ -276,6 +279,7 @@ impl EisRequestConverter {
         }
     }
 
+    /// Returns the next queued request if one exists.
     pub fn next_request(&mut self) -> Option<EisRequest> {
         self.requests.pop_front()
     }
@@ -737,6 +741,7 @@ impl std::hash::Hash for Seat {
     }
 }
 
+/// Trait marking interfaces that can be on devices.
 pub trait DeviceInterface: eis::Interface {}
 
 macro_rules! impl_device_interface {
@@ -920,6 +925,7 @@ impl std::hash::Hash for Device {
 
 /// Enum containing all possible requests the high-level utilities will give for a server implementation to handle.
 #[derive(Clone, Debug, PartialEq)]
+#[allow(missing_docs)] // Inner types have docs
 pub enum EisRequest {
     // TODO connect, disconnect, device closed
     Disconnect,
@@ -997,6 +1003,7 @@ impl EisRequest {
 pub struct Bind {
     /// High-level [`Seat`] wrapper.
     pub seat: Seat,
+    /// Capabilities requested by the client.
     pub capabilities: BitFlags<DeviceCapability>,
 }
 
@@ -1005,6 +1012,7 @@ pub struct Bind {
 pub struct Frame {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Last serial sent by the EIS implementation.
     pub last_serial: u32,
     /// Timestamp in microseconds.
     pub time: u64,
@@ -1015,7 +1023,9 @@ pub struct Frame {
 pub struct DeviceStartEmulating {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Last serial sent by the EIS implementation.
     pub last_serial: u32,
+    /// The event's sequence number.
     pub sequence: u32,
 }
 
@@ -1024,6 +1034,7 @@ pub struct DeviceStartEmulating {
 pub struct DeviceStopEmulating {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// Last serial sent by the EIS implementation.
     pub last_serial: u32,
 }
 
@@ -1034,7 +1045,9 @@ pub struct PointerMotion {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Relative motion on the X axis.
     pub dx: f32,
+    /// Relative motion on the Y axis.
     pub dy: f32,
 }
 
@@ -1045,7 +1058,9 @@ pub struct PointerMotionAbsolute {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Absolute position on the X axis.
     pub dx_absolute: f32,
+    /// Absolute position on the Y axis.
     pub dy_absolute: f32,
 }
 
@@ -1056,7 +1071,9 @@ pub struct Button {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Button code, as in Linux's `input-event-codes.h`.
     pub button: u32,
+    /// State of the button.
     pub state: eis::button::ButtonState,
 }
 
@@ -1067,7 +1084,9 @@ pub struct ScrollDelta {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Motion on the X axis.
     pub dx: f32,
+    /// Motion on the Y axis.
     pub dy: f32,
 }
 
@@ -1078,7 +1097,9 @@ pub struct ScrollStop {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Whether motion on the X axis stopped.
     pub x: bool,
+    /// Whether motion on the Y axis stopped.
     pub y: bool,
 }
 
@@ -1089,7 +1110,9 @@ pub struct ScrollCancel {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Whether motion on the X axis was canceled.
     pub x: bool,
+    /// Whether motion on the Y axis was canceled.
     pub y: bool,
 }
 
@@ -1100,7 +1123,9 @@ pub struct ScrollDiscrete {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Discrete motion on the X axis.
     pub discrete_dx: i32,
+    /// Discrete motion on the Y axis.
     pub discrete_dy: i32,
 }
 
@@ -1126,7 +1151,9 @@ pub struct TouchDown {
     pub time: u64,
     /// Unique touch ID, defined in this request.
     pub touch_id: u32,
+    /// Absolute position on the X axis.
     pub x: f32,
+    /// Absolute position on the Y axis.
     pub y: f32,
 }
 
@@ -1139,7 +1166,9 @@ pub struct TouchMotion {
     pub time: u64,
     /// Unique touch ID, defined in [`TouchDown`].
     pub touch_id: u32,
+    /// Absolute position on the X axis.
     pub x: f32,
+    /// Absolute position on the Y axis.
     pub y: f32,
 }
 

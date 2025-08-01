@@ -1,3 +1,5 @@
+//! Typing text.
+
 use ashpd::desktop::{
     remote_desktop::{DeviceType, RemoteDesktop},
     PersistMode,
