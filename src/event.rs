@@ -694,7 +694,7 @@ pub enum DeviceCapability {
 }
 
 impl DeviceCapability {
-    /// Returns the name of the interface for the first matched capability.
+    /// Returns the name of the interface.
     ///
     /// `None` is returned if none of the flags match
     pub(crate) fn interface_name(self) -> &'static str {
@@ -730,7 +730,7 @@ impl DeviceCapability {
     }
 }
 
-/// Lookup table from a single capability of [`SeatCapabilities`] to a protocol capability.
+/// Lookup table from [`DeviceCapability`] to a protocol capability.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 struct CapabilityMap([u64; BitFlags::<DeviceCapability>::ALL.bits_c().count_ones() as usize]);
 
