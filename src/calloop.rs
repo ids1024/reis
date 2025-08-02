@@ -1,3 +1,5 @@
+//! Module containing [`calloop`] sources.
+
 // TODO Define an event source that reads socket and produces eis::Event
 // - is it easy to compose and wrap with handshaker, event handler?
 // produce an event of some kind on disconnect/eof?
@@ -11,12 +13,15 @@ use crate::{
     Error, PendingRequestResult,
 };
 
+/// [`calloop`] source that receives EI connections by listening on a socket.
 #[derive(Debug)]
 pub struct EisListenerSource {
     source: Generic<eis::Listener>,
 }
 
 impl EisListenerSource {
+    /// Creates a new EIS listener source.
+    #[must_use]
     pub fn new(listener: eis::Listener) -> Self {
         Self {
             source: Generic::new(listener, Interest::READ, Mode::Level),
@@ -159,6 +164,7 @@ enum State {
     Connected(ConnectedContextState),
 }
 
+/// [`calloop`] source that receives EI protocol requests.
 #[derive(Debug)]
 pub struct EisRequestSource {
     source: Generic<eis::Context>,
@@ -166,6 +172,8 @@ pub struct EisRequestSource {
 }
 
 impl EisRequestSource {
+    /// Creates a new EIS request source.
+    #[must_use]
     pub fn new(context: eis::Context, initial_serial: u32) -> Self {
         let handshaker = crate::handshake::EisHandshaker::new(&context, initial_serial);
         Self {
@@ -241,9 +249,13 @@ impl calloop::EventSource for EisRequestSource {
 }
 
 // TODO
+/// Event returned by [`EisRequestSource`].
 #[derive(Debug)]
 pub enum EisRequestSourceEvent {
+    /// Handshake has finished.
     Connected,
+    /// High-level request to EIS.
     Request(request::EisRequest),
+    /// Invalid object ID.
     InvalidObject(u64),
 }

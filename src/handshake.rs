@@ -1,4 +1,6 @@
-// Generic `EiHandshaker` can be used in async or sync code
+//! Module implementing the EI protocol handshake.
+//!
+//! The generic [`EiHandshaker`] can be used in async and sync code.
 
 use crate::{ei, eis, util, Error, PendingRequestResult};
 use std::{collections::HashMap, error, fmt, mem, sync::OnceLock};
@@ -27,19 +29,29 @@ fn interfaces() -> &'static HashMap<&'static str, u32> {
     })
 }
 
+/// Handshake response.
 #[derive(Clone, Debug)]
 pub struct HandshakeResp {
+    /// Global `ei_connection` singleton object.
     pub connection: ei::Connection,
+    /// Serial number of `ei_handshake.connection`.
     pub serial: u32,
+    /// Interfaces along with their versions negotiated in the handshake.
     pub negotiated_interfaces: HashMap<String, u32>,
 }
 
+/// Error during handshake.
 #[derive(Debug)]
 pub enum HandshakeError {
+    /// Invalid object ID.
     InvalidObject(u64),
+    /// Non-handshake event.
     NonHandshakeEvent,
+    /// Missing required interface.
     MissingInterface,
+    /// Duplicate event.
     DuplicateEvent,
+    /// No [`ContextType`](ei::handshake::ContextType) sent in handshake.
     NoContextType,
 }
 
@@ -57,6 +69,7 @@ impl fmt::Display for HandshakeError {
 
 impl error::Error for HandshakeError {}
 
+/// Implementation of the EI protocol handshake on the client side.
 pub struct EiHandshaker<'a> {
     name: &'a str,
     context_type: ei::handshake::ContextType,
@@ -64,6 +77,8 @@ pub struct EiHandshaker<'a> {
 }
 
 impl<'a> EiHandshaker<'a> {
+    /// Creates a client-side handshaker.
+    #[must_use]
     pub fn new(name: &'a str, context_type: ei::handshake::ContextType) -> Self {
         Self {
             name,
@@ -72,6 +87,11 @@ impl<'a> EiHandshaker<'a> {
         }
     }
 
+    /// Handles the given event, possibly returning a filled handshake response.
+    ///
+    /// # Errors
+    ///
+    /// The errors returned are protocol violations.
     pub fn handle_event(
         &mut self,
         event: ei::Event,
@@ -84,7 +104,7 @@ impl<'a> EiHandshaker<'a> {
                 handshake.handshake_version(1);
                 handshake.name(self.name);
                 handshake.context_type(self.context_type);
-                for (interface, version) in interfaces().iter() {
+                for (interface, version) in interfaces() {
                     handshake.interface_version(interface, *version);
                 }
                 handshake.finish();
@@ -119,6 +139,11 @@ pub(crate) fn request_result<T>(result: PendingRequestResult<T>) -> Result<T, Er
     }
 }
 
+/// Executes the handshake in blocking mode.
+///
+/// # Errors
+///
+/// Will return `Err` if there is an I/O error or a protocol violation.
 pub fn ei_handshake_blocking(
     context: &ei::Context,
     name: &str,
@@ -137,14 +162,20 @@ pub fn ei_handshake_blocking(
     }
 }
 
+/// Handshake response.
 #[derive(Clone, Debug)]
 pub struct EisHandshakeResp {
+    /// Global `ei_connection` singleton object.
     pub connection: eis::Connection,
+    /// Name of client.
     pub name: Option<String>,
+    /// Context type of connection.
     pub context_type: eis::handshake::ContextType,
+    /// Interfaces along with their versions negotiated in the handshake.
     pub negotiated_interfaces: HashMap<String, u32>,
 }
 
+/// Implementation of the EI protocol handshake on the server side.
 #[derive(Debug)]
 pub struct EisHandshaker {
     name: Option<String>,
@@ -154,6 +185,8 @@ pub struct EisHandshaker {
 }
 
 impl EisHandshaker {
+    /// Creates a server-side handshaker.
+    #[must_use]
     pub fn new(context: &eis::Context, initial_serial: u32) -> Self {
         let handshake = context.handshake();
         handshake.handshake_version(1);
@@ -168,6 +201,11 @@ impl EisHandshaker {
         }
     }
 
+    /// Handles the given request, possibly returning a filled handshake response.
+    ///
+    /// # Errors
+    ///
+    /// The errors returned are protocol violations.
     pub fn handle_request(
         &mut self,
         request: eis::Request,
@@ -193,11 +231,11 @@ impl EisHandshaker {
                 if let Some((interface, server_version)) = interfaces().get_key_value(name.as_str())
                 {
                     self.negotiated_interfaces
-                        .insert(interface.to_string(), version.min(*server_version));
+                        .insert((*interface).to_owned(), version.min(*server_version));
                 }
             }
             eis::handshake::Request::Finish => {
-                for (interface, version) in self.negotiated_interfaces.iter() {
+                for (interface, version) in &self.negotiated_interfaces {
                     handshake.interface_version(interface, *version);
                 }
 

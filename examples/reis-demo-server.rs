@@ -1,3 +1,4 @@
+//! Demo server.
 // TODO: Require context_type
 
 use reis::{
@@ -50,58 +51,49 @@ impl ContextState {
             EisRequest::Bind(request) => {
                 let capabilities = request.capabilities;
 
-                // TODO Handle in converter
-                if capabilities & 0x7e != capabilities {
-                    return self.disconnected(
-                        connection,
-                        eis::connection::DisconnectReason::Value,
-                        "Invalid capabilities",
-                    );
-                }
-
                 let seat = self.seat.as_ref().unwrap();
 
                 if connection.has_interface("ei_keyboard")
-                    && capabilities & 2 << DeviceCapability::Keyboard as u64 != 0
+                    && capabilities.contains(DeviceCapability::Keyboard)
                 {
                     seat.add_device(
                         Some("keyboard"),
                         DeviceType::Virtual,
-                        &[DeviceCapability::Keyboard],
+                        DeviceCapability::Keyboard.into(),
                         |_| {},
                     );
                 }
 
                 // XXX button/etc should be on same object
                 if connection.has_interface("ei_pointer")
-                    && capabilities & 2 << DeviceCapability::Pointer as u64 != 0
+                    && capabilities.contains(DeviceCapability::Pointer)
                 {
                     seat.add_device(
                         Some("pointer"),
                         DeviceType::Virtual,
-                        &[DeviceCapability::Pointer],
+                        DeviceCapability::Pointer.into(),
                         |_| {},
                     );
                 }
 
                 if connection.has_interface("ei_touchscreen")
-                    && capabilities & 2 << DeviceCapability::Touch as u64 != 0
+                    && capabilities.contains(DeviceCapability::Touch)
                 {
                     seat.add_device(
                         Some("touch"),
                         DeviceType::Virtual,
-                        &[DeviceCapability::Touch],
+                        DeviceCapability::Touch.into(),
                         |_| {},
                     );
                 }
 
                 if connection.has_interface("ei_pointer_absolute")
-                    && capabilities & 2 << DeviceCapability::PointerAbsolute as u64 != 0
+                    && capabilities.contains(DeviceCapability::PointerAbsolute)
                 {
                     seat.add_device(
                         Some("pointer-abs"),
                         DeviceType::Virtual,
-                        &[DeviceCapability::PointerAbsolute],
+                        DeviceCapability::PointerAbsolute.into(),
                         |_| {},
                     );
                 }
@@ -121,7 +113,7 @@ struct State {
 
 impl State {
     fn handle_new_connection(&mut self, context: eis::Context) -> io::Result<calloop::PostAction> {
-        println!("New connection: {:?}", context);
+        println!("New connection: {context:?}");
 
         let source = EisRequestSource::new(context, 1);
         let mut context_state = ContextState { seat: None };
@@ -132,7 +124,19 @@ impl State {
                     connected_state,
                     event,
                 )),
-                Err(err) => Ok(context_state.protocol_error(connected_state, &err.to_string())),
+                Err(err) => {
+                    if let reis::Error::Request(reis::request::RequestError::InvalidCapabilities) =
+                        err
+                    {
+                        Ok(context_state.disconnected(
+                            connected_state,
+                            eis::connection::DisconnectReason::Value,
+                            &err.to_string(),
+                        ))
+                    } else {
+                        Ok(context_state.protocol_error(connected_state, &err.to_string()))
+                    }
+                }
             })
             .unwrap();
 
@@ -148,16 +152,14 @@ impl State {
             connection.flush();
         }
 
-        let seat = connection.add_seat(
+        let _seat = connection.add_seat(
             Some("default"),
-            &[
-                DeviceCapability::Pointer,
-                DeviceCapability::PointerAbsolute,
-                DeviceCapability::Keyboard,
-                DeviceCapability::Touch,
-                DeviceCapability::Scroll,
-                DeviceCapability::Button,
-            ],
+            DeviceCapability::Pointer
+                | DeviceCapability::PointerAbsolute
+                | DeviceCapability::Keyboard
+                | DeviceCapability::Touch
+                | DeviceCapability::Scroll
+                | DeviceCapability::Button,
         );
     }
 
@@ -179,14 +181,12 @@ impl State {
 
                 let seat = connection.add_seat(
                     Some("default"),
-                    &[
-                        DeviceCapability::Pointer,
-                        DeviceCapability::PointerAbsolute,
-                        DeviceCapability::Keyboard,
-                        DeviceCapability::Touch,
-                        DeviceCapability::Scroll,
-                        DeviceCapability::Button,
-                    ],
+                    DeviceCapability::Pointer
+                        | DeviceCapability::PointerAbsolute
+                        | DeviceCapability::Keyboard
+                        | DeviceCapability::Touch
+                        | DeviceCapability::Scroll
+                        | DeviceCapability::Button,
                 );
 
                 context_state.seat = Some(seat);

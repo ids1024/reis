@@ -1,3 +1,5 @@
+//! Module containing [`tokio`] event streams.
+
 // TODO: Handle writable fd too?
 
 use futures::stream::{Stream, StreamExt};
@@ -12,9 +14,15 @@ pub use crate::handshake::{HandshakeError, HandshakeResp};
 use crate::{ei, handshake::EiHandshaker, Error, PendingRequestResult};
 
 // XXX make this ei::EventStream?
+/// Stream of `ei::Event`s.
 pub struct EiEventStream(AsyncFd<ei::Context>);
 
 impl EiEventStream {
+    /// Creates a new event stream.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if the underlying async file descriptor registration fails.
     pub fn new(context: ei::Context) -> io::Result<Self> {
         AsyncFd::with_interest(context, tokio::io::Interest::READABLE).map(Self)
     }
@@ -60,6 +68,7 @@ impl Stream for EiEventStream {
 }
 
 // TODO rename EiProtoEventStream
+/// EI convert event stream.
 pub struct EiConvertEventStream {
     inner: EiEventStream,
     converter: crate::event::EiEventConverter,
@@ -113,6 +122,11 @@ impl Stream for EiConvertEventStream {
     }
 }
 
+/// Executes the handshake in async mode.
+///
+/// # Errors
+///
+/// Will return `Err` if there is an I/O error or a protocol violation.
 pub async fn ei_handshake(
     events: &mut EiEventStream,
     name: &str,
@@ -133,6 +147,11 @@ pub async fn ei_handshake(
 }
 
 impl ei::Context {
+    /// Executes the handshake in async mode.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if there is an I/O error or a protocol violation.
     pub async fn handshake_tokio(
         &self,
         name: &str,

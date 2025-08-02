@@ -1,3 +1,5 @@
+//! List devices with sender context type.
+
 use ashpd::desktop::remote_desktop::{DeviceType, RemoteDesktop};
 use futures::stream::StreamExt;
 use reis::{ei, tokio::EiEventStream, PendingRequestResult};
@@ -104,13 +106,12 @@ impl State {
                     _ => {}
                 }
             }
-            ei::Event::Callback(callback, request) => match request {
-                ei::callback::Event::Done { callback_data: _ } => {
+            ei::Event::Callback(callback, request) => {
+                if let ei::callback::Event::Done { callback_data: _ } = request {
                     // TODO: Callback being called after first device, but not later ones?
                     // self.print_and_exit_if_done();
                 }
-                _ => {}
-            },
+            }
             _ => {}
         }
 

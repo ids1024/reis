@@ -1,3 +1,5 @@
+//! Capturing input synchronously.
+
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use pollster::FutureExt as _;
 use reis::{ei, event::DeviceCapability};
@@ -34,7 +36,7 @@ async fn open_connection() -> ei::Context {
                 let x = region.x_offset();
                 let y = region.y_offset();
                 let w = region.width() as i32;
-                let h = region.height() as i32;
+                let _h = region.height() as i32;
                 Barrier::new(NonZero::new(n as u32 + 1).unwrap(), (x, y, x + w - 1, y))
             })
             .collect::<Vec<_>>();
@@ -64,25 +66,25 @@ fn main() {
         match &event {
             reis::event::EiEvent::SeatAdded(evt) => {
                 // println!("    capabilities: {:?}", evt.seat);
-                evt.seat.bind_capabilities(&[
-                    DeviceCapability::Pointer,
-                    DeviceCapability::PointerAbsolute,
-                    DeviceCapability::Keyboard,
-                    DeviceCapability::Touch,
-                    DeviceCapability::Scroll,
-                    DeviceCapability::Button,
-                ]);
-                context.flush();
+                evt.seat.bind_capabilities(
+                    DeviceCapability::Pointer
+                        | DeviceCapability::PointerAbsolute
+                        | DeviceCapability::Keyboard
+                        | DeviceCapability::Touch
+                        | DeviceCapability::Scroll
+                        | DeviceCapability::Button,
+                );
+                let _ = context.flush();
             }
             reis::event::EiEvent::DeviceAdded(evt) => {
                 println!("  seat: {:?}", evt.device.seat().name());
                 println!("  type: {:?}", evt.device.device_type());
                 if let Some(dimensions) = evt.device.dimensions() {
-                    println!("  dimensions: {:?}", dimensions);
+                    println!("  dimensions: {dimensions:?}");
                 }
                 println!("  regions: {:?}", evt.device.regions());
                 if let Some(keymap) = evt.device.keymap() {
-                    println!("  keymap: {:?}", keymap);
+                    println!("  keymap: {keymap:?}");
                 }
                 // Interfaces?
             }

@@ -16,6 +16,8 @@
 
 #![allow(clippy::derive_partial_eq_without_eq)]
 
+use enumflags2::BitFlags;
+
 use crate::{ei, handshake::HandshakeResp, util, Error, Interface, Object, PendingRequestResult};
 use std::{
     collections::{HashMap, VecDeque},
@@ -27,14 +29,23 @@ use std::{
     },
 };
 
+/// Protocol errors of the server.
 #[derive(Debug)]
 pub enum EventError {
+    /// Non-setup device event before `done`.
     DeviceEventBeforeDone,
+    /// Device setup event after `done`.
     DeviceSetupEventAfterDone,
+    /// Seat setup event after `done`.
     SeatSetupEventAfterDone,
+    /// Non-setup seat event before `done`.
     SeatEventBeforeDone,
+    /// `ei_device.device_type` was not sent before `done`.
     NoDeviceType,
+    /// Handshake event after handshake.
     UnexpectedHandshakeEvent,
+    /// Non-negotiated interface advertised in `ei_device.capability`.
+    UnknownCapabilityInterface,
 }
 
 impl fmt::Display for EventError {
@@ -46,6 +57,9 @@ impl fmt::Display for EventError {
             Self::SeatEventBeforeDone => write!(f, "seat event before done"),
             Self::NoDeviceType => write!(f, "no device"),
             Self::UnexpectedHandshakeEvent => write!(f, "unexpected handshake event"),
+            Self::UnknownCapabilityInterface => {
+                write!(f, "unknown interface in ei_seat.capability")
+            }
         }
     }
 }
@@ -66,11 +80,16 @@ pub struct Connection(Arc<ConnectionInner>);
 
 impl Connection {
     /// Returns the interface proxy for the underlying `ei_connection` object.
+    #[must_use]
     pub fn connection(&self) -> &ei::Connection {
         &self.0.handshake_resp.connection
     }
 
     /// Sends buffered messages. Call after you're finished with sending requests.
+    ///
+    /// # Errors
+    ///
+    /// An error will be returned if sending the buffered messages fails.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.context.flush()
     }
@@ -82,6 +101,7 @@ impl Connection {
     // TODO(axka, 2025-07-08): specify in the function name that this is the last serial from
     // the server, and not the client, and create a function for the other way around.
     /// Returns the last serial number used in an event by the server.
+    #[must_use]
     pub fn serial(&self) -> u32 {
         self.0.serial.load(Ordering::Relaxed)
     }
@@ -102,6 +122,8 @@ pub struct EiEventConverter {
 }
 
 impl EiEventConverter {
+    /// Creates a new converter.
+    #[must_use]
     pub fn new(context: &ei::Context, handshake_resp: HandshakeResp) -> Self {
         Self {
             pending_seats: HashMap::new(),
@@ -120,6 +142,8 @@ impl EiEventConverter {
         }
     }
 
+    /// Returns a handle to the connection used by this converer.
+    #[must_use]
     pub fn connection(&self) -> &Connection {
         &self.connection
     }
@@ -143,6 +167,13 @@ impl EiEventConverter {
         }
     }
 
+    /// Handles a low-level protocol-level [`ei::Event`], possibly converting it into a high-level
+    /// [`EiEvent`].
+    ///
+    /// # Errors
+    ///
+    /// The errors returned are protocol violations.
+    #[allow(clippy::too_many_lines)] // Handler is allowed to be big
     pub fn handle_event(&mut self, event: ei::Event) -> Result<(), EventError> {
         match event {
             ei::Event::Handshake(_handshake, _event) => {
@@ -153,9 +184,9 @@ impl EiEventConverter {
                     self.pending_seats.insert(
                         seat.clone(),
                         SeatInner {
-                            seat,
+                            proto_seat: seat,
                             name: None,
-                            capabilities: HashMap::new(),
+                            capability_map: CapabilityMap::default(),
                         },
                     );
                 }
@@ -205,7 +236,11 @@ impl EiEventConverter {
                         .pending_seats
                         .get_mut(&seat)
                         .ok_or(EventError::SeatSetupEventAfterDone)?;
-                    seat.capabilities.insert(interface, mask);
+                    seat.capability_map.set(
+                        DeviceCapability::from_interface_name(&interface)
+                            .ok_or(EventError::UnknownCapabilityInterface)?,
+                        mask,
+                    );
                 }
                 ei::seat::Event::Done => {
                     let seat = self
@@ -213,7 +248,7 @@ impl EiEventConverter {
                         .remove(&seat)
                         .ok_or(EventError::SeatSetupEventAfterDone)?;
                     let seat = Seat(Arc::new(seat));
-                    self.seats.insert(seat.0.seat.clone(), seat.clone());
+                    self.seats.insert(seat.0.proto_seat.clone(), seat.clone());
                     self.queue_event(EiEvent::SeatAdded(SeatAdded { seat }));
                 }
                 ei::seat::Event::Device { device } => {
@@ -266,7 +301,7 @@ impl EiEventConverter {
                         .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     device
                         .interfaces
-                        .insert(object.interface().to_string(), object);
+                        .insert(object.interface().to_owned(), object);
                 }
                 ei::device::Event::Dimensions { width, height } => {
                     let device = self
@@ -596,10 +631,12 @@ impl EiEventConverter {
         Ok(())
     }
 
+    /// Returns the next queued request if one exists.
     pub fn next_event(&mut self) -> Option<EiEvent> {
         self.events.pop_front()
     }
 
+    /// Adds a function to execute when the server informs that the the associated request is done.
     pub fn add_callback_handler<F: FnOnce(u64) + 'static>(
         &mut self,
         callback: ei::Callback,
@@ -637,23 +674,30 @@ pub struct Keymap {
     pub type_: ei::keyboard::KeymapType,
 }
 
-/// A capability of a seat used when advertising seats and binding to capabilities in seats.
-// TODO: bitflags?
-// TODO(axka, 2025-07-08): rename to SeatCapability?
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+/// Capabilities of devices used when advertising seats and devices, and binding to capabilities in seats.
+#[enumflags2::bitflags]
 #[repr(u64)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub enum DeviceCapability {
-    Pointer,
-    PointerAbsolute,
-    Keyboard,
-    Touch,
-    Scroll,
-    Button,
+    /// Capability for relative pointer motion.
+    Pointer = 1 << 0,
+    /// Capability for absolute pointer motion.
+    PointerAbsolute = 1 << 1,
+    /// Capability for keyboard input events.
+    Keyboard = 1 << 2,
+    /// Capability for touch input events.
+    Touch = 1 << 3,
+    /// Capability for scroll input events.
+    Scroll = 1 << 4,
+    /// Capability for mouse button input events.
+    Button = 1 << 5,
 }
 
 impl DeviceCapability {
-    /// Returns the name of the interface for this capability.
-    pub(crate) fn name(self) -> &'static str {
+    /// Returns the name of the interface.
+    ///
+    /// `None` is returned if none of the flags match
+    pub(crate) fn interface_name(self) -> &'static str {
         match self {
             DeviceCapability::Pointer => ei::Pointer::NAME,
             DeviceCapability::PointerAbsolute => ei::PointerAbsolute::NAME,
@@ -663,12 +707,49 @@ impl DeviceCapability {
             DeviceCapability::Button => ei::Button::NAME,
         }
     }
+
+    /// Returns the capability for the interface.
+    ///
+    /// `None` is returned if there is no match
+    pub(crate) fn from_interface_name(interface_name: &str) -> Option<Self> {
+        match interface_name {
+            ei::Pointer::NAME => Some(DeviceCapability::Pointer),
+            ei::PointerAbsolute::NAME => Some(DeviceCapability::PointerAbsolute),
+            ei::Keyboard::NAME => Some(DeviceCapability::Keyboard),
+            ei::Touchscreen::NAME => Some(DeviceCapability::Touch),
+            ei::Scroll::NAME => Some(DeviceCapability::Scroll),
+            ei::Button::NAME => Some(DeviceCapability::Button),
+            _ => None,
+        }
+    }
+
+    /// Returns the binary logarithm of the capability's bitwise value, useful for indexing
+    /// lookup tables.
+    fn index(self) -> usize {
+        (self as u64).trailing_zeros() as usize
+    }
+}
+
+/// Lookup table from [`DeviceCapability`] to a protocol capability.
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+struct CapabilityMap([u64; BitFlags::<DeviceCapability>::ALL.bits_c().count_ones() as usize]);
+
+impl CapabilityMap {
+    /// Returns the matching protocol capability for the library capability. Defaults to 0.
+    fn get(&self, capability: DeviceCapability) -> u64 {
+        self.0[capability.index()]
+    }
+
+    /// Sets the protocol capability for the library capability.
+    fn set(&mut self, capability: DeviceCapability, proto_capability: u64) {
+        self.0[capability.index()] = proto_capability;
+    }
 }
 
 struct SeatInner {
-    seat: ei::Seat,
+    proto_seat: ei::Seat,
     name: Option<String>,
-    capabilities: HashMap<String, u64>,
+    capability_map: CapabilityMap,
 }
 
 /// High-level client-side wrapper for `ei_seat`.
@@ -695,26 +776,26 @@ impl Eq for Seat {}
 
 impl std::hash::Hash for Seat {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.seat.0.id().hash(state);
+        self.0.proto_seat.0.id().hash(state);
     }
 }
 
 impl Seat {
     /// Returns the name of the seat, as provided by the server.
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
     }
 
     // TODO has_capability
 
-    pub fn bind_capabilities(&self, capabilities: &[DeviceCapability]) {
-        let mut caps = 0;
-        for i in capabilities {
-            if let Some(value) = self.0.capabilities.get(i.name()) {
-                caps |= value;
-            }
+    /// Binds to a selection of the advertised capabilities received through [`EiEvent::Seat`].
+    pub fn bind_capabilities(&self, capabilities: BitFlags<DeviceCapability>) {
+        let mut proto_caps = 0;
+        for cap in capabilities {
+            proto_caps |= self.0.capability_map.get(cap);
         }
-        self.0.seat.bind(caps);
+        self.0.proto_seat.bind(proto_caps);
     }
 
     // TODO: mirror C API more?
@@ -751,36 +832,44 @@ impl fmt::Debug for Device {
 
 impl Device {
     /// Returns the high-level [`Seat`] wrapper for the device.
+    #[must_use]
     pub fn seat(&self) -> &Seat {
         &self.0.seat
     }
 
     /// Returns the interface proxy for the underlying `ei_device` object.
+    #[must_use]
     pub fn device(&self) -> &ei::Device {
         &self.0.device
     }
 
     /// Returns the name of the device, as provided by the server.
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.0.name.as_deref()
     }
 
     /// Returns the device's type.
+    #[must_use]
+    #[allow(clippy::missing_panics_doc)] // EiEventConverter makes sure to not return Device if device_type is None
     pub fn device_type(&self) -> ei::device::DeviceType {
         self.0.device_type.unwrap()
     }
 
     /// Returns the device's dimensions, if applicable.
+    #[must_use]
     pub fn dimensions(&self) -> Option<(u32, u32)> {
         self.0.dimensions
     }
 
     /// Returns the device's regions.
+    #[must_use]
     pub fn regions(&self) -> &[Region] {
         &self.0.regions
     }
 
     /// Returns the device's keymap, if applicable.
+    #[must_use]
     pub fn keymap(&self) -> Option<&Keymap> {
         self.0.keymap.as_ref()
     }
@@ -788,13 +877,15 @@ impl Device {
     /// Returns an interface proxy if it is implemented for this device.
     ///
     /// Interfaces of devices are implemented, such that there is one `ei_device` object and other objects (for example `ei_keyboard`) denoting capabilities.
+    #[must_use]
     pub fn interface<T: ei::Interface>(&self) -> Option<T> {
         self.0.interfaces.get(T::NAME)?.clone().downcast()
     }
 
     /// Returns `true` if this device has an interface matching the provided capability.
+    #[must_use]
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
-        self.0.interfaces.contains_key(capability.name())
+        self.0.interfaces.contains_key(capability.interface_name())
     }
 }
 
@@ -814,6 +905,7 @@ impl std::hash::Hash for Device {
 
 /// Enum containing all possible events the high-level utilities will give for a client implementation to handle.
 #[derive(Clone, Debug, PartialEq)]
+#[allow(missing_docs)] // Inner types have docs
 pub enum EiEvent {
     // Connected,
     Disconnected(Disconnected),
@@ -878,14 +970,18 @@ impl EiEvent {
 /// High-level translation of [`ei_connection.disconnected`](ei::connection::Event::Disconnected).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Disconnected {
+    /// Last serial sent by the EIS implementation.
     pub last_serial: u32,
+    /// Reason for disconnection.
     pub reason: ei::connection::DisconnectReason,
+    /// Explanation for debugging purposes.
     pub explanation: String,
 }
 
 /// High-level translation of the seat description events ending with [`ei_seat.done`](ei::seat::Event::Done).
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeatAdded {
+    /// High-level [`Seat`] wrapper for the seat that was added.
     pub seat: Seat,
 }
 
@@ -895,6 +991,7 @@ pub struct SeatAdded {
 /// in an event.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SeatRemoved {
+    /// High-level [`Seat`] wrapper for the seat that was removed.
     pub seat: Seat,
 }
 
@@ -920,6 +1017,7 @@ pub struct DeviceRemoved {
 pub struct DevicePaused {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
 }
 
@@ -928,6 +1026,7 @@ pub struct DevicePaused {
 pub struct DeviceResumed {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
 }
 
@@ -936,10 +1035,15 @@ pub struct DeviceResumed {
 pub struct KeyboardModifiers {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
+    /// Mask of modifiers in the depressed state.
     pub depressed: u32,
+    /// Mask of modifiers in the latched state.
     pub latched: u32,
+    /// Mask of modifiers in the locked state.
     pub locked: u32,
+    /// The current group or layout index in the keymap.
     pub group: u32,
 }
 
@@ -948,6 +1052,7 @@ pub struct KeyboardModifiers {
 pub struct Frame {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
     /// Timestamp in microseconds.
     pub time: u64,
@@ -958,7 +1063,9 @@ pub struct Frame {
 pub struct DeviceStartEmulating {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
+    /// The event's sequence number.
     pub sequence: u32,
 }
 
@@ -967,6 +1074,7 @@ pub struct DeviceStartEmulating {
 pub struct DeviceStopEmulating {
     /// High-level [`Device`] wrapper.
     pub device: Device,
+    /// The event's serial number.
     pub serial: u32,
 }
 
@@ -977,7 +1085,9 @@ pub struct PointerMotion {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Relative motion on the X axis.
     pub dx: f32,
+    /// Relative motion on the Y axis.
     pub dy: f32,
 }
 
@@ -988,7 +1098,9 @@ pub struct PointerMotionAbsolute {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Absolute position on the X axis.
     pub dx_absolute: f32,
+    /// Absolute position on the Y axis.
     pub dy_absolute: f32,
 }
 
@@ -999,7 +1111,9 @@ pub struct Button {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Button code, as in Linux's `input-event-codes.h`.
     pub button: u32,
+    /// State of the button.
     pub state: ei::button::ButtonState,
 }
 
@@ -1010,7 +1124,9 @@ pub struct ScrollDelta {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Motion on the X axis.
     pub dx: f32,
+    /// Motion on the Y axis.
     pub dy: f32,
 }
 
@@ -1021,7 +1137,9 @@ pub struct ScrollStop {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Whether motion on the X axis stopped.
     pub x: bool,
+    /// Whether motion on the Y axis stopped.
     pub y: bool,
 }
 
@@ -1032,7 +1150,9 @@ pub struct ScrollCancel {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Whether motion on the X axis was canceled.
     pub x: bool,
+    /// Whether motion on the Y axis was canceled.
     pub y: bool,
 }
 
@@ -1043,7 +1163,9 @@ pub struct ScrollDiscrete {
     pub device: Device,
     /// Timestamp in microseconds.
     pub time: u64,
+    /// Discrete motion on the X axis.
     pub discrete_dx: i32,
+    /// Discrete motion on the Y axis.
     pub discrete_dy: i32,
 }
 
@@ -1069,7 +1191,9 @@ pub struct TouchDown {
     pub time: u64,
     /// Unique touch ID, defined in this event.
     pub touch_id: u32,
+    /// Absolute position on the X axis.
     pub x: f32,
+    /// Absolute position on the Y axis.
     pub y: f32,
 }
 
@@ -1082,7 +1206,9 @@ pub struct TouchMotion {
     pub time: u64,
     /// Unique touch ID, defined in [`TouchDown`].
     pub touch_id: u32,
+    /// Absolute position on the X axis.
     pub x: f32,
+    /// Absolute position on the Y axis.
     pub y: f32,
 }
 
@@ -1217,7 +1343,7 @@ impl Iterator for EiConvertEventIterator {
                 Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return None,
                 Err(err) => return Some(Err(err.into())),
                 Ok(_) => {}
-            };
+            }
             while let Some(result) = self.context.pending_event() {
                 let request = match result {
                     PendingRequestResult::Request(request) => request,
@@ -1239,6 +1365,11 @@ impl Iterator for EiConvertEventIterator {
 }
 
 impl ei::Context {
+    /// Executes the handshake in blocking mode.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` if there is an I/O error or a protocol violation.
     pub fn handshake_blocking(
         &self,
         name: &str,
