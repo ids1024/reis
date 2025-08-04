@@ -27,7 +27,7 @@ pub enum RequestError {
 impl fmt::Display for RequestError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::InvalidCapabilities => write!(f, "invalid capabilities"),
+            Self::InvalidCapabilities => write!(f, "Invalid capabilities"),
         }
     }
 }
