@@ -22,6 +22,7 @@ struct DeviceData {
 }
 
 impl DeviceData {
+    #[allow(dead_code)]
     fn interface<T: reis::Interface>(&self) -> Option<T> {
         self.interfaces.get(T::NAME)?.clone().downcast()
     }
@@ -39,10 +40,10 @@ struct State {
 impl State {
     fn handle_event(&mut self, event: ei::Event) {
         match event {
-            ei::Event::Handshake(handshake, request) => panic!(),
-            ei::Event::Connection(connection, request) => match request {
+            ei::Event::Handshake(_handshake, _request) => panic!(),
+            ei::Event::Connection(_connection, request) => match request {
                 ei::connection::Event::Seat { seat } => {
-                    self.seats.insert(seat, Default::default());
+                    self.seats.insert(seat, SeatData::default());
                 }
                 ei::connection::Event::Ping { ping } => {
                     ping.done(0);
@@ -73,7 +74,7 @@ impl State {
                     }
                     ei::seat::Event::Device { device } => {
                         data.devices.push(device.clone());
-                        self.devices.insert(device, Default::default());
+                        self.devices.insert(device, DeviceData::default());
                     }
                     _ => {}
                 }
@@ -89,7 +90,7 @@ impl State {
                     }
                     ei::device::Event::Interface { object } => {
                         data.interfaces
-                            .insert(object.interface().to_string(), object);
+                            .insert(object.interface().to_owned(), object);
                     }
                     ei::device::Event::Done => {
                         data.done = true;
@@ -102,15 +103,12 @@ impl State {
                             data.interfaces.keys().collect::<Vec<_>>()
                         );
                     }
-                    ei::device::Event::Resumed { serial } => {}
                     _ => {}
                 }
             }
-            ei::Event::Callback(callback, request) => {
-                if let ei::callback::Event::Done { callback_data: _ } = request {
-                    // TODO: Callback being called after first device, but not later ones?
-                    // self.print_and_exit_if_done();
-                }
+            ei::Event::Callback(_callback, ei::callback::Event::Done { .. }) => {
+                // TODO: Callback being called after first device, but not later ones?
+                // self.print_and_exit_if_done();
             }
             _ => {}
         }
@@ -118,6 +116,7 @@ impl State {
         let _ = self.context.flush();
     }
 
+    #[allow(dead_code)]
     fn print_and_exit_if_done(&self) {
         if !(self.seats.values().all(|x| x.done) && self.devices.values().all(|x| x.done)) {
             return;
@@ -172,10 +171,10 @@ async fn main() {
     while let Some(result) = events.next().await {
         let event = match result.unwrap() {
             PendingRequestResult::Request(event) => event,
-            PendingRequestResult::ParseError(msg) => {
+            PendingRequestResult::ParseError(_msg) => {
                 todo!()
             }
-            PendingRequestResult::InvalidObject(object_id) => {
+            PendingRequestResult::InvalidObject(_object_id) => {
                 // TODO
                 continue;
             }

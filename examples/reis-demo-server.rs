@@ -21,18 +21,17 @@ struct ContextState {
 
 impl ContextState {
     fn disconnected(
-        &self,
         connection: &Connection,
         reason: eis::connection::DisconnectReason,
         explaination: &str,
     ) -> calloop::PostAction {
         connection.disconnected(reason, explaination);
-        connection.flush();
+        let _ = connection.flush();
         calloop::PostAction::Remove
     }
 
-    fn protocol_error(&self, connection: &Connection, explanation: &str) -> calloop::PostAction {
-        self.disconnected(
+    fn protocol_error(connection: &Connection, explanation: &str) -> calloop::PostAction {
+        Self::disconnected(
             connection,
             eis::connection::DisconnectReason::Protocol,
             explanation,
@@ -112,14 +111,15 @@ struct State {
 }
 
 impl State {
+    #![allow(clippy::unnecessary_wraps)]
     fn handle_new_connection(&mut self, context: eis::Context) -> io::Result<calloop::PostAction> {
         println!("New connection: {context:?}");
 
         let source = EisRequestSource::new(context, 1);
         let mut context_state = ContextState { seat: None };
         self.handle
-            .insert_source(source, move |event, connected_state, state| match event {
-                Ok(event) => Ok(state.handle_request_source_event(
+            .insert_source(source, move |event, connected_state, _state| match event {
+                Ok(event) => Ok(Self::handle_request_source_event(
                     &mut context_state,
                     connected_state,
                     event,
@@ -128,13 +128,16 @@ impl State {
                     if let reis::Error::Request(reis::request::RequestError::InvalidCapabilities) =
                         err
                     {
-                        Ok(context_state.disconnected(
+                        Ok(ContextState::disconnected(
                             connected_state,
                             eis::connection::DisconnectReason::Value,
                             &err.to_string(),
                         ))
                     } else {
-                        Ok(context_state.protocol_error(connected_state, &err.to_string()))
+                        Ok(ContextState::protocol_error(
+                            connected_state,
+                            &err.to_string(),
+                        ))
                     }
                 }
             })
@@ -143,28 +146,7 @@ impl State {
         Ok(calloop::PostAction::Continue)
     }
 
-    fn connected(&mut self, connection: &Connection) {
-        if !connection.has_interface("ei_seat") || !connection.has_interface("ei_device") {
-            connection.disconnected(
-                eis::connection::DisconnectReason::Protocol,
-                "Need `ei_seat` and `ei_device`",
-            );
-            connection.flush();
-        }
-
-        let _seat = connection.add_seat(
-            Some("default"),
-            DeviceCapability::Pointer
-                | DeviceCapability::PointerAbsolute
-                | DeviceCapability::Keyboard
-                | DeviceCapability::Touch
-                | DeviceCapability::Scroll
-                | DeviceCapability::Button,
-        );
-    }
-
     fn handle_request_source_event(
-        &mut self,
         context_state: &mut ContextState,
         connection: &Connection,
         event: EisRequestSourceEvent,
@@ -176,7 +158,7 @@ impl State {
                         eis::connection::DisconnectReason::Protocol,
                         "Need `ei_seat` and `ei_device`",
                     );
-                    connection.flush();
+                    let _ = connection.flush();
                 }
 
                 let seat = connection.add_seat(
@@ -205,7 +187,7 @@ impl State {
             }
         }
 
-        connection.flush();
+        let _ = connection.flush();
 
         calloop::PostAction::Continue
     }
@@ -216,7 +198,7 @@ fn main() {
     let handle = event_loop.handle();
 
     let path = reis::default_socket_path().unwrap();
-    std::fs::remove_file(&path); // XXX in use?
+    let _ = std::fs::remove_file(&path); // XXX in use?
     let listener = eis::Listener::bind(&path).unwrap();
     let listener_source = EisListenerSource::new(listener);
     handle
