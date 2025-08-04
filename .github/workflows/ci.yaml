@@ -19,11 +19,24 @@ jobs:
     - run: sudo apt-get -qq update
     - run: sudo apt-get install -y libxkbcommon-dev
     - run: cargo fmt --all -- --check
+
+    # Make sure there are no broken intra-doc links with and without features
+    - run: RUSTDOCFLAGS="--deny warnings" cargo doc --no-deps --all-features
+    - run: RUSTDOCFLAGS="--deny warnings" cargo doc --no-deps
+
     - run: cargo clippy --all-features -- -Dwarnings
+      if: matrix.rust_version != 'stable'
+    - run: cargo clippy --all-features --all-targets -- -Dwarnings
+      if: matrix.rust_version == 'stable'
+
+    # Sanity check: generic code doesn't depend on features
+    - run: cargo check
+
     - run: cargo build --all-features
       if: matrix.rust_version != 'stable'
     - run: cargo build --all-features --examples
       if: matrix.rust_version == 'stable'
+
     - uses: actions/upload-artifact@v4
       with:
         name: reis-demo-server
