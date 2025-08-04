@@ -52,6 +52,7 @@ struct State {
 }
 
 impl State {
+    #![allow(clippy::unnecessary_wraps, clippy::too_many_lines)]
     fn handle_listener_readable(
         &mut self,
         context: &mut ei::Context,
@@ -63,10 +64,10 @@ impl State {
         while let Some(result) = context.pending_event() {
             let request = match result {
                 PendingRequestResult::Request(request) => request,
-                PendingRequestResult::ParseError(msg) => {
+                PendingRequestResult::ParseError(_msg) => {
                     todo!()
                 }
-                PendingRequestResult::InvalidObject(object_id) => {
+                PendingRequestResult::InvalidObject(_object_id) => {
                     // TODO
                     continue;
                 }
@@ -82,10 +83,6 @@ impl State {
                         }
                         handshake.finish();
                     }
-                    ei::handshake::Event::InterfaceVersion {
-                        name: _,
-                        version: _,
-                    } => {}
                     ei::handshake::Event::Connection {
                         connection: _,
                         serial,
@@ -94,9 +91,9 @@ impl State {
                     }
                     _ => {}
                 },
-                ei::Event::Connection(connection, request) => match request {
+                ei::Event::Connection(_connection, request) => match request {
                     ei::connection::Event::Seat { seat } => {
-                        self.seats.insert(seat, Default::default());
+                        self.seats.insert(seat, SeatData::default());
                     }
                     ei::connection::Event::Ping { ping } => {
                         ping.done(0);
@@ -117,7 +114,7 @@ impl State {
                             // XXX
                         }
                         ei::seat::Event::Device { device } => {
-                            self.devices.insert(device, Default::default());
+                            self.devices.insert(device, DeviceData::default());
                         }
                         _ => {}
                     }
@@ -133,7 +130,7 @@ impl State {
                         }
                         ei::device::Event::Interface { object } => {
                             data.interfaces
-                                .insert(object.interface().to_string(), object);
+                                .insert(object.interface().to_owned(), object);
                         }
                         ei::device::Event::Done => {
                             if let Some(keyboard) = data.interface::<ei::Keyboard>() {
@@ -194,37 +191,37 @@ impl State {
                         _ => {}
                     }
                 }
-                ei::Event::Keyboard(keyboard, request) => {
-                    if let ei::keyboard::Event::Keymap {
-                        keymap_type,
+                ei::Event::Keyboard(
+                    _keyboard,
+                    ei::keyboard::Event::Keymap {
+                        keymap_type: _,
                         size,
                         keymap,
-                    } = request
-                    {
-                        // XXX format
-                        // flags?
-                        // handle multiple keyboard?
-                        let context = xkb::Context::new(0);
-                        self.keymap = Some(
-                            unsafe {
-                                xkb::Keymap::new_from_fd(
-                                    &context,
-                                    keymap,
-                                    size as _,
-                                    xkb::KEYMAP_FORMAT_TEXT_V1,
-                                    0,
-                                )
-                            }
-                            .unwrap()
-                            .unwrap(),
-                        );
-                    }
+                    },
+                ) => {
+                    // XXX format
+                    // flags?
+                    // handle multiple keyboard?
+                    let context = xkb::Context::new(0);
+                    self.keymap = Some(
+                        unsafe {
+                            xkb::Keymap::new_from_fd(
+                                &context,
+                                keymap,
+                                size as _,
+                                xkb::KEYMAP_FORMAT_TEXT_V1,
+                                0,
+                            )
+                        }
+                        .unwrap()
+                        .unwrap(),
+                    );
                 }
                 _ => {}
             }
         }
 
-        context.flush();
+        let _ = context.flush();
 
         Ok(calloop::PostAction::Continue)
     }
@@ -259,8 +256,8 @@ fn main() {
 
     let context = futures_executor::block_on(open_connection());
     // XXX wait for server version?
-    let handshake = context.handshake();
-    context.flush();
+    let _handshake = context.handshake();
+    let _ = context.flush();
     let context_source = Generic::new(context, calloop::Interest::READ, calloop::Mode::Level);
     handle
         .insert_source(context_source, |_event, context, state: &mut State| {

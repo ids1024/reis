@@ -36,7 +36,7 @@ async fn open_connection() -> ei::Context {
                 let x = region.x_offset();
                 let y = region.y_offset();
                 let w = region.width() as i32;
-                let h = region.height() as i32;
+                let _h = region.height() as i32;
                 Barrier::new(NonZero::new(n as u32 + 1).unwrap(), (x, y, x + w - 1, y))
             })
             .collect::<Vec<_>>();
@@ -75,7 +75,7 @@ async fn main() {
                         | DeviceCapability::Scroll
                         | DeviceCapability::Button,
                 );
-                context.flush();
+                let _ = context.flush();
             }
             reis::event::EiEvent::DeviceAdded(evt) => {
                 println!("  seat: {:?}", evt.device.seat().name());
