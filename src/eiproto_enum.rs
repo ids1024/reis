@@ -20,9 +20,9 @@ pub(crate) mod handshake {
      */
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
     pub enum ContextType {
-        /// The client receives input events from the server.
+        /// The ei client receives input events from the eis implementation.
         Receiver = 1,
-        /// The client sends input events to the server.
+        /// The ei client sends input events to the eis implementation.
         Sender = 2,
     }
 

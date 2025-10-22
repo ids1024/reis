@@ -107,13 +107,12 @@ pub mod handshake {
     impl crate::ei::Interface for Handshake {}
 
     impl Handshake {
-        /// Handshake version notification request.
+        /// Handshake version information from ei client.
         ///
-        /// Notifies the EIS implementation that this client supports the
-        /// given version of the `ei_handshake` interface. The version number
-        /// must be less than or equal to the version in the
-        /// handshake_version event sent by the EIS implementation when
-        /// the connection was established.
+        /// Informs the EIS implementation that this client supports the given
+        /// version of the `ei_handshake` interface. The version number must be less
+        /// than or equal to the version in the handshake_version event sent by the
+        /// EIS implementation when the connection was established.
         ///
         /// Immediately after sending this request, the client must assume the negotiated
         /// version number for the `ei_handshake` interface and the EIS implementation
@@ -135,7 +134,7 @@ pub mod handshake {
 
         /// Setup completion request.
         ///
-        /// Notify the EIS implementation that configuration is complete.
+        /// Informs the EIS implementation that configuration is complete.
         ///
         /// In the future (and possibly after requiring user interaction),
         /// the EIS implementation responds by sending the `ei_handshake.connection` event.
@@ -147,11 +146,11 @@ pub mod handshake {
             ()
         }
 
-        /// Context type notification.
+        /// Context type information.
         ///
-        /// Notify the EIS implementation of the type of this context. The context
-        /// type defines whether the client will send input events to the server or
-        /// receive input events from it.
+        /// Informs the EIS implementation of the type of this context. The context
+        /// type defines whether the EI client will send input events to the EIS
+        /// implementation or receive input events from it.
         ///
         /// Depending on the context type, certain requests must not be used and some
         /// events must not be sent by the EIS implementation.
@@ -171,12 +170,12 @@ pub mod handshake {
             ()
         }
 
-        /// Client name notification.
+        /// Client name.
         ///
-        /// Notify the EIS implementation of the client name. The name is a
-        /// human-presentable UTF-8 string and should represent the client name
-        /// as accurately as possible. This name may be presented to the user
-        /// for identification of this client (e.g. to confirm the client has
+        /// Informs the EIS implementation of the client name. The name is a
+        /// human-presentable UTF-8 string and should represent the client name as
+        /// accurately as possible. This name may be presented to the user for
+        /// identification of this client (e.g. to confirm the client has
         /// permissions to connect).
         ///
         /// There is no requirement for the EIS implementation to use this name. For
@@ -199,10 +198,10 @@ pub mod handshake {
             ()
         }
 
-        /// Interface support notification.
+        /// Interface support information.
         ///
-        /// Notify the EIS implementation that the client supports the
-        /// given named interface with the given maximum version number.
+        /// Informs the EIS implementation that the EI client supports the given
+        /// named interface with the given maximum version number.
         ///
         /// Future objects created by the EIS implementation will
         /// use the respective interface version (or any lesser version)
@@ -246,10 +245,13 @@ pub mod handshake {
     #[non_exhaustive]
     #[derive(Debug)]
     pub enum Event {
-        /// Handshake version notification event.
+        /// Handshake version information from eis implementation.
         ///
-        /// This event is sent exactly once and immediately after connection
-        /// to the EIS implementation.
+        /// Informs the client that the EIS implementation supports the given
+        /// version of the `ei_handshake` interface.
+        ///
+        /// This event is sent exactly once and immediately after connection to the
+        /// EIS implementation.
         ///
         /// In response, the client must send the `ei_handshake.handshake_version` request
         /// with any version up to including the version provided in this event.
@@ -260,8 +262,8 @@ pub mod handshake {
         },
         /// Interface support event.
         ///
-        /// Notifies the client that the EIS implementation supports
-        /// the given named interface with the given maximum version number.
+        /// Informs the client that the EIS implementation supports the given named
+        /// interface with the given maximum version number.
         ///
         /// The client must not assume those interfaces are supported unless
         /// and until those versions have been received.
@@ -278,21 +280,21 @@ pub mod handshake {
             /// The interface version.
             version: u32,
         },
-        /// Initialization of the connection object.
+        /// Provides the core connection object.
         ///
         /// **Note:** This event is a destructor.
         ///
         /// Provides the client with the connection object that is the top-level
         /// object for all future requests and events.
         ///
-        /// This event is sent exactly once at some unspecified time after the client
-        /// sends the `ei_handshake.finish` request to the EIS implementation.
+        /// This event must be sent exactly once after the client sends the
+        /// `ei_handshake.finish` request to the EIS implementation.
         ///
-        /// The `ei_handshake` object will be destroyed by the
-        /// EIS implementation immediately after this event has been sent, a
-        /// client must not attempt to use it after that point.
+        /// The `ei_handshake` object will be destroyed by the EIS implementation
+        /// immediately after this event has been sent, the client must not attempt
+        /// to use it after that point.
         ///
-        /// The version sent by the EIS implementation is the version of the "`ei_connection`"
+        /// The version sent by the EIS implementation is the version of the ``ei_connection``
         /// interface as announced by `ei_handshake.interface_version`, or any
         /// lower version.
         ///
@@ -444,22 +446,22 @@ pub mod connection {
     impl Connection {
         /// Asynchronous roundtrip.
         ///
-        /// The sync request asks the EIS implementation to emit the 'done' event
-        /// on the returned `ei_callback` object. Since requests are
-        /// handled in-order and events are delivered in-order, this can
-        /// be used as a synchronization point to ensure all previous requests and the
-        /// resulting events have been handled.
+        /// Requests the EIS implementation to emit the `ei_callback.done` event on
+        /// the returned `ei_callback` object. Since requests are handled in-order
+        /// and events are delivered in-order, this can be used as a
+        /// synchronization point to ensure all previous requests and the resulting
+        /// events have been handled.
         ///
         /// The object returned by this request will be destroyed by the
         /// EIS implementation after the callback is fired and as such the client must not
         /// attempt to use it after that point.
         ///
-        /// The callback_data in the `ei_callback.done` event is always zero.
+        /// The callback_data in the `ei_callback.done` event must be zero.
         ///
         /// Note that for a client to use this request it must announce
-        /// support for the "`ei_callback`" interface in `ei_handshake.interface_version`.
+        /// support for the ``ei_callback`` interface in `ei_handshake.interface_version`.
         /// It is a protocol violation to request sync without having announced the
-        /// "`ei_callback`" interface and the EIS implementation must disconnect
+        /// ``ei_callback`` interface and the EIS implementation must disconnect
         /// the client.
         /// # Parameters
         ///
@@ -517,7 +519,7 @@ pub mod connection {
         ///
         /// This event may be sent by the EIS implementation immediately before
         /// the client is disconnected. The last_serial argument is set to the last
-        /// serial number used in an event by the server.
+        /// serial number used in an event by the EIS implementation.
         ///
         /// Where a client is disconnected by EIS on purpose, for example after
         /// a user interaction, the reason is disconnect_reason.disconnected (i.e. zero)
@@ -542,9 +544,9 @@ pub mod connection {
             /// An explanation for debugging purposes.
             explanation: String,
         },
-        /// Seat presence notification.
+        /// Seat presence information.
         ///
-        /// Notification that a new seat has been added.
+        /// Informs the client that a new seat has been added.
         ///
         /// A seat is a set of input devices that logically belong together.
         ///
@@ -559,7 +561,7 @@ pub mod connection {
         },
         /// Invalid object in request notification.
         ///
-        /// Notification that an object ID used in an earlier request was
+        /// Informs the client that an object ID used in an earlier request was
         /// invalid and does not exist.
         ///
         /// This event is sent by the EIS implementation when an object that
@@ -710,9 +712,6 @@ pub use connection::Connection;
 Interface for ensuring a roundtrip to the EIS implementation.
 Clients can handle the 'done' event to get notified when
 the related request that created the `ei_callback` object is done.
-
-Note that for a client to receive objects of this type, it must announce
-support for this interface in `ei_handshake.interface_version`.
  */
 pub mod callback {
     use crate::wire;
@@ -725,9 +724,6 @@ pub mod callback {
     Interface for ensuring a roundtrip to the EIS implementation.
     Clients can handle the 'done' event to get notified when
     the related request that created the `ei_callback` object is done.
-
-    Note that for a client to receive objects of this type, it must announce
-    support for this interface in `ei_handshake.interface_version`.
      */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Callback(pub(crate) crate::Object);
@@ -778,9 +774,10 @@ pub mod callback {
         ///
         /// **Note:** This event is a destructor.
         ///
-        /// Notify the client when the related request is done. Immediately after this event
-        /// the `ei_callback` object is destroyed by the EIS implementation and as such the
-        /// client must not attempt to use it after that point.
+        /// Informs the client that the associated request is finished. The EIS
+        /// implementation must destroy the `ei_callback` object immediately after
+        /// sending this event this event and as such the client must not attempt to
+        /// use it after that point.
         Done {
             /// Request-specific data for the callback.
             callback_data: u64,
@@ -840,9 +837,6 @@ pub use callback::Callback;
 Interface for ensuring a roundtrip to the client implementation.
 This interface is identical to `ei_callback` but is intended for
 the EIS implementation to enforce a roundtrip to the client.
-
-Note that for a client to receive objects of this type, it must announce
-support for this interface in `ei_handshake.interface_version`.
  */
 pub mod pingpong {
     use crate::wire;
@@ -855,9 +849,6 @@ pub mod pingpong {
     Interface for ensuring a roundtrip to the client implementation.
     This interface is identical to `ei_callback` but is intended for
     the EIS implementation to enforce a roundtrip to the client.
-
-    Note that for a client to receive objects of this type, it must announce
-    support for this interface in `ei_handshake.interface_version`.
      */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Pingpong(pub(crate) crate::Object);
@@ -901,9 +892,10 @@ pub mod pingpong {
         ///
         /// **Note:** This request is a destructor.
         ///
-        /// Notify the EIS implementation when the related event is done. Immediately after this request
-        /// the `ei_pingpong` object is destroyed by the client and as such must not be used
-        /// any further.
+        /// Informs the EIS implementation when the associated event is finished.
+        /// The client must destroy the `ei_pingpong` object immediately after this
+        /// request and as such the server must not attempt to use it after that
+        /// point.
         /// # Parameters
         ///
         /// - `callback_data`: Request-specific data for the callback.
@@ -977,9 +969,6 @@ client is interested in.
 Immediately after creation of the `ei_seat` object, the EIS implementation sends a burst
 of events with information about this seat. This burst of events is terminated by the
 `ei_seat.done` event.
-
-Note that for a client to receive objects of this type, it must announce
-support for this interface in `ei_handshake.interface_version`.
  */
 pub mod seat {
     use crate::wire;
@@ -1000,9 +989,6 @@ pub mod seat {
     Immediately after creation of the `ei_seat` object, the EIS implementation sends a burst
     of events with information about this seat. This burst of events is terminated by the
     `ei_seat.done` event.
-
-    Note that for a client to receive objects of this type, it must announce
-    support for this interface in `ei_handshake.interface_version`.
      */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Seat(pub(crate) crate::Object);
@@ -1044,13 +1030,14 @@ pub mod seat {
     impl Seat {
         /// Seat removal request.
         ///
-        /// Notification that the client is no longer interested in this seat.
-        /// The EIS implementation will release any resources related to this seat and
-        /// send the `ei_seat.destroyed` event once complete.
+        /// Informs the EIS implementation that the client is no longer interested
+        /// in this seat. The EIS implementation should release any resources
+        /// associated with this seat and send the `ei_seat.destroyed` event once
+        /// finished.
         ///
-        /// Note that releasing a seat does not guarantee another seat becomes available.
-        /// In other words, in most single-seat cases, releasing the seat means the
-        /// connection becomes effectively inert.
+        /// Note that releasing a seat does not guarantee that another seat becomes
+        /// available. In other words, in most single-seat cases, releasing the seat
+        /// means that the connection becomes effectively inert.
         pub fn release(&self) -> () {
             let args = &[];
 
@@ -1061,16 +1048,20 @@ pub mod seat {
 
         /// Seat binding.
         ///
-        /// Bind to the bitmask of capabilities given. The bitmask is zero or more of the
-        /// masks representing an interface as provided in the `ei_seat.capability` event.
-        /// See the `ei_seat.capability` event documentation for examples.
+        /// Binds to the given bitmask of capabilities. Each one of the bit values
+        /// in the given bitmask must originate from one of the `ei_seat.capability`
+        /// events. See its documentation for more examples.
         ///
-        /// Binding masks that are not supported in the `ei_device`'s interface version
-        /// is a client bug and may result in disconnection.
+        /// The EIS implementation should return compatible devices with
+        /// `ei_seat.device` events.
         ///
-        /// A client may send this request multiple times to adjust the capabilities it
-        /// is interested in. If previously-bound capabilities are dropped by the client,
-        /// the EIS implementation may `ei_device.remove` devices that have these capabilities.
+        /// Binding masks that are not supported in the `ei_device`'s interface
+        /// version is a client bug and may result in disconnection.
+        ///
+        /// A client may send this request multiple times to adjust the capabilities
+        /// it is interested in. If previously-bound capabilities are dropped by the
+        /// client, the EIS implementation may `ei_device.remove` devices that have
+        /// these capabilities.
         /// # Parameters
         ///
         /// - `capabilities`: Bitmask of the capabilities.
@@ -1094,8 +1085,8 @@ pub mod seat {
         ///
         /// **Note:** This event is a destructor.
         ///
-        /// This seat has been removed and a client should release all
-        /// associated resources.
+        /// Informs the client that this seat has been removed, and that it should
+        /// release all associated resources.
         ///
         /// This `ei_seat` object will be destroyed by the EIS implementation immediately after
         /// after this event is sent and as such the client must not attempt to use
@@ -1116,33 +1107,27 @@ pub mod seat {
         },
         /// Seat capability notification.
         ///
-        /// A notification that this seat supports devices with the given interface.
-        /// The interface is mapped to a bitmask by the EIS implementation.
-        /// A client may then binary OR these bitmasks in `ei_seat.bind`.
-        /// In response, the EIS implementation may then create device based on those
-        /// bound capabilities.
+        /// Informs the client that this seat supports devices with the given
+        /// interface. The interface must be mapped to a bitmask by the EIS
+        /// implementation. The client may apply the binary OR operation onto these
+        /// bitmasks in `ei_seat.bind`. In response, the EIS implementation may then
+        /// create devices based on those bound capabilities.
         ///
-        /// For example, an EIS implementation may map "`ei_pointer`" to 0x1,
-        /// "`ei_keyboard`" to 0x4 and "`ei_touchscreen`" to 0x8. A client may then
-        /// `ei_seat.bind`(0xc) to bind to keyboard and touchscreen but not pointer.
-        /// Note that as shown in this example the set of masks may be sparse.
-        /// The value of the mask is constant for the lifetime of the seat but may differ
-        /// between seats.
+        /// For example, an EIS implementation may advertise support for
+        /// ``ei_pointer`` devices at bitmask `0x1`, ``ei_keyboard`` devices at `0x4`
+        /// and ``ei_touchscreen`` devices at `0x8`. A client may then execute the
+        /// request ``ei_seat.bind`(0xC)` to bind to keyboard and touchscreen devices
+        /// but not pointing devices.
         ///
-        /// Note that seat capabilities only represent a mask of possible capabilities on
-        /// devices in this seat. A capability that is not available on the seat cannot
-        /// ever be available on any device in this seat. For example, a seat that only has the
-        /// pointer and keyboard capabilities can never have a device with the touchscreen
-        /// capability. It is up to the EIS implementation to decide how many (if any) devices
-        /// with any given capability exist in this seat.
+        /// The EIS implementation must not advertise capabilities for interfaces
+        /// that have not been negotiated in the `ei_handshake` object.
         ///
-        /// Only interfaces that the client announced during `ei_handshake.interface_version`
-        /// can be a seat capability.
+        /// The EIS implementation may decide which capabilities a given seat has.
+        /// After `ei_seat.done`, the capabilities are constant for the lifetime of
+        /// the seat but may differ between seats. The masks may be sparse bitwise.
         ///
-        /// This event is sent multiple times - once per supported interface.
-        /// The set of capabilities is constant for the lifetime of the seat.
-        ///
-        /// It is a protocol violation to send this event after the `ei_seat.done` event.
+        /// This event is sent multiple time for each supported interface, finishing
+        /// with `ei_seat.done`.
         Capability {
             /// The mask representing this capability.
             mask: u64,
@@ -1158,13 +1143,14 @@ pub mod seat {
         Done,
         /// Device presence notification.
         ///
-        /// Notification that a new device has been added.
+        /// Informs the client that a new device has been added to the seat.
+        ///
+        /// The EIS implementation must never announce devices that have not been bound to with `ei_seat.bind`.
         ///
         /// This event is only sent if the client announced support for the
-        /// "`ei_device`" interface in `ei_handshake.interface_version`.
-        /// The interface version is equal or less to the client-supported
-        /// version in `ei_handshake.interface_version` for the "`ei_device`"
-        /// interface.
+        /// ``ei_device`` interface in `ei_handshake.interface_version`. The interface
+        /// version is less than or equal to the client-supported version in
+        /// `ei_handshake.interface_version` for the ``ei_device`` interface.
         Device {
             /// The new device.
             device: super::device::Device,
@@ -1265,9 +1251,6 @@ emulate events via client requests or receive events. It is a protocol violation
 to emulate certain events on a receiver device, or for the EIS implementation
 to send certain events to the device. See the individual request/event documentation
 for details.
-
-Note that for a client to receive objects of this type, it must announce
-support for this interface in `ei_handshake.interface_version`.
  */
 pub mod device {
     use crate::wire;
@@ -1286,9 +1269,6 @@ pub mod device {
     to emulate certain events on a receiver device, or for the EIS implementation
     to send certain events to the device. See the individual request/event documentation
     for details.
-
-    Note that for a client to receive objects of this type, it must announce
-    support for this interface in `ei_handshake.interface_version`.
      */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Device(pub(crate) crate::Object);
@@ -1875,16 +1855,12 @@ pub use device::Device;
 /// Client-side protocol definition module for interface `ei_pointer`.
 ///
 /**
-Interface for relative pointer motion requests and events, originating
-from physical devices like computer mice.
+Interface for relative pointer motion requests and events.
 
 This interface is only provided once per device and where a client
 requests `ei_pointer.release` the interface does not get re-initialized. An
 EIS implementation may adjust the behavior of the device (including removing
 the device) if the interface is released.
-
-Note that for a client to receive objects of this type, it must announce
-support for this interface in `ei_handshake.interface_version`.
  */
 pub mod pointer {
     use crate::wire;
@@ -1894,16 +1870,12 @@ pub mod pointer {
     /// Client-side interface proxy for interface `ei_pointer`.
     ///
     /**
-    Interface for relative pointer motion requests and events, originating
-    from physical devices like computer mice.
+    Interface for relative pointer motion requests and events.
 
     This interface is only provided once per device and where a client
     requests `ei_pointer.release` the interface does not get re-initialized. An
     EIS implementation may adjust the behavior of the device (including removing
     the device) if the interface is released.
-
-    Note that for a client to receive objects of this type, it must announce
-    support for this interface in `ei_handshake.interface_version`.
      */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Pointer(pub(crate) crate::Object);
@@ -2085,9 +2057,6 @@ This interface is only provided once per device and where a client
 requests `ei_pointer_absolute.release` the interface does not get
 re-initialized. An EIS implementation may adjust the behavior of the
 device (including removing the device) if the interface is released.
-
-Note that for a client to receive objects of this type, it must announce
-support for this interface in `ei_handshake.interface_version`.
  */
 pub mod pointer_absolute {
     use crate::wire;
@@ -2103,9 +2072,6 @@ pub mod pointer_absolute {
     requests `ei_pointer_absolute.release` the interface does not get
     re-initialized. An EIS implementation may adjust the behavior of the
     device (including removing the device) if the interface is released.
-
-    Note that for a client to receive objects of this type, it must announce
-    support for this interface in `ei_handshake.interface_version`.
      */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct PointerAbsolute(pub(crate) crate::Object);
@@ -2289,9 +2255,6 @@ This interface is only provided once per device and where a client
 requests `ei_scroll.release` the interface does not get
 re-initialized. An EIS implementation may adjust the behavior of the
 device (including removing the device) if the interface is released.
-
-Note that for a client to receive objects of this type, it must announce
-support for this interface in `ei_handshake.interface_version`.
  */
 pub mod scroll {
     use crate::wire;
@@ -2307,9 +2270,6 @@ pub mod scroll {
     requests `ei_scroll.release` the interface does not get
     re-initialized. An EIS implementation may adjust the behavior of the
     device (including removing the device) if the interface is released.
-
-    Note that for a client to receive objects of this type, it must announce
-    support for this interface in `ei_handshake.interface_version`.
      */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Scroll(pub(crate) crate::Object);
@@ -2625,9 +2585,6 @@ This interface is only provided once per device and where a client
 requests `ei_button.release` the interface does not get
 re-initialized. An EIS implementation may adjust the behavior of the
 device (including removing the device) if the interface is released.
-
-Note that for a client to receive objects of this type, it must announce
-support for this interface in `ei_handshake.interface_version`.
  */
 pub mod button {
     use crate::wire;
@@ -2643,9 +2600,6 @@ pub mod button {
     requests `ei_button.release` the interface does not get
     re-initialized. An EIS implementation may adjust the behavior of the
     device (including removing the device) if the interface is released.
-
-    Note that for a client to receive objects of this type, it must announce
-    support for this interface in `ei_handshake.interface_version`.
      */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Button(pub(crate) crate::Object);
@@ -2837,9 +2791,6 @@ This interface is only provided once per device and where a client
 requests `ei_keyboard.release` the interface does not get re-initialized. An
 EIS implementation may adjust the behavior of the device (including removing
 the device) if the interface is released.
-
-Note that for a client to receive objects of this type, it must announce
-support for this interface in `ei_handshake.interface_version`.
  */
 pub mod keyboard {
     use crate::wire;
@@ -2855,9 +2806,6 @@ pub mod keyboard {
     requests `ei_keyboard.release` the interface does not get re-initialized. An
     EIS implementation may adjust the behavior of the device (including removing
     the device) if the interface is released.
-
-    Note that for a client to receive objects of this type, it must announce
-    support for this interface in `ei_handshake.interface_version`.
      */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Keyboard(pub(crate) crate::Object);
@@ -2975,7 +2923,7 @@ pub mod keyboard {
         ///
         /// The keymap is constant for the lifetime of the device.
         ///
-        /// This event provides a file descriptor to the client which can be
+        /// This event provides a file descriptor to the client that can be
         /// memory-mapped in read-only mode to provide a keyboard mapping
         /// description. The fd must be mapped with MAP_PRIVATE by
         /// the recipient, as MAP_SHARED may fail.
@@ -3025,10 +2973,10 @@ pub mod keyboard {
         ///
         /// For receiver clients, modifiers events will always be properly ordered
         /// with received key events, so each key event should be interpreted using
-        /// the most recently-received modifier state. The server should send this
-        /// event immediately following the `ei_device.frame` event for the key press
-        /// that caused the change. If the state change impacts multiple keyboards,
-        /// this event should be sent for all of them.
+        /// the most recently-received modifier state. The EIS implementation should
+        /// send this event immediately following the `ei_device.frame` event for the
+        /// key press that caused the change. If the state change impacts multiple
+        /// keyboards, this event should be sent for all of them.
         ///
         /// For sender clients, the modifiers event is not inherently synchronized
         /// with key requests, but the client may send an `ei_connection.sync` request
@@ -3051,10 +2999,10 @@ pub mod keyboard {
         /// This event is only sent for devices with an `ei_keyboard.keymap`.
         ///
         /// Note: A previous version of the documentation instead specified that
-        /// this event should not be sent in response to `ei_keyboard.key` events
-        /// that change the group or modifier state according to the keymap.
-        /// However, this complicated client implementation and resulted in
-        /// situations where the client state could get out of sync with the server.
+        /// this event should not be sent in response to `ei_keyboard.key` events that
+        /// change the group or modifier state according to the keymap. However,
+        /// this complicated client implementation and resulted in situations where
+        /// the client state could get out of sync with the EIS implementation.
         Modifiers {
             /// This event's serial number.
             serial: u32,
@@ -3186,9 +3134,6 @@ This interface is only provided once per device and where a client
 requests `ei_touchscreen.release` the interface does not get re-initialized. An
 EIS implementation may adjust the behavior of the device (including removing
 the device) if the interface is released.
-
-Note that for a client to receive objects of this type, it must announce
-support for this interface in `ei_handshake.interface_version`.
  */
 pub mod touchscreen {
     use crate::wire;
@@ -3204,9 +3149,6 @@ pub mod touchscreen {
     requests `ei_touchscreen.release` the interface does not get re-initialized. An
     EIS implementation may adjust the behavior of the device (including removing
     the device) if the interface is released.
-
-    Note that for a client to receive objects of this type, it must announce
-    support for this interface in `ei_handshake.interface_version`.
      */
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     pub struct Touchscreen(pub(crate) crate::Object);
