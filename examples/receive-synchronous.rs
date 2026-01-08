@@ -1,4 +1,5 @@
 //! Capturing input synchronously.
+#![allow(clippy::incompatible_msrv)]
 
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use pollster::FutureExt as _;

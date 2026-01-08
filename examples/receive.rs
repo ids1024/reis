@@ -1,4 +1,5 @@
 //! Capturing input asynchronously.
+#![allow(clippy::incompatible_msrv)]
 
 use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
 use futures::stream::StreamExt;
