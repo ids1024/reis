@@ -13,7 +13,7 @@ use std::{
         io::{AsFd, BorrowedFd, OwnedFd},
         net::UnixStream,
     },
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 // Panics if iterator isn't as long as `N`
@@ -81,6 +81,10 @@ pub struct UnlinkOnDrop<T> {
 impl<T> UnlinkOnDrop<T> {
     pub fn new(inner: T, path: PathBuf) -> Self {
         Self { inner, path }
+    }
+
+    pub fn path(this: &Self) -> &Path {
+        &this.path
     }
 }
 

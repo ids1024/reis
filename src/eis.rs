@@ -74,6 +74,11 @@ impl Listener {
         })
     }
 
+    /// Get the path to the listener socket
+    pub fn path(&self) -> &Path {
+        util::UnlinkOnDrop::path(&self.listener)
+    }
+
     /// Accepts a connection from a client. Returns `Ok(Some(_)` if an incoming connection is ready, and `Ok(None)` if there is no connection ready (would block).
     ///
     /// # Errors
