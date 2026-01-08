@@ -627,6 +627,16 @@ impl EiEventConverter {
                     }
                 }
             }
+            #[allow(clippy::missing_panics_doc)]
+            ei::Event::Text(_text, event) => match event {
+                ei::text::Event::Keysym { keysym, state } => {
+                    panic!("{:?}", (keysym, state));
+                }
+                ei::text::Event::Utf8 { text } => {
+                    panic!("{text:?}");
+                }
+                ei::text::Event::Destroyed { serial: _ } => {}
+            },
         }
         Ok(())
     }
@@ -691,6 +701,8 @@ pub enum DeviceCapability {
     Scroll = 1 << 4,
     /// Capability for mouse button input events.
     Button = 1 << 5,
+    /// Capability for text input events.
+    Text = 1 << 6,
 }
 
 impl DeviceCapability {
@@ -705,6 +717,7 @@ impl DeviceCapability {
             DeviceCapability::Touch => ei::Touchscreen::NAME,
             DeviceCapability::Scroll => ei::Scroll::NAME,
             DeviceCapability::Button => ei::Button::NAME,
+            DeviceCapability::Text => ei::Text::NAME,
         }
     }
 
@@ -719,6 +732,7 @@ impl DeviceCapability {
             ei::Touchscreen::NAME => Some(DeviceCapability::Touch),
             ei::Scroll::NAME => Some(DeviceCapability::Scroll),
             ei::Button::NAME => Some(DeviceCapability::Button),
+            ei::Text::NAME => Some(DeviceCapability::Text),
             _ => None,
         }
     }

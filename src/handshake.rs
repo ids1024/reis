@@ -23,6 +23,7 @@ fn interfaces() -> &'static HashMap<&'static str, u32> {
             iface::<ei::Button>(),
             iface::<ei::Keyboard>(),
             iface::<ei::Touchscreen>(),
+            iface::<ei::Text>(),
         ]
         .into_iter()
         .collect()
