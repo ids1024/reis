@@ -154,13 +154,13 @@ impl Backend {
                         "unexpected EOF reading ei socket",
                     ));
                 }
-                Ok(count) => {
-                    read.buf.extend(&buf[0..count]);
-                    total_count += count;
-                }
                 #[allow(unreachable_patterns)] // `WOULDBLOCK` and `AGAIN` typically equal
                 Ok(0) | Err(Errno::WOULDBLOCK | Errno::AGAIN) => {
                     return Ok(total_count);
+                }
+                Ok(count) => {
+                    read.buf.extend(&buf[0..count]);
+                    total_count += count;
                 }
                 Err(err) => return Err(err.into()),
             }
