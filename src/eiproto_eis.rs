@@ -994,7 +994,7 @@ pub mod seat {
 
     impl wire::Interface for Seat {
         const NAME: &'static str = "ei_seat";
-        const VERSION: u32 = 1;
+        const VERSION: u32 = 2;
         const CLIENT_SIDE: bool = false;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -1174,6 +1174,37 @@ pub mod seat {
             /// Bitmask of the capabilities.
             capabilities: u64,
         },
+        /// Request a new device with capabilities.
+        ///
+        /// Request a new device from the EIS implementation with the given capability
+        /// mask. If the EIS implementation creates a new device in response to this
+        /// request that device is announced via the ei_seat.device event as any other
+        /// device.
+        ///
+        /// The capabilities argument is a bitmask of one or more of the
+        /// masks representing an interface as provided in the ei_seat.capability event.
+        /// See the ei_seat.capability event documentation for examples.
+        ///
+        /// The newly created device(s), if any, may not provide all requested capabilities.
+        /// The EIS implementation may create multiple devices to accommodate all requested
+        /// capabilities. For example, a client requesting a device with the ei_keyboard and
+        /// ei_pointer capability may instead see one device with the ei_keyboard and one
+        /// device with the ei_pointer capability being created.
+        ///
+        /// If possible, the EIS implementation should create devices immediately in
+        /// response to this request so a client can utilize ei_connection.sync to
+        /// help identify those devices. This is a suggestion to help the client and not
+        /// a requirement.
+        ///
+        /// Requesting masks that are not supported in the ei_device's interface version
+        /// is a client bug and may result in disconnection.
+        ///
+        /// Requesting masks that are not currently bound via the most recent ei_seat.bind
+        /// is a client bug and may result in disconnection.
+        RequestDevice {
+            /// Bitmask of the capabilities.
+            capabilities: u64,
+        },
     }
 
     impl Request {
@@ -1181,6 +1212,7 @@ pub mod seat {
             match operand {
                 0 => Some("release"),
                 1 => Some("bind"),
+                2 => Some("request_device"),
                 _ => None,
             }
         }
@@ -1195,6 +1227,11 @@ pub mod seat {
                     let capabilities = _bytes.read_arg()?;
 
                     Ok(Self::Bind { capabilities })
+                }
+                2 => {
+                    let capabilities = _bytes.read_arg()?;
+
+                    Ok(Self::RequestDevice { capabilities })
                 }
                 opcode => Err(wire::ParseError::InvalidOpcode("seat", opcode)),
             }
@@ -1213,6 +1250,9 @@ pub mod seat {
             match self {
                 Self::Release => {}
                 Self::Bind { capabilities } => {
+                    args.push(capabilities.as_arg());
+                }
+                Self::RequestDevice { capabilities } => {
                     args.push(capabilities.as_arg());
                 }
                 _ => unreachable!(),
@@ -1276,7 +1316,7 @@ pub mod device {
 
     impl wire::Interface for Device {
         const NAME: &'static str = "ei_device";
-        const VERSION: u32 = 2;
+        const VERSION: u32 = 3;
         const CLIENT_SIDE: bool = false;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -1720,6 +1760,12 @@ pub mod device {
         ///
         /// It is a protocol violation to send this request for a client
         /// of an ei_handshake.context_type other than sender.
+        ///
+        /// It is up to the EIS implementation to reset the device state when a
+        /// stop_emulating event is received. The recommendation is that the device
+        /// is set to a neutral state such that all touches, buttons, keys are logically up.
+        /// A client should send the corresponding events before stop_emulating
+        /// to avoid any ambiguity on event interpretation.
         StopEmulating {
             /// The last serial sent by the eis implementation.
             last_serial: u32,
@@ -1749,6 +1795,22 @@ pub mod device {
             /// Timestamp in microseconds.
             timestamp: u64,
         },
+        /// Device ready notification.
+        ///
+        /// **Note:** This request may only be used in a sender [context type](crate::eis::handshake::ContextType).
+        ///
+        /// Notification by the client that the device configuration (as seen
+        /// by the protocol) is complete and the EIS implementation may
+        /// send ei_device.resumed.
+        ///
+        /// This allows for future further negotation of the device behavior and
+        /// or device properties before the device is finalized by the EIS implementation.
+        ///
+        /// A client supporting version 3 of the ei_device interface must issue
+        /// this request in response to the ei_device.done event.
+        ///
+        /// It is a protocol violation to send this event more than once per device.
+        Ready,
     }
 
     impl Request {
@@ -1758,6 +1820,7 @@ pub mod device {
                 1 => Some("start_emulating"),
                 2 => Some("stop_emulating"),
                 3 => Some("frame"),
+                4 => Some("ready"),
                 _ => None,
             }
         }
@@ -1791,6 +1854,7 @@ pub mod device {
                         timestamp,
                     })
                 }
+                4 => Ok(Self::Ready),
                 opcode => Err(wire::ParseError::InvalidOpcode("device", opcode)),
             }
         }
@@ -1824,6 +1888,7 @@ pub mod device {
                     args.push(last_serial.as_arg());
                     args.push(timestamp.as_arg());
                 }
+                Self::Ready => {}
                 _ => unreachable!(),
             }
             args
@@ -2689,6 +2754,10 @@ pub mod button {
         ///
         /// It is a protocol violation to send this request for a client
         /// of an ei_handshake.context_type other than sender.
+        ///
+        /// A client should send a ei_button.button release event before
+        /// ei_device.stop_emulating to avoid any ambiguity on interpretation
+        /// of button events.
         Button {
             /// Button code.
             button: u32,
@@ -3010,6 +3079,10 @@ pub mod keyboard {
         ///
         /// It is a protocol violation to send this request for a client
         /// of an ei_handshake.context_type other than sender.
+        ///
+        /// A client should send a ei_key.key release event before
+        /// ei_device.stop_emulating to avoid any ambiguity on interpretation
+        /// of key events.
         Key {
             /// The key code.
             key: u32,
@@ -3294,6 +3367,10 @@ pub mod touchscreen {
         ///
         /// It is a protocol violation to send a touch down in the same
         /// frame as a touch motion or touch up.
+        ///
+        /// A client should send a ei_touch.up or ei_touch.cancel event before
+        /// ei_device.stop_emulating to avoid any ambiguity on interpretation of touch
+        /// events.
         Down {
             /// A unique touch id to identify this touch.
             touchid: u32,
