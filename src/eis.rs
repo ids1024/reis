@@ -52,7 +52,7 @@ impl Listener {
         } else {
             return Ok(None);
         };
-        for i in 1..33 {
+        for i in 0..33 {
             let lock_path = xdg_dir.join(format!("eis-{i}.lock"));
             let Some(lock_file) = util::LockFile::new(lock_path)? else {
                 // Already locked, continue to next number
