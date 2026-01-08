@@ -10,6 +10,8 @@ jobs:
       matrix:
         rust_version: ['1.70.0', stable]
     runs-on: ubuntu-latest
+    outputs:
+      libei_version: ${{ steps.libei_version.outputs.libei_version }}
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@master
@@ -44,6 +46,9 @@ jobs:
     - run: cargo build --all-features --examples
       if: matrix.rust_version == 'stable'
 
+    - run: echo libei_version="$(cat LIBEI_VERSION)" >> "$GITHUB_OUTPUT"
+      id: libei_version
+
     - uses: actions/upload-artifact@v4
       with:
         name: reis-demo-server
@@ -52,7 +57,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: check-and-build
     steps:
-    - run: git clone https://gitlab.freedesktop.org/libinput/libei .
+    - run: git clone -b "$libei_version" https://gitlab.freedesktop.org/libinput/libei .
+      env:
+        libei_version: ${{needs.check-and-build.outputs.libei_version}}
     - uses: actions/download-artifact@v4
       with:
         name: reis-demo-server
