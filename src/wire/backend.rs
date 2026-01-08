@@ -192,7 +192,11 @@ impl Backend {
                     bytes: read.buf.drain(..header.length as usize - 16),
                     fds: &mut read.fds,
                 };
-                let request = parse(object, header.opcode, &mut bytes);
+                let request = match parse(object, header.opcode, &mut bytes) {
+                    Ok(request) => request,
+                    Err(err) => return Some(PendingRequestResult::ParseError(err)),
+                };
+
                 if bytes.bytes.len() != 0 {
                     return Some(PendingRequestResult::ParseError(ParseError::MessageLength(
                         header.length + bytes.bytes.len() as u32,
@@ -200,15 +204,10 @@ impl Backend {
                     )));
                 }
 
-                Some(match request {
-                    Ok(request) => {
-                        if self.0.debug {
-                            self.print_msg(header.object_id, header.opcode, &request.args(), true);
-                        }
-                        PendingRequestResult::Request(request)
-                    }
-                    Err(err) => PendingRequestResult::ParseError(err),
-                })
+                if self.0.debug {
+                    self.print_msg(header.object_id, header.opcode, &request.args(), true);
+                }
+                Some(PendingRequestResult::Request(request))
             } else {
                 read.buf.drain(0..header.length as usize);
                 Some(PendingRequestResult::InvalidObject(header.object_id))
