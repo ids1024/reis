@@ -197,9 +197,9 @@ fn main() {
     let mut event_loop = calloop::EventLoop::try_new().unwrap();
     let handle = event_loop.handle();
 
-    let path = reis::default_socket_path().unwrap();
-    let _ = std::fs::remove_file(&path); // XXX in use?
-    let listener = eis::Listener::bind(&path).unwrap();
+    let listener = eis::Listener::bind_auto()
+        .unwrap()
+        .expect("No `XDG_RUNTIME_DIR` defined");
     let listener_source = EisListenerSource::new(listener);
     handle
         .insert_source(listener_source, |context, (), state: &mut State| {
