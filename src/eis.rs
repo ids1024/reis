@@ -75,6 +75,7 @@ impl Listener {
     }
 
     /// Get the path to the listener socket
+    #[must_use]
     pub fn path(&self) -> &Path {
         util::UnlinkOnDrop::path(&self.listener)
     }
