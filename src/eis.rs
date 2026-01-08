@@ -6,7 +6,7 @@
 //! [`device::Device`]) and request enums (like [`device::Request`]).
 
 use std::{
-    env, io,
+    env, fs, io,
     os::unix::{
         io::{AsFd, AsRawFd, BorrowedFd, RawFd},
         net::{UnixListener, UnixStream},
@@ -59,6 +59,9 @@ impl Listener {
                 continue;
             };
             let sock_path = xdg_dir.join(format!("eis-{i}"));
+            if sock_path.try_exists()? {
+                fs::remove_file(&sock_path)?;
+            }
             return Self::bind_inner(sock_path, Some(lock_file)).map(Some);
         }
         Ok(None)
