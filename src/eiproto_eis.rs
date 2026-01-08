@@ -754,7 +754,7 @@ pub mod callback {
         ///
         /// Informs the client that the associated request is finished. The EIS
         /// implementation must destroy the ei_callback object immediately after
-        /// sending this event this event and as such the client must not attempt to
+        /// sending this event and as such the client must not attempt to
         /// use it after that point.
         /// # Parameters
         ///
@@ -994,7 +994,7 @@ pub mod seat {
 
     impl wire::Interface for Seat {
         const NAME: &'static str = "ei_seat";
-        const VERSION: u32 = 1;
+        const VERSION: u32 = 2;
         const CLIENT_SIDE: bool = false;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -1020,7 +1020,7 @@ pub mod seat {
         /// Informs the client that this seat has been removed, and that it should
         /// release all associated resources.
         ///
-        /// This ei_seat object will be destroyed by the EIS implementation immediately after
+        /// This ei_seat object will be destroyed by the EIS implementation immediately
         /// after this event is sent and as such the client must not attempt to use
         /// it after that point.
         /// # Parameters
@@ -1174,6 +1174,37 @@ pub mod seat {
             /// Bitmask of the capabilities.
             capabilities: u64,
         },
+        /// Request a new device with capabilities.
+        ///
+        /// Request a new device from the EIS implementation with the given capability
+        /// mask. If the EIS implementation creates a new device in response to this
+        /// request that device is announced via the ei_seat.device event as any other
+        /// device.
+        ///
+        /// The capabilities argument is a bitmask of one or more of the
+        /// masks representing an interface as provided in the ei_seat.capability event.
+        /// See the ei_seat.capability event documentation for examples.
+        ///
+        /// The newly created device(s), if any, may not provide all requested capabilities.
+        /// The EIS implementation may create multiple devices to accommodate all requested
+        /// capabilities. For example, a client requesting a device with the ei_keyboard and
+        /// ei_pointer capability may instead see one device with the ei_keyboard and one
+        /// device with the ei_pointer capability being created.
+        ///
+        /// If possible, the EIS implementation should create devices immediately in
+        /// response to this request so a client can utilize ei_connection.sync to
+        /// help identify those devices. This is a suggestion to help the client and not
+        /// a requirement.
+        ///
+        /// Requesting masks that are not supported in the ei_device's interface version
+        /// is a client bug and may result in disconnection.
+        ///
+        /// Requesting masks that are not currently bound via the most recent ei_seat.bind
+        /// is a client bug and may result in disconnection.
+        RequestDevice {
+            /// Bitmask of the capabilities.
+            capabilities: u64,
+        },
     }
 
     impl Request {
@@ -1181,6 +1212,7 @@ pub mod seat {
             match operand {
                 0 => Some("release"),
                 1 => Some("bind"),
+                2 => Some("request_device"),
                 _ => None,
             }
         }
@@ -1195,6 +1227,11 @@ pub mod seat {
                     let capabilities = _bytes.read_arg()?;
 
                     Ok(Self::Bind { capabilities })
+                }
+                2 => {
+                    let capabilities = _bytes.read_arg()?;
+
+                    Ok(Self::RequestDevice { capabilities })
                 }
                 opcode => Err(wire::ParseError::InvalidOpcode("seat", opcode)),
             }
@@ -1213,6 +1250,9 @@ pub mod seat {
             match self {
                 Self::Release => {}
                 Self::Bind { capabilities } => {
+                    args.push(capabilities.as_arg());
+                }
+                Self::RequestDevice { capabilities } => {
                     args.push(capabilities.as_arg());
                 }
                 _ => unreachable!(),
@@ -1276,7 +1316,7 @@ pub mod device {
 
     impl wire::Interface for Device {
         const NAME: &'static str = "ei_device";
-        const VERSION: u32 = 2;
+        const VERSION: u32 = 3;
         const CLIENT_SIDE: bool = false;
 
         fn new_unchecked(object: crate::Object) -> Self {
@@ -1302,7 +1342,7 @@ pub mod device {
         /// This device has been removed and a client should release all
         /// associated resources.
         ///
-        /// This ei_device object will be destroyed by the EIS implementation immediately after
+        /// This ei_device object will be destroyed by the EIS implementation immediately
         /// after this event is sent and as such the client must not attempt to use
         /// it after that point.
         /// # Parameters
@@ -1398,7 +1438,7 @@ pub mod device {
         ///
         /// Absolute devices may have different regions, it is up to the client to
         /// send events through the correct device to target the right pixel. For
-        /// example, a dual-head setup my have two absolute devices, the first with
+        /// example, a dual-head setup may have two absolute devices, the first with
         /// a zero offset region spanning the left screen, the second with a nonzero
         /// offset spanning the right screen.
         ///
@@ -1455,6 +1495,7 @@ pub mod device {
         /// - "ei_button"
         /// - "ei_keyboard"
         /// - "ei_touchscreen"
+        /// - "ei_text"
         /// The interface version is equal or less to the client-supported
         /// version in ei_handshake.interface_version for the respective interface.
         ///
@@ -1711,7 +1752,7 @@ pub mod device {
             /// Sequence number to identify this emulation sequence.
             sequence: u32,
         },
-        /// Device start emulating request.
+        /// Device stop emulating request.
         ///
         /// **Note:** This request may only be used in a sender [context type](crate::eis::handshake::ContextType).
         ///
@@ -1720,6 +1761,12 @@ pub mod device {
         ///
         /// It is a protocol violation to send this request for a client
         /// of an ei_handshake.context_type other than sender.
+        ///
+        /// It is up to the EIS implementation to reset the device state when a
+        /// stop_emulating event is received. The recommendation is that the device
+        /// is set to a neutral state such that all touches, buttons, keys are logically up.
+        /// A client should send the corresponding events before stop_emulating
+        /// to avoid any ambiguity on event interpretation.
         StopEmulating {
             /// The last serial sent by the eis implementation.
             last_serial: u32,
@@ -1749,6 +1796,22 @@ pub mod device {
             /// Timestamp in microseconds.
             timestamp: u64,
         },
+        /// Device ready notification.
+        ///
+        /// **Note:** This request may only be used in a sender [context type](crate::eis::handshake::ContextType).
+        ///
+        /// Notification by the client that the device configuration (as seen
+        /// by the protocol) is complete and the EIS implementation may
+        /// send ei_device.resumed.
+        ///
+        /// This allows for future further negotiation of the device behavior and
+        /// or device properties before the device is finalized by the EIS implementation.
+        ///
+        /// A client supporting version 3 of the ei_device interface must issue
+        /// this request in response to the ei_device.done event.
+        ///
+        /// It is a protocol violation to send this event more than once per device.
+        Ready,
     }
 
     impl Request {
@@ -1758,6 +1821,7 @@ pub mod device {
                 1 => Some("start_emulating"),
                 2 => Some("stop_emulating"),
                 3 => Some("frame"),
+                4 => Some("ready"),
                 _ => None,
             }
         }
@@ -1791,6 +1855,7 @@ pub mod device {
                         timestamp,
                     })
                 }
+                4 => Ok(Self::Ready),
                 opcode => Err(wire::ParseError::InvalidOpcode("device", opcode)),
             }
         }
@@ -1824,6 +1889,7 @@ pub mod device {
                     args.push(last_serial.as_arg());
                     args.push(timestamp.as_arg());
                 }
+                Self::Ready => {}
                 _ => unreachable!(),
             }
             args
@@ -1905,7 +1971,7 @@ pub mod pointer {
         /// This object has been removed and a client should release all
         /// associated resources.
         ///
-        /// This object will be destroyed by the EIS implementation immediately after
+        /// This object will be destroyed by the EIS implementation immediately
         /// after this event is sent and as such the client must not attempt to use
         /// it after that point.
         /// # Parameters
@@ -2097,7 +2163,7 @@ pub mod pointer_absolute {
         /// This object has been removed and a client should release all
         /// associated resources.
         ///
-        /// This object will be destroyed by the EIS implementation immediately after
+        /// This object will be destroyed by the EIS implementation immediately
         /// after this event is sent and as such the client must not attempt to use
         /// it after that point.
         /// # Parameters
@@ -2291,7 +2357,7 @@ pub mod scroll {
         /// This object has been removed and a client should release all
         /// associated resources.
         ///
-        /// This object will be destroyed by the EIS implementation immediately after
+        /// This object will be destroyed by the EIS implementation immediately
         /// after this event is sent and as such the client must not attempt to use
         /// it after that point.
         /// # Parameters
@@ -2391,7 +2457,7 @@ pub mod scroll {
         ///
         /// **Note:** This request may only be used in a sender [context type](crate::eis::handshake::ContextType).
         ///
-        /// Generate a a smooth (pixel-precise) scroll event on this pointer.
+        /// Generate a smooth (pixel-precise) scroll event on this pointer.
         /// Clients must not send ei_scroll.scroll_discrete events for the same event,
         /// the EIS implementation is responsible for emulation of discrete
         /// scroll events.
@@ -2412,7 +2478,7 @@ pub mod scroll {
         ///
         /// **Note:** This request may only be used in a sender [context type](crate::eis::handshake::ContextType).
         ///
-        /// Generate a a discrete (e.g. wheel) scroll event on this pointer.
+        /// Generate a discrete (e.g. wheel) scroll event on this pointer.
         /// Clients must not send ei_scroll.scroll events for the same event,
         /// the EIS implementation is responsible for emulation of smooth
         /// scroll events.
@@ -2437,7 +2503,7 @@ pub mod scroll {
         ///
         /// **Note:** This request may only be used in a sender [context type](crate::eis::handshake::ContextType).
         ///
-        /// Generate a a scroll stop or cancel event on this pointer.
+        /// Generate a scroll stop or cancel event on this pointer.
         ///
         /// A scroll stop event notifies the EIS implementation that the interaction causing a
         /// scroll motion previously triggered with ei_scroll.scroll or
@@ -2455,7 +2521,7 @@ pub mod scroll {
         /// may ignore either or all such requests and/or disconnect the client.
         ///
         /// It is a client bug to send this request for an axis that
-        /// had a a nonzero value in either ei_scroll.scroll or ei_scroll.scroll_discrete
+        /// had a nonzero value in either ei_scroll.scroll or ei_scroll.scroll_discrete
         /// in the current frame and the EIS implementation
         /// may ignore either or all such requests and/or disconnect the client.
         ///
@@ -2617,7 +2683,7 @@ pub mod button {
         /// This pointer has been removed and a client should release all
         /// associated resources.
         ///
-        /// This ei_scroll object will be destroyed by the EIS implementation immediately after
+        /// This ei_scroll object will be destroyed by the EIS implementation immediately
         /// after this event is sent and as such the client must not attempt to use
         /// it after that point.
         /// # Parameters
@@ -2689,6 +2755,10 @@ pub mod button {
         ///
         /// It is a protocol violation to send this request for a client
         /// of an ei_handshake.context_type other than sender.
+        ///
+        /// A client should send a ei_button.button release event before
+        /// ei_device.stop_emulating to avoid any ambiguity on interpretation
+        /// of button events.
         Button {
             /// Button code.
             button: u32,
@@ -2819,7 +2889,7 @@ pub mod keyboard {
         /// This keyboard has been removed and a client should release all
         /// associated resources.
         ///
-        /// This ei_keyboard object will be destroyed by the EIS implementation immediately after
+        /// This ei_keyboard object will be destroyed by the EIS implementation immediately
         /// after this event is sent and as such the client must not attempt to use
         /// it after that point.
         /// # Parameters
@@ -3010,6 +3080,10 @@ pub mod keyboard {
         ///
         /// It is a protocol violation to send this request for a client
         /// of an ei_handshake.context_type other than sender.
+        ///
+        /// A client should send a ei_key.key release event before
+        /// ei_device.stop_emulating to avoid any ambiguity on interpretation
+        /// of key events.
         Key {
             /// The key code.
             key: u32,
@@ -3140,7 +3214,7 @@ pub mod touchscreen {
         /// This touch has been removed and a client should release all
         /// associated resources.
         ///
-        /// This ei_touchscreen object will be destroyed by the EIS implementation immediately after
+        /// This ei_touchscreen object will be destroyed by the EIS implementation immediately
         /// after this event is sent and as such the client must not attempt to use
         /// it after that point.
         /// # Parameters
@@ -3294,6 +3368,10 @@ pub mod touchscreen {
         ///
         /// It is a protocol violation to send a touch down in the same
         /// frame as a touch motion or touch up.
+        ///
+        /// A client should send a ei_touch.up or ei_touch.cancel event before
+        /// ei_device.stop_emulating to avoid any ambiguity on interpretation of touch
+        /// events.
         Down {
             /// A unique touch id to identify this touch.
             touchid: u32,
@@ -3452,6 +3530,282 @@ pub mod touchscreen {
 
 pub use touchscreen::Touchscreen;
 
+/// Text object.
+///
+/// Server-side protocol definition module for interface `ei_text`.
+///
+/**
+Interface for text-based requests and events.
+
+This interface is only provided once per device and where a client
+requests ei_text.release the interface does not get re-initialized. An
+EIS implementation may adjust the behavior of the device (including removing
+the device) if the interface is released.
+
+Note that for a client to receive objects of this type, it must announce
+support for this interface in ei_handshake.interface_version.
+ */
+pub mod text {
+    use crate::wire;
+
+    /// Text object.
+    ///
+    /// Server-side interface proxy for interface `ei_text`.
+    ///
+    /**
+    Interface for text-based requests and events.
+
+    This interface is only provided once per device and where a client
+    requests ei_text.release the interface does not get re-initialized. An
+    EIS implementation may adjust the behavior of the device (including removing
+    the device) if the interface is released.
+
+    Note that for a client to receive objects of this type, it must announce
+    support for this interface in ei_handshake.interface_version.
+     */
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
+    pub struct Text(pub(crate) crate::Object);
+
+    impl Text {
+        /// Returns the negotiated version of the interface.
+        pub fn version(&self) -> u32 {
+            self.0.version()
+        }
+
+        /// Returns `true` if the backend has this object.
+        pub fn is_alive(&self) -> bool {
+            self.0.is_alive()
+        }
+    }
+
+    impl crate::private::Sealed for Text {}
+
+    impl wire::Interface for Text {
+        const NAME: &'static str = "ei_text";
+        const VERSION: u32 = 1;
+        const CLIENT_SIDE: bool = false;
+
+        fn new_unchecked(object: crate::Object) -> Self {
+            Self(object)
+        }
+
+        fn as_object(&self) -> &crate::Object {
+            &self.0
+        }
+
+        fn as_arg(&self) -> wire::Arg<'_> {
+            self.0.as_arg()
+        }
+    }
+
+    impl crate::eis::Interface for Text {}
+
+    impl Text {
+        /// Text interface object removal notification.
+        ///
+        /// **Note:** This event is a destructor.
+        ///
+        /// This text interface object has been removed and a client should release all
+        /// associated resources.
+        ///
+        /// This ei_text object will be destroyed by the EIS implementation immediately after
+        /// after this event is sent and as such the client must not attempt to use
+        /// it after that point.
+        /// # Parameters
+        ///
+        /// - `serial`: This event's serial number.
+        ///
+        pub fn destroyed(&self, serial: u32) -> () {
+            let args = &[wire::Arg::Uint32(serial.into())];
+
+            self.0.request(0, args);
+            self.0.backend_weak().remove_id(self.0.id());
+
+            ()
+        }
+
+        /// Keysym state change event.
+        ///
+        /// **Note:** This event may only be used in a receiver [context type](crate::eis::handshake::ContextType).
+        ///
+        /// See the ei_text.keysym request for details.
+        ///
+        /// It is a protocol violation to send this event for a client
+        /// of an ei_handshake.context_type other than receiver.
+        ///
+        /// It is a protocol violation to send a keysym down event in the same
+        /// frame as a key up event for the same keysym in the same frame.
+        ///
+        /// It is a protocol violation to send this event in the same frame
+        /// as a ei_keyboard.key event.
+        /// # Parameters
+        ///
+        /// - `keysym`
+        /// - `state`
+        ///
+        pub fn keysym(&self, keysym: u32, state: super::keyboard::KeyState) -> () {
+            let args = &[
+                wire::Arg::Uint32(keysym.into()),
+                wire::Arg::Uint32(state.into()),
+            ];
+
+            self.0.request(1, args);
+
+            ()
+        }
+
+        /// Utf8 text event.
+        ///
+        /// **Note:** This event may only be used in a receiver [context type](crate::eis::handshake::ContextType).
+        ///
+        /// See the ei_text.utf8 request for details.
+        ///
+        /// It is a protocol violation to send this event for a NULL pointer or
+        /// the empty string.
+        /// It is a protocol violation to send this event for a string with more
+        /// than 254 characters (255 bytes including the terminating null byte).
+        ///
+        /// It is a protocol violation to send this event for a client
+        /// of an ei_handshake.context_type other than receiver.
+        ///
+        /// It is a protocol violation to send more than one utf8 event in the same
+        /// frame.
+        ///
+        /// The order of ei_keyboard.key, ei_text.keysym, and ei_text.utf8 if sent
+        /// within the same frame is undefined.
+        /// # Parameters
+        ///
+        /// - `text`: The utf-8 compatible text.
+        ///
+        pub fn utf8(&self, text: &str) -> () {
+            let args = &[wire::Arg::String(text.into())];
+
+            self.0.request(2, args);
+
+            ()
+        }
+    }
+
+    /// All requests of interface `ei_text`.
+    ///
+    /// Requests are messages that come from clients.
+    #[non_exhaustive]
+    #[derive(Debug)]
+    pub enum Request {
+        /// Text removal request.
+        ///
+        /// Notification that the client is no longer interested in this text interface object.
+        /// The EIS implementation will release any resources related to this object and
+        /// send the ei_text.destroyed event once complete.
+        Release,
+        /// Keysym state change request.
+        ///
+        /// **Note:** This request may only be used in a sender [context type](crate::eis::handshake::ContextType).
+        ///
+        /// Generate an XKB key sym event.
+        ///
+        /// It is a client bug to send more than one key request for the same keysym
+        /// within the same ei_device.frame and the EIS implementation
+        /// may ignore either or all keysym state changes and/or disconnect the client.
+        ///
+        /// It is a protocol violation to send this request for a client
+        /// of an ei_handshake.context_type other than sender.
+        ///
+        /// It is a protocol violation to send this request in the same frame
+        /// as a ei_keyboard.key.
+        Keysym {
+            /// The key sym.
+            keysym: u32,
+            /// Logical state of the keysym.
+            state: super::keyboard::KeyState,
+        },
+        /// Utf8 text.
+        ///
+        /// **Note:** This request may only be used in a sender [context type](crate::eis::handshake::ContextType).
+        ///
+        /// Generate a UTF-8 compatible text string. Note that sending such a
+        /// string may not result in any emulated keyboard activity, e.g. an EIS
+        /// implementation may pass the string directly to the receiver via an
+        /// input method protocol.
+        ///
+        /// It is a protocol violation to send this request for a NULL pointer or
+        /// the empty string.
+        /// It is a protocol violation to send this request for a string with more
+        /// than 254 characters (255 bytes including the terminating null byte).
+        ///
+        /// It is a protocol violation to send this request for a client
+        /// of an ei_handshake.context_type other than sender.
+        ///
+        /// It is a protocol violation to send more than one utf8 request in the same
+        /// frame.
+        ///
+        /// The order of ei_keyboard.key or ei_text.keysym and ei_text.utf8 if sent
+        /// within the same frame is undefined.
+        Utf8 {
+            /// The utf-8 compatible text.
+            text: String,
+        },
+    }
+
+    impl Request {
+        pub(super) fn op_name(operand: u32) -> Option<&'static str> {
+            match operand {
+                0 => Some("release"),
+                1 => Some("keysym"),
+                2 => Some("utf8"),
+                _ => None,
+            }
+        }
+
+        pub(super) fn parse(
+            operand: u32,
+            _bytes: &mut wire::ByteStream,
+        ) -> Result<Self, wire::ParseError> {
+            match operand {
+                0 => Ok(Self::Release),
+                1 => {
+                    let keysym = _bytes.read_arg()?;
+                    let state = _bytes.read_arg()?;
+
+                    Ok(Self::Keysym { keysym, state })
+                }
+                2 => {
+                    let text = _bytes.read_arg()?;
+
+                    Ok(Self::Utf8 { text })
+                }
+                opcode => Err(wire::ParseError::InvalidOpcode("text", opcode)),
+            }
+        }
+
+        #[allow(
+            unused_imports,
+            unused_mut,
+            unused_variables,
+            unreachable_code,
+            unreachable_patterns
+        )]
+        pub(super) fn args(&self) -> Vec<wire::Arg<'_>> {
+            use crate::{wire::OwnedArg, Interface};
+            let mut args = Vec::new();
+            match self {
+                Self::Release => {}
+                Self::Keysym { keysym, state } => {
+                    args.push(keysym.as_arg());
+                    args.push(state.as_arg());
+                }
+                Self::Utf8 { text } => {
+                    args.push(text.as_arg());
+                }
+                _ => unreachable!(),
+            }
+            args
+        }
+    }
+}
+
+pub use text::Text;
+
 /// All requests of all interfaces.
 ///
 /// Requests are messages that come from clients.
@@ -3470,6 +3824,7 @@ pub enum Request {
     Button(button::Button, button::Request),
     Keyboard(keyboard::Keyboard, keyboard::Request),
     Touchscreen(touchscreen::Touchscreen, touchscreen::Request),
+    Text(text::Text, text::Request),
 }
 
 impl Request {
@@ -3487,6 +3842,7 @@ impl Request {
             "ei_button" => button::Request::op_name(operand),
             "ei_keyboard" => keyboard::Request::op_name(operand),
             "ei_touchscreen" => touchscreen::Request::op_name(operand),
+            "ei_text" => text::Request::op_name(operand),
             _ => None,
         }
     }
@@ -3545,6 +3901,10 @@ impl Request {
                 object.downcast_unchecked(),
                 touchscreen::Request::parse(operand, bytes)?,
             )),
+            "ei_text" => Ok(Self::Text(
+                object.downcast_unchecked(),
+                text::Request::parse(operand, bytes)?,
+            )),
             intr => Err(wire::ParseError::InvalidInterface(intr.to_owned())),
         }
     }
@@ -3565,6 +3925,7 @@ impl wire::MessageEnum for Request {
             Self::Button(_, x) => x.args(),
             Self::Keyboard(_, x) => x.args(),
             Self::Touchscreen(_, x) => x.args(),
+            Self::Text(_, x) => x.args(),
         }
     }
 }
