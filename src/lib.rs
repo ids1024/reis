@@ -18,8 +18,6 @@
 
 // TODO split up
 
-use std::{env, path::PathBuf};
-
 pub use wire::PendingRequestResult; // XXX types? names?
 pub mod ei;
 mod eiproto_ei;
@@ -49,15 +47,4 @@ pub mod tokio;
 
 mod private {
     pub trait Sealed {}
-}
-
-// XXX
-// Want to fallback to higher number if exists, on server?
-// create on server, not client.
-/// Returns the default socket path for EIS.
-#[must_use]
-pub fn default_socket_path() -> Option<PathBuf> {
-    let mut path = PathBuf::from(env::var_os("XDG_RUNTIME_DIR")?);
-    path.push("eis-0");
-    Some(path)
 }
