@@ -73,7 +73,9 @@ impl ContextState {
                     self.device_pointer = Some(seat.add_device(
                         Some("pointer"),
                         DeviceType::Virtual,
-                        DeviceCapability::Pointer.into(),
+                        DeviceCapability::Pointer
+                            | DeviceCapability::Button
+                            | DeviceCapability::Scroll,
                         |_| {},
                     ));
                 }
@@ -93,7 +95,9 @@ impl ContextState {
                     self.device_pointer_absolute = Some(seat.add_device(
                         Some("pointer-abs"),
                         DeviceType::Virtual,
-                        DeviceCapability::PointerAbsolute.into(),
+                        DeviceCapability::PointerAbsolute
+                            | DeviceCapability::Button
+                            | DeviceCapability::Scroll,
                         |_| {},
                     ));
                 }
