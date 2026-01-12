@@ -179,12 +179,6 @@ impl State {
                     return res;
                 }
             }
-            EisRequestSourceEvent::InvalidObject(object_id) => {
-                // Only send if object ID is in range?
-                connection
-                    .connection()
-                    .invalid_object(connection.last_serial(), object_id);
-            }
         }
 
         let _ = connection.flush();

@@ -100,13 +100,10 @@ impl ConnectedContextState {
                     return Ok(calloop::PostAction::Remove);
                 }
                 PendingRequestResult::InvalidObject(object_id) => {
-                    let res = cb(
-                        Ok(EisRequestSourceEvent::InvalidObject(object_id)),
-                        &mut self.handle,
-                    )?;
-                    if res != calloop::PostAction::Continue {
-                        return Ok(res);
-                    }
+                    // Only send if object ID is in range?
+                    self.handle
+                        .connection()
+                        .invalid_object(self.handle.last_serial(), object_id);
                     continue;
                 }
             };
@@ -256,6 +253,4 @@ pub enum EisRequestSourceEvent {
     Connected,
     /// High-level request to EIS.
     Request(request::EisRequest),
-    /// Invalid object ID.
-    InvalidObject(u64),
 }
