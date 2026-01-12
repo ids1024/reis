@@ -40,7 +40,7 @@ impl ContextState {
 
     fn handle_request(
         &mut self,
-        connection: &Connection,
+        _connection: &Connection,
         request: EisRequest,
     ) -> calloop::PostAction {
         match request {
@@ -52,9 +52,7 @@ impl ContextState {
 
                 let seat = self.seat.as_ref().unwrap();
 
-                if connection.has_interface("ei_keyboard")
-                    && capabilities.contains(DeviceCapability::Keyboard)
-                {
+                if capabilities.contains(DeviceCapability::Keyboard) {
                     seat.add_device(
                         Some("keyboard"),
                         DeviceType::Virtual,
@@ -64,9 +62,7 @@ impl ContextState {
                 }
 
                 // XXX button/etc should be on same object
-                if connection.has_interface("ei_pointer")
-                    && capabilities.contains(DeviceCapability::Pointer)
-                {
+                if capabilities.contains(DeviceCapability::Pointer) {
                     seat.add_device(
                         Some("pointer"),
                         DeviceType::Virtual,
@@ -75,9 +71,7 @@ impl ContextState {
                     );
                 }
 
-                if connection.has_interface("ei_touchscreen")
-                    && capabilities.contains(DeviceCapability::Touch)
-                {
+                if capabilities.contains(DeviceCapability::Touch) {
                     seat.add_device(
                         Some("touch"),
                         DeviceType::Virtual,
@@ -86,9 +80,7 @@ impl ContextState {
                     );
                 }
 
-                if connection.has_interface("ei_pointer_absolute")
-                    && capabilities.contains(DeviceCapability::PointerAbsolute)
-                {
+                if capabilities.contains(DeviceCapability::PointerAbsolute) {
                     seat.add_device(
                         Some("pointer-abs"),
                         DeviceType::Virtual,
