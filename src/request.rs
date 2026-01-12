@@ -178,7 +178,8 @@ impl Connection {
     /// Will panic if an internal Mutex is poisoned.
     #[must_use]
     pub fn add_seat(&self, name: Option<&str>, capabilities: BitFlags<DeviceCapability>) -> Seat {
-        let seat = self.connection().seat(1);
+        let seat_version = self.interface_version(eis::Seat::NAME).unwrap_or(1);
+        let seat = self.connection().seat(seat_version);
         if let Some(name) = name {
             seat.name(name);
         }
@@ -649,7 +650,11 @@ impl Seat {
     ) -> Device {
         let connection = self.0.handle.upgrade().map(Connection);
 
-        let device = self.0.seat.device(1);
+        let device_version = connection
+            .as_ref()
+            .and_then(|c| c.interface_version(eis::Device::NAME))
+            .unwrap_or(1);
+        let device = self.0.seat.device(device_version);
         if let Some(name) = name {
             device.name(name);
         }
