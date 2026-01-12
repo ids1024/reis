@@ -100,6 +100,7 @@ impl ConnectedContextState {
                     return Ok(calloop::PostAction::Remove);
                 }
                 PendingRequestResult::InvalidObject(object_id) => {
+                    log::debug!("reis: Failed to find object {}", object_id);
                     // Only send if object ID is in range?
                     self.handle
                         .connection()
