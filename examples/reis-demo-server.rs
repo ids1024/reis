@@ -1,6 +1,6 @@
 //! Demo server.
-// TODO: Require context_type
 
+use enumflags2::BitFlags;
 use reis::{
     calloop::{EisListenerSource, EisRequestSource, EisRequestSourceEvent},
     eis::{self, device::DeviceType},
@@ -61,70 +61,54 @@ impl ContextState {
                 if self.device_keyboard.is_none()
                     && capabilities.contains(DeviceCapability::Keyboard)
                 {
-                    let device = seat.add_device(
-                        Some("keyboard"),
-                        DeviceType::Virtual,
+                    self.device_keyboard = Some(add_device(
+                        "keyboard",
                         DeviceCapability::Keyboard.into(),
                         |_| {},
-                    );
-                    device.resumed();
-                    if connection.context_type() == eis::handshake::ContextType::Receiver {
-                        self.sequence += 1;
-                        device.start_emulating(self.sequence);
-                    }
-                    self.device_keyboard = Some(device);
+                        seat,
+                        connection,
+                        &mut self.sequence,
+                    ));
                 }
 
                 if self.device_pointer.is_none() && capabilities.contains(DeviceCapability::Pointer)
                 {
-                    let device = seat.add_device(
-                        Some("pointer"),
-                        DeviceType::Virtual,
+                    self.device_pointer = Some(add_device(
+                        "pointer",
                         DeviceCapability::Pointer
                             | DeviceCapability::Button
                             | DeviceCapability::Scroll,
                         |_| {},
-                    );
-                    device.resumed();
-                    if connection.context_type() == eis::handshake::ContextType::Receiver {
-                        self.sequence += 1;
-                        device.start_emulating(self.sequence);
-                    }
-                    self.device_pointer = Some(device);
+                        seat,
+                        connection,
+                        &mut self.sequence,
+                    ));
                 }
 
                 if self.device_touch.is_none() && capabilities.contains(DeviceCapability::Touch) {
-                    let device = seat.add_device(
-                        Some("touch"),
-                        DeviceType::Virtual,
+                    self.device_touch = Some(add_device(
+                        "touch",
                         DeviceCapability::Touch.into(),
                         |_| {},
-                    );
-                    device.resumed();
-                    if connection.context_type() == eis::handshake::ContextType::Receiver {
-                        self.sequence += 1;
-                        device.start_emulating(self.sequence);
-                    }
-                    self.device_touch = Some(device);
+                        seat,
+                        connection,
+                        &mut self.sequence,
+                    ));
                 }
 
                 if self.device_pointer_absolute.is_none()
                     && capabilities.contains(DeviceCapability::PointerAbsolute)
                 {
-                    let device = seat.add_device(
-                        Some("pointer-abs"),
-                        DeviceType::Virtual,
+                    self.device_pointer_absolute = Some(add_device(
+                        "pointer-abs",
                         DeviceCapability::PointerAbsolute
                             | DeviceCapability::Button
                             | DeviceCapability::Scroll,
                         |_| {},
-                    );
-                    device.resumed();
-                    if connection.context_type() == eis::handshake::ContextType::Receiver {
-                        self.sequence += 1;
-                        device.start_emulating(self.sequence);
-                    }
-                    self.device_pointer_absolute = Some(device);
+                        seat,
+                        connection,
+                        &mut self.sequence,
+                    ));
                 }
             }
             _ => {}
@@ -132,6 +116,28 @@ impl ContextState {
 
         calloop::PostAction::Continue
     }
+}
+
+fn add_device(
+    name: &str,
+    capabilities: BitFlags<DeviceCapability>,
+    before_done_cb: impl for<'a> FnOnce(&'a reis::request::Device),
+    seat: &reis::request::Seat,
+    connection: &Connection,
+    sequence: &mut u32,
+) -> reis::request::Device {
+    let device = seat.add_device(
+        Some(name),
+        DeviceType::Virtual,
+        capabilities,
+        before_done_cb,
+    );
+    device.resumed();
+    if connection.context_type() == eis::handshake::ContextType::Receiver {
+        *sequence += 1;
+        device.start_emulating(*sequence);
+    }
+    device
 }
 
 struct State {
