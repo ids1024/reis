@@ -637,6 +637,9 @@ impl Seat {
     // builder pattern?
     /// Adds a device to the connection.
     ///
+    /// Capabilities that were not advertised on the seat will be ignored. An interface
+    /// will be created for all capabilities that do exist on the seat.
+    ///
     /// # Panics
     ///
     /// Will panic if an internal Mutex is poisoned.
@@ -662,10 +665,11 @@ impl Seat {
         // TODO
         // dimensions
         // regions; region_mapping_id
-        // TODO add interfaces for capabilities
-        // - `eis_device_configure_capability`; only if seat has capability
         let mut interfaces = HashMap::new();
         for capability in capabilities {
+            if !self.0.advertised_capabilities.contains(capability) {
+                continue;
+            }
             let object = match capability {
                 DeviceCapability::Pointer => {
                     add_interface::<eis::Pointer>(&device, connection.as_ref())
