@@ -897,7 +897,10 @@ impl Device {
     /// will be accepted for emulation or no further input events will be sent.
     ///
     /// See [`eis::Device::paused`] for documentation from the protocol specification.
-    #[allow(clippy::missing_panics_doc)]
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn paused(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().paused(serial));
