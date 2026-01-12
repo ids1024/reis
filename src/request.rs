@@ -11,23 +11,32 @@ use crate::{
     Object,
 };
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     fmt,
     sync::{Arc, Mutex, Weak},
 };
 
 pub use crate::event::DeviceCapability;
 
+// For compatability, defined the same way as libei
+const EIS_MAX_TOUCHES: usize = 16;
+
 /// Protocol errors of the client.
 #[derive(Debug)]
 pub enum RequestError {
     /// Invalid capabilities in `ei_seat.bind`.
     InvalidCapabilities,
+    /// Touch down even duplicated
+    DuplicatedTouchDown,
+    /// Too many touches
+    TooManyTouches,
 }
 impl fmt::Display for RequestError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::InvalidCapabilities => write!(f, "Invalid capabilities"),
+            Self::DuplicatedTouchDown => write!(f, "Touch down event for duplicated touch ID"),
+            Self::TooManyTouches => write!(f, "Too many simultaneous touch events"),
         }
     }
 }
@@ -538,6 +547,14 @@ impl EisRequestConverter {
         match request {
             eis::touchscreen::Request::Release => {}
             eis::touchscreen::Request::Down { touchid, x, y } => {
+                let mut down_touch_ids = device.0.down_touch_ids.lock().unwrap();
+                if down_touch_ids.len() == EIS_MAX_TOUCHES {
+                    return Err(RequestError::TooManyTouches.into());
+                }
+                if !down_touch_ids.insert(touchid) {
+                    return Err(RequestError::DuplicatedTouchDown.into());
+                }
+                drop(down_touch_ids);
                 self.queue_request(EisRequest::TouchDown(TouchDown {
                     device,
                     touch_id: touchid,
@@ -547,20 +564,24 @@ impl EisRequestConverter {
                 }));
             }
             eis::touchscreen::Request::Motion { touchid, x, y } => {
-                self.queue_request(EisRequest::TouchMotion(TouchMotion {
-                    device,
-                    touch_id: touchid,
-                    x,
-                    y,
-                    time: 0,
-                }));
+                if device.0.down_touch_ids.lock().unwrap().contains(&touchid) {
+                    self.queue_request(EisRequest::TouchMotion(TouchMotion {
+                        device,
+                        touch_id: touchid,
+                        x,
+                        y,
+                        time: 0,
+                    }));
+                }
             }
             eis::touchscreen::Request::Up { touchid } => {
-                self.queue_request(EisRequest::TouchUp(TouchUp {
-                    device,
-                    touch_id: touchid,
-                    time: 0,
-                }));
+                if device.0.down_touch_ids.lock().unwrap().remove(&touchid) {
+                    self.queue_request(EisRequest::TouchUp(TouchUp {
+                        device,
+                        touch_id: touchid,
+                        time: 0,
+                    }));
+                }
             }
             eis::touchscreen::Request::Cancel { touchid } => {
                 if touchscreen.version() < 2 {
@@ -569,11 +590,13 @@ impl EisRequestConverter {
                         touchscreen.version(),
                     ));
                 }
-                self.queue_request(EisRequest::TouchCancel(TouchCancel {
-                    device,
-                    touch_id: touchid,
-                    time: 0,
-                }));
+                if device.0.down_touch_ids.lock().unwrap().remove(&touchid) {
+                    self.queue_request(EisRequest::TouchCancel(TouchCancel {
+                        device,
+                        touch_id: touchid,
+                        time: 0,
+                    }));
+                }
             }
         }
         Ok(())
@@ -667,6 +690,7 @@ impl Seat {
             name: name.map(std::string::ToString::to_string),
             interfaces,
             handle: self.0.handle.clone(),
+            down_touch_ids: Mutex::new(HashSet::new()),
         }));
         if let Some(handle) = connection {
             for interface in device.0.interfaces.values() {
@@ -782,6 +806,8 @@ struct DeviceInner {
     name: Option<String>,
     interfaces: HashMap<String, crate::Object>,
     handle: Weak<ConnectionInner>,
+    // Applicable only for touch devices
+    down_touch_ids: Mutex<HashSet<u32>>,
 }
 
 /// High-level server-side wrapper for `ei_device`.
@@ -866,10 +892,12 @@ impl Device {
     /// will be accepted for emulation or no further input events will be sent.
     ///
     /// See [`eis::Device::paused`] for documentation from the protocol specification.
+    #[allow(clippy::missing_panics_doc)]
     pub fn paused(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().paused(serial));
         }
+        self.0.down_touch_ids.lock().unwrap().clear();
     }
 
     // TODO: statically restrict the below to receiver context?
