@@ -15,8 +15,13 @@ use std::{
     time::Duration,
 };
 
+#[derive(Default)]
 struct ContextState {
     seat: Option<reis::request::Seat>,
+    device_keyboard: Option<reis::request::Device>,
+    device_pointer: Option<reis::request::Device>,
+    device_pointer_absolute: Option<reis::request::Device>,
+    device_touch: Option<reis::request::Device>,
 }
 
 impl ContextState {
@@ -52,44 +57,46 @@ impl ContextState {
 
                 let seat = self.seat.as_ref().unwrap();
 
-                if capabilities.contains(DeviceCapability::Keyboard) {
-                    seat.add_device(
+                if self.device_keyboard.is_none()
+                    && capabilities.contains(DeviceCapability::Keyboard)
+                {
+                    self.device_keyboard = Some(seat.add_device(
                         Some("keyboard"),
                         DeviceType::Virtual,
                         DeviceCapability::Keyboard.into(),
                         |_| {},
-                    );
+                    ));
                 }
 
-                // XXX button/etc should be on same object
-                if capabilities.contains(DeviceCapability::Pointer) {
-                    seat.add_device(
+                if self.device_pointer.is_none() && capabilities.contains(DeviceCapability::Pointer)
+                {
+                    self.device_pointer = Some(seat.add_device(
                         Some("pointer"),
                         DeviceType::Virtual,
                         DeviceCapability::Pointer.into(),
                         |_| {},
-                    );
+                    ));
                 }
 
-                if capabilities.contains(DeviceCapability::Touch) {
-                    seat.add_device(
+                if self.device_touch.is_none() && capabilities.contains(DeviceCapability::Touch) {
+                    self.device_touch = Some(seat.add_device(
                         Some("touch"),
                         DeviceType::Virtual,
                         DeviceCapability::Touch.into(),
                         |_| {},
-                    );
+                    ));
                 }
 
-                if capabilities.contains(DeviceCapability::PointerAbsolute) {
-                    seat.add_device(
+                if self.device_pointer_absolute.is_none()
+                    && capabilities.contains(DeviceCapability::PointerAbsolute)
+                {
+                    self.device_pointer_absolute = Some(seat.add_device(
                         Some("pointer-abs"),
                         DeviceType::Virtual,
                         DeviceCapability::PointerAbsolute.into(),
                         |_| {},
-                    );
+                    ));
                 }
-
-                // TODO create devices; compare against current bitflag
             }
             _ => {}
         }
@@ -108,7 +115,7 @@ impl State {
         println!("New connection: {context:?}");
 
         let source = EisRequestSource::new(context, 1);
-        let mut context_state = ContextState { seat: None };
+        let mut context_state = ContextState::default();
         self.handle
             .insert_source(source, move |event, connected_state, _state| match event {
                 Ok(event) => Ok(Self::handle_request_source_event(
