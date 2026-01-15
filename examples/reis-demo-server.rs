@@ -38,8 +38,6 @@ impl ContextState {
             EisRequest::Bind(request) => {
                 let capabilities = request.capabilities;
 
-                let seat = self.seat.as_ref().unwrap();
-
                 if self.device_keyboard.is_none()
                     && capabilities.contains(DeviceCapability::Keyboard)
                 {
@@ -47,7 +45,7 @@ impl ContextState {
                         "keyboard",
                         DeviceCapability::Keyboard.into(),
                         |_| {},
-                        seat,
+                        &request.seat,
                         connection,
                         &mut self.sequence,
                     ));
@@ -61,7 +59,7 @@ impl ContextState {
                             | DeviceCapability::Button
                             | DeviceCapability::Scroll,
                         |_| {},
-                        seat,
+                        &request.seat,
                         connection,
                         &mut self.sequence,
                     ));
@@ -72,7 +70,7 @@ impl ContextState {
                         "touch",
                         DeviceCapability::Touch.into(),
                         |_| {},
-                        seat,
+                        &request.seat,
                         connection,
                         &mut self.sequence,
                     ));
@@ -87,7 +85,7 @@ impl ContextState {
                             | DeviceCapability::Button
                             | DeviceCapability::Scroll,
                         |_| {},
-                        seat,
+                        &request.seat,
                         connection,
                         &mut self.sequence,
                     ));
