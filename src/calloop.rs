@@ -88,7 +88,7 @@ impl ConnectedContextState {
         F: FnMut(Result<EisRequestSourceEvent, Error>, &mut Connection) -> io::Result<PostAction>,
     {
         if let Err(err) = self.context.read() {
-            cb(Err(Error::Io(err)), &mut self.handle)?;
+            handle_result(Err(Error::Io(err)), &mut self.handle, &mut cb)?;
             return Ok(calloop::PostAction::Remove);
         }
 
@@ -96,7 +96,7 @@ impl ConnectedContextState {
             let request = match result {
                 PendingRequestResult::Request(request) => request,
                 PendingRequestResult::ParseError(err) => {
-                    cb(Err(Error::Parse(err)), &mut self.handle)?;
+                    handle_result(Err(Error::Parse(err)), &mut self.handle, &mut cb)?;
                     return Ok(calloop::PostAction::Remove);
                 }
                 PendingRequestResult::InvalidObject(object_id) => {
@@ -110,13 +110,14 @@ impl ConnectedContextState {
             };
 
             if let Err(err) = self.request_converter.handle_request(request) {
-                cb(Err(err), &mut self.handle)?;
+                handle_result(Err(err), &mut self.handle, &mut cb)?;
                 return Ok(calloop::PostAction::Remove);
             }
             while let Some(request) = self.request_converter.next_request() {
-                let res = cb(
+                let res = handle_result(
                     Ok(EisRequestSourceEvent::Request(request)),
                     &mut self.handle,
+                    &mut cb,
                 )?;
                 if res != calloop::PostAction::Continue {
                     return Ok(res);
@@ -126,6 +127,32 @@ impl ConnectedContextState {
 
         Ok(calloop::PostAction::Continue)
     }
+}
+
+fn handle_result(
+    res: Result<EisRequestSourceEvent, Error>,
+    connection: &mut Connection,
+    cb: &mut impl FnMut(Result<EisRequestSourceEvent, Error>, &mut Connection) -> io::Result<PostAction>,
+) -> io::Result<PostAction> {
+    // Send error to client
+    if let Err(err) = &res {
+        let reason = if let Error::Request(crate::request::RequestError::InvalidCapabilities) = err
+        {
+            eis::connection::DisconnectReason::Value
+        } else {
+            eis::connection::DisconnectReason::Protocol
+        };
+        connection.disconnected(reason, &err.to_string());
+        let _ = connection.flush();
+    }
+
+    let is_err = res.is_err();
+    let action = cb(res, connection)?;
+    Ok(if is_err {
+        calloop::PostAction::Remove
+    } else {
+        action
+    })
 }
 
 fn process_handshake(
@@ -163,6 +190,9 @@ enum State {
 }
 
 /// [`calloop`] source that receives EI protocol requests.
+///
+/// If an error occurs, the error is sent to the callback after sending a protocol
+/// error to the client.
 #[derive(Debug)]
 pub struct EisRequestSource {
     source: Generic<eis::Context>,

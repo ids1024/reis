@@ -26,24 +26,6 @@ struct ContextState {
 }
 
 impl ContextState {
-    fn disconnected(
-        connection: &Connection,
-        reason: eis::connection::DisconnectReason,
-        explaination: &str,
-    ) -> calloop::PostAction {
-        connection.disconnected(reason, explaination);
-        let _ = connection.flush();
-        calloop::PostAction::Remove
-    }
-
-    fn protocol_error(connection: &Connection, explanation: &str) -> calloop::PostAction {
-        Self::disconnected(
-            connection,
-            eis::connection::DisconnectReason::Protocol,
-            explanation,
-        )
-    }
-
     fn handle_request(
         &mut self,
         connection: &Connection,
@@ -152,28 +134,18 @@ impl State {
         let source = EisRequestSource::new(context, 1);
         let mut context_state = ContextState::default();
         self.handle
-            .insert_source(source, move |event, connected_state, _state| match event {
-                Ok(event) => Ok(Self::handle_request_source_event(
-                    &mut context_state,
-                    connected_state,
-                    event,
-                )),
-                Err(err) => {
-                    if let reis::Error::Request(reis::request::RequestError::InvalidCapabilities) =
-                        err
-                    {
-                        Ok(ContextState::disconnected(
-                            connected_state,
-                            eis::connection::DisconnectReason::Value,
-                            &err.to_string(),
-                        ))
-                    } else {
-                        Ok(ContextState::protocol_error(
-                            connected_state,
-                            &err.to_string(),
-                        ))
+            .insert_source(source, move |event, connected_state, _state| {
+                Ok(match event {
+                    Ok(event) => Self::handle_request_source_event(
+                        &mut context_state,
+                        connected_state,
+                        event,
+                    ),
+                    Err(err) => {
+                        eprintln!("Error communicating with client: {err}");
+                        calloop::PostAction::Remove
                     }
-                }
+                })
             })
             .unwrap();
 
