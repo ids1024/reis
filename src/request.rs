@@ -1255,6 +1255,12 @@ pub trait EventTime: DeviceEvent {
     fn time(&self) -> u64;
 }
 
+impl SeatEvent for Bind {
+    fn seat(&self) -> &Seat {
+        &self.seat
+    }
+}
+
 impl<T: DeviceEvent> SeatEvent for T {
     fn seat(&self) -> &Seat {
         &self.device().0.seat
