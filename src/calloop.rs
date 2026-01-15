@@ -1,15 +1,14 @@
 //! Module containing [`calloop`] sources.
 
-// TODO Define an event source that reads socket and produces eis::Event
-// - is it easy to compose and wrap with handshaker, event handler?
-// produce an event of some kind on disconnect/eof?
+// TODO: Produce an event of some kind on disconnect/eof?
 
 use calloop::{generic::Generic, Interest, Mode, PostAction, Readiness, Token, TokenFactory};
 use std::io;
 
 use crate::{
     eis,
-    request::{self, Connection, EisRequestConverter},
+    handshake::HandshakeError,
+    request::{self, Connection, EisRequestConverter, RequestError},
     Error, PendingRequestResult,
 };
 
@@ -136,8 +135,7 @@ fn handle_result(
 ) -> io::Result<PostAction> {
     // Send error to client
     if let Err(err) = &res {
-        let reason = if let Error::Request(crate::request::RequestError::InvalidCapabilities) = err
-        {
+        let reason = if let Error::Request(RequestError::InvalidCapabilities) = err {
             eis::connection::DisconnectReason::Value
         } else {
             eis::connection::DisconnectReason::Protocol
@@ -165,10 +163,20 @@ fn process_handshake(
         let request = crate::handshake::request_result(result)?;
         if let Some(resp) = handshaker.handle_request(request)? {
             let request_converter = EisRequestConverter::new(context, resp, 1);
+            let handle = request_converter.handle().clone();
+
+            if !handle.has_interface("ei_seat") || !handle.has_interface("ei_device") {
+                handle.disconnected(
+                    eis::connection::DisconnectReason::Protocol,
+                    "Need `ei_seat` and `ei_device`",
+                );
+                let _ = request_converter.handle().flush();
+                return Err(HandshakeError::MissingInterface.into());
+            }
 
             let connected_state = ConnectedContextState {
                 context: context.clone(),
-                handle: request_converter.handle().clone(),
+                handle,
                 request_converter,
             };
 
@@ -233,9 +241,10 @@ impl calloop::EventSource for EisRequestSource {
                         if let Some(res) = process_handshake(handshaker, context).transpose() {
                             match res {
                                 Ok(mut state) => {
-                                    let res = cb(
+                                    let res = handle_result(
                                         Ok(EisRequestSourceEvent::Connected),
                                         &mut state.handle,
+                                        &mut cb,
                                     )?;
                                     self.state = State::Connected(state);
                                     Ok(res)

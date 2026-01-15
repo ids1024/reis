@@ -159,14 +159,6 @@ impl State {
     ) -> calloop::PostAction {
         match event {
             EisRequestSourceEvent::Connected => {
-                if !connection.has_interface("ei_seat") || !connection.has_interface("ei_device") {
-                    connection.disconnected(
-                        eis::connection::DisconnectReason::Protocol,
-                        "Need `ei_seat` and `ei_device`",
-                    );
-                    let _ = connection.flush();
-                }
-
                 let seat = connection.add_seat(
                     Some("default"),
                     DeviceCapability::Pointer
