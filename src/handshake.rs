@@ -51,8 +51,6 @@ pub enum HandshakeError {
     MissingInterface,
     /// Duplicate event.
     DuplicateEvent,
-    /// No [`ContextType`](ei::handshake::ContextType) sent in handshake.
-    NoContextType,
 }
 
 impl fmt::Display for HandshakeError {
@@ -62,7 +60,6 @@ impl fmt::Display for HandshakeError {
             Self::NonHandshakeEvent => write!(f, "non-handshake event during handshake"),
             Self::MissingInterface => write!(f, "missing required interface"),
             Self::DuplicateEvent => write!(f, "duplicate event during handshake"),
-            Self::NoContextType => write!(f, "no `context_type` sent in handshake"),
         }
     }
 }
@@ -248,9 +245,10 @@ impl EisHandshaker {
 
                 let connection = handshake.connection(self.initial_serial, 1);
 
-                let Some(context_type) = self.context_type else {
-                    return Err(HandshakeError::NoContextType);
-                };
+                // Protocol spec says `context_type` is optional, defaults to receiver
+                let context_type = self
+                    .context_type
+                    .unwrap_or(ei::handshake::ContextType::Receiver);
 
                 return Ok(Some(EisHandshakeResp {
                     connection,
