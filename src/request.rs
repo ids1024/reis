@@ -75,8 +75,7 @@ impl Connection {
     ///
     /// Will panic if an internal Mutex is poisoned.
     // TODO(axka, 2025-07-08): rename to something imperative like `notify_disconnection`
-    // TODO(axka, 2025-07-08): `explanation` must support NULL: https://gitlab.freedesktop.org/libinput/libei/-/commit/267716a7609730914b24adf5860ec8d2cf2e7636
-    pub fn disconnected(&self, reason: DisconnectReason, explanation: &str) {
+    pub fn disconnected(&self, reason: DisconnectReason, explanation: Option<&str>) {
         let seats = self
             .0
             .seats
@@ -89,7 +88,7 @@ impl Connection {
             seat.remove();
         }
         self.connection()
-            .disconnected(self.last_serial(), reason, Some(explanation));
+            .disconnected(self.last_serial(), reason, explanation);
     }
 
     /// Sends buffered messages. Call after you're finished with sending events.
