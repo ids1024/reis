@@ -976,7 +976,7 @@ pub struct Disconnected {
     /// Reason for disconnection.
     pub reason: ei::connection::DisconnectReason,
     /// Explanation for debugging purposes.
-    pub explanation: String,
+    pub explanation: Option<String>,
 }
 
 /// High-level translation of the seat description events ending with [`ei_seat.done`](ei::seat::Event::Done).

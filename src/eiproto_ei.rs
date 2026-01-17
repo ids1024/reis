@@ -542,7 +542,7 @@ pub mod connection {
             /// The reason for being disconnected.
             reason: DisconnectReason,
             /// An explanation for debugging purposes.
-            explanation: String,
+            explanation: Option<String>,
         },
         /// Seat presence information.
         ///
