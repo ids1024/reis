@@ -122,6 +122,8 @@ pub enum ParseError {
     HeaderLength(u32),
     /// Message length didn't match header.
     MessageLength(u32, u32),
+    /// NULL for non-nullable argument
+    InvalidNull,
 }
 
 impl fmt::Display for ParseError {
@@ -141,6 +143,9 @@ impl fmt::Display for ParseError {
             Self::HeaderLength(len) => write!(f, "header length {len} < 16"),
             Self::MessageLength(a, b) => {
                 write!(f, "message length didn't match header ({a} != {b})")
+            }
+            Self::InvalidNull => {
+                write!(f, "NULL value for non-nullable argument")
             }
         }
     }
