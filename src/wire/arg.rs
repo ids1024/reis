@@ -19,7 +19,7 @@ pub enum Arg<'a> {
     Int64(i64),
     Float(f32),
     Fd(BorrowedFd<'a>),
-    String(&'a str),
+    String(Option<&'a str>),
     NewId(u64),
     Id(u64),
 }
@@ -56,7 +56,10 @@ impl Arg<'_> {
             Arg::Float(value) => buf.extend(value.to_ne_bytes()),
             // XXX unwrap?
             Arg::Fd(value) => fds.extend([value.try_clone_to_owned().unwrap()]),
-            Arg::String(value) => {
+            Arg::String(None) => {
+                buf.extend(0u32.to_ne_bytes());
+            }
+            Arg::String(Some(value)) => {
                 // Write 32-bit length, including NUL
                 let len = value.len() as u32 + 1;
                 buf.extend(len.to_ne_bytes());
@@ -145,11 +148,11 @@ impl OwnedArg for OwnedFd {
     }
 }
 
-impl OwnedArg for String {
+impl OwnedArg for Option<String> {
     fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
         let mut len = u32::parse(buf)?;
         if len == 0 {
-            return Ok(String::new());
+            return Ok(None);
         }
         let bytes = buf.read_n(len as usize - 1)?; // Exclude NUL
         let string = String::from_utf8(bytes.collect())?;
@@ -159,11 +162,21 @@ impl OwnedArg for String {
             len += 1;
             buf.read::<1>()?;
         }
-        Ok(string)
+        Ok(Some(string))
     }
 
     fn as_arg(&self) -> Arg<'_> {
-        Arg::String(self)
+        Arg::String(self.as_deref())
+    }
+}
+
+impl OwnedArg for String {
+    fn parse(buf: &mut ByteStream) -> Result<Self, ParseError> {
+        Option::<String>::parse(buf)?.ok_or(ParseError::InvalidNull)
+    }
+
+    fn as_arg(&self) -> Arg<'_> {
+        Arg::String(Some(self))
     }
 }
 

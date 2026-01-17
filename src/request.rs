@@ -89,7 +89,7 @@ impl Connection {
             seat.remove();
         }
         self.connection()
-            .disconnected(self.last_serial(), reason, explanation);
+            .disconnected(self.last_serial(), reason, Some(explanation));
     }
 
     /// Sends buffered messages. Call after you're finished with sending events.
@@ -393,6 +393,7 @@ impl EisRequestConverter {
                 self.handle_touchscreen_request(touchscreen, request)?;
             }
         }
+
         Ok(())
     }
 
