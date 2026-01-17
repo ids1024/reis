@@ -22,7 +22,7 @@
 
 // GENERATED FILE
 
-{# TODO handle context_type #}
+{# TODO More complete handling of nullable types? #}
 
 use crate::wire;
 
@@ -32,7 +32,9 @@ use crate::wire;
 
 {%- macro arg_type(arg, owned, generic) -%}
     {%- if arg.enum != None -%} {{ arg.enum.name|camel }}
+    {%- elif arg.protocol_type == 'string' and owned and arg.allow_null -%} Option<String>
     {%- elif arg.protocol_type == 'string' and owned -%} String
+    {%- elif arg.protocol_type == 'string' and arg.allow_null -%} Option<&str>
     {%- elif arg.protocol_type == 'string' -%} &str
     {%- elif arg.protocol_type == 'int32' -%} i32
     {%- elif arg.protocol_type == 'uint32' -%} u32
@@ -182,7 +184,7 @@ pub mod {{interface.plainname}} {
             let args = &[
             {%- for arg in outgoing.arguments %}
             {% if arg.interface_arg_for %}
-                wire::Arg::{{arg.protocol_type|camel}}({{arg.name|camel}}::NAME),
+                wire::Arg::{{arg.protocol_type|camel}}(Some({{arg.name|camel}}::NAME)),
             {% else %}
                 wire::Arg::{{arg.protocol_type|camel}}({{arg.name}}
                 {% if arg.protocol_type == 'new_id' %}

@@ -476,7 +476,7 @@ pub mod connection {
             &self,
             last_serial: u32,
             reason: DisconnectReason,
-            explanation: &str,
+            explanation: Option<&str>,
         ) -> () {
             let args = &[
                 wire::Arg::Uint32(last_serial.into()),
@@ -1478,7 +1478,7 @@ pub mod device {
                 .new_object(InterfaceName::NAME.to_string(), version);
             let args = &[
                 wire::Arg::NewId(object.id().into()),
-                wire::Arg::String(InterfaceName::NAME),
+                wire::Arg::String(Some(InterfaceName::NAME)),
                 wire::Arg::Uint32(version.into()),
             ];
 
