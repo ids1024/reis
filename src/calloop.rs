@@ -140,7 +140,7 @@ fn handle_result(
         } else {
             eis::connection::DisconnectReason::Protocol
         };
-        connection.disconnected(reason, &err.to_string());
+        connection.disconnected(reason, Some(&err.to_string()));
         let _ = connection.flush();
     }
 
@@ -168,7 +168,7 @@ fn process_handshake(
             if !handle.has_interface("ei_seat") || !handle.has_interface("ei_device") {
                 handle.disconnected(
                     eis::connection::DisconnectReason::Protocol,
-                    "Need `ei_seat` and `ei_device`",
+                    Some("Need `ei_seat` and `ei_device`"),
                 );
                 let _ = request_converter.handle().flush();
                 return Err(HandshakeError::MissingInterface.into());
