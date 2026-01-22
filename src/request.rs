@@ -445,6 +445,22 @@ impl EisRequestConverter {
                 self.queue_request(EisRequest::Bind(Bind { seat, capabilities }));
                 return Ok(());
             }
+            eis::seat::Request::RequestDevice { capabilities } => {
+                let Some(seat) = self.connection.0.seats.lock().unwrap().get(seat).cloned() else {
+                    return Ok(());
+                };
+
+                let capabilities = DeviceCapability::from_bits(*capabilities)
+                    .map_err(|_err| RequestError::InvalidCapabilities)?;
+                if !seat.0.advertised_capabilities.contains(capabilities) {
+                    return Err(RequestError::InvalidCapabilities.into());
+                }
+
+                self.queue_request(EisRequest::RequestDevice(RequestDevice {
+                    seat,
+                    capabilities,
+                }));
+            }
         }
         Ok(())
     }
@@ -489,6 +505,9 @@ impl EisRequestConverter {
                     last_serial,
                     time: timestamp,
                 }));
+            }
+            eis::device::Request::Ready => {
+                self.queue_request(EisRequest::Ready(Ready { device }));
             }
         }
     }
@@ -971,7 +990,9 @@ pub enum EisRequest {
     Disconnect,
     Bind(Bind),
     // Only for sender context
+    RequestDevice(RequestDevice),
     Frame(Frame),
+    Ready(Ready),
     DeviceStartEmulating(DeviceStartEmulating),
     DeviceStopEmulating(DeviceStopEmulating),
     PointerMotion(PointerMotion),
@@ -1008,7 +1029,9 @@ impl EisRequest {
             Self::TouchCancel(evt) => Some(&mut evt.time),
             Self::Disconnect
             | Self::Bind(_)
+            | Self::RequestDevice(_)
             | Self::Frame(_)
+            | Self::Ready(_)
             | Self::DeviceStartEmulating(_)
             | Self::DeviceStopEmulating(_) => None,
         }
@@ -1019,6 +1042,7 @@ impl EisRequest {
     pub fn device(&self) -> Option<&Device> {
         match self {
             Self::Frame(evt) => Some(&evt.device),
+            Self::Ready(evt) => Some(&evt.device),
             Self::DeviceStartEmulating(evt) => Some(&evt.device),
             Self::DeviceStopEmulating(evt) => Some(&evt.device),
             Self::PointerMotion(evt) => Some(&evt.device),
@@ -1033,7 +1057,7 @@ impl EisRequest {
             Self::TouchUp(evt) => Some(&evt.device),
             Self::TouchMotion(evt) => Some(&evt.device),
             Self::TouchCancel(evt) => Some(&evt.device),
-            Self::Disconnect | Self::Bind(_) => None,
+            Self::Disconnect | Self::Bind(_) | Self::RequestDevice(_) => None,
         }
     }
 }
@@ -1041,6 +1065,15 @@ impl EisRequest {
 /// High-level translation of [`ei_seat.bind`](eis::seat::Request::Bind).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Bind {
+    /// High-level [`Seat`] wrapper.
+    pub seat: Seat,
+    /// Capabilities requested by the client.
+    pub capabilities: BitFlags<DeviceCapability>,
+}
+
+/// High-level translation of [`ei_seat.bind`](eis::seat::Request::RequestDevice).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RequestDevice {
     /// High-level [`Seat`] wrapper.
     pub seat: Seat,
     /// Capabilities requested by the client.
@@ -1056,6 +1089,13 @@ pub struct Frame {
     pub last_serial: u32,
     /// Timestamp in microseconds.
     pub time: u64,
+}
+
+/// High-level translation of [`ei_device.ready`](eis::device::Request::Ready).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Ready {
+    /// High-level [`Device`] wrapper.
+    pub device: Device,
 }
 
 /// High-level translation of [`ei_device.start_emulating`](eis::device::Request::StartEmulating).
