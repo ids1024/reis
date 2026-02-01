@@ -6,7 +6,7 @@
 //! [`device::Device`]) and request enums (like [`device::Request`]).
 
 use std::{
-    env, fs, io,
+    env, fmt, fs, io,
     os::unix::{
         io::{AsFd, AsRawFd, BorrowedFd, RawFd},
         net::{UnixListener, UnixStream},
@@ -18,6 +18,42 @@ use crate::{util, wire::Backend, PendingRequestResult};
 
 // Re-export generate bindings
 pub use crate::eiproto_eis::*;
+
+/// Error returned from [`Listener::bind_auto`]
+#[derive(Debug)]
+pub enum BindError {
+    /// The Environment variable `XDG_RUNTIME_DIR` is not set
+    RuntimeDirNotSet,
+    /// IO error
+    Io(io::Error),
+}
+
+impl fmt::Display for BindError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::RuntimeDirNotSet => write!(
+                f,
+                "environment variable XDG_RUNTIME_DIR is not set or invalid"
+            ),
+            Self::Io(err) => write!(f, "{}", err),
+        }
+    }
+}
+
+impl From<io::Error> for BindError {
+    fn from(err: io::Error) -> Self {
+        Self::Io(err)
+    }
+}
+
+impl std::error::Error for BindError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::RuntimeDirNotSet => None,
+            Self::Io(err) => Some(err),
+        }
+    }
+}
 
 /// EIS listener in a Unix socket.
 #[derive(Debug)]
@@ -38,21 +74,19 @@ impl Listener {
         Self::bind_inner(PathBuf::from(path), None)
     }
 
-    // XXX result type?
-    // Error if XDG_RUNTIME_DIR not set?
     /// Listens on a file in `XDG_RUNTIME_DIR`.
     ///
     /// # Errors
     ///
     /// Will return `Err` if a lock file cannot be locked, binding to the generated path
     /// fails or setting the socket to non-blocking mode fails.
-    pub fn bind_auto() -> io::Result<Option<Self>> {
+    pub fn bind_auto() -> Result<Self, BindError> {
         let xdg_dir = if let Some(var) = env::var_os("XDG_RUNTIME_DIR") {
             PathBuf::from(var)
         } else {
-            return Ok(None);
+            return Err(BindError::RuntimeDirNotSet);
         };
-        for i in 0..33 {
+        for i in 0.. {
             let lock_path = xdg_dir.join(format!("eis-{i}.lock"));
             let Some(lock_file) = util::LockFile::new(lock_path)? else {
                 // Already locked, continue to next number
@@ -62,9 +96,10 @@ impl Listener {
             if sock_path.try_exists()? {
                 fs::remove_file(&sock_path)?;
             }
-            return Self::bind_inner(sock_path, Some(lock_file)).map(Some);
+            return Ok(Self::bind_inner(sock_path, Some(lock_file))?);
         }
-        Ok(None)
+        // Should never be reached
+        Err(BindError::RuntimeDirNotSet)
     }
 
     fn bind_inner(path: PathBuf, lock: Option<util::LockFile>) -> io::Result<Self> {

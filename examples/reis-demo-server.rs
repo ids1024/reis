@@ -187,9 +187,7 @@ fn main() {
     let mut event_loop = calloop::EventLoop::try_new().unwrap();
     let handle = event_loop.handle();
 
-    let listener = eis::Listener::bind_auto()
-        .unwrap()
-        .expect("No `XDG_RUNTIME_DIR` defined");
+    let listener = eis::Listener::bind_auto().unwrap();
     let listener_source = EisListenerSource::new(listener);
     handle
         .insert_source(listener_source, |context, (), state: &mut State| {
