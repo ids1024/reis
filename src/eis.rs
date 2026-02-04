@@ -35,7 +35,7 @@ impl fmt::Display for BindError {
                 f,
                 "environment variable XDG_RUNTIME_DIR is not set or invalid"
             ),
-            Self::Io(err) => write!(f, "{}", err),
+            Self::Io(err) => write!(f, "{err}"),
         }
     }
 }
