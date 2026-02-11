@@ -25,6 +25,7 @@ jobs:
         cargo update -p tokio --precise 1.47.0
         cargo update -p mio --precise 1.0.4
         cargo update -p polling --precise 3.10.0
+        cargo update -p unicode-ident --precise 1.0.22
       if: matrix.rust_version != 'stable'
 
     - run: cargo fmt --all -- --check
