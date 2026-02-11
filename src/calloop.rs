@@ -113,11 +113,15 @@ impl ConnectedContextState {
                 return Ok(calloop::PostAction::Remove);
             }
             while let Some(request) = self.request_converter.next_request() {
+                let disconnected = matches!(request, request::EisRequest::Disconnect);
                 let res = handle_result(
                     Ok(EisRequestSourceEvent::Request(request)),
                     &mut self.handle,
                     &mut cb,
                 )?;
+                if disconnected {
+                    return Ok(calloop::PostAction::Remove);
+                }
                 if res != calloop::PostAction::Continue {
                     return Ok(res);
                 }
