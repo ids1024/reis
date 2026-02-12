@@ -13,7 +13,10 @@ use crate::{
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fmt,
-    sync::{Arc, Mutex, Weak},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, Weak,
+    },
 };
 
 pub use crate::event::DeviceCapability;
@@ -49,6 +52,7 @@ struct ConnectionInner {
     devices: Mutex<HashMap<eis::Device, Device>>,
     device_for_interface: Mutex<HashMap<Object, Device>>,
     last_serial: Mutex<u32>,
+    disconnected: AtomicBool,
 }
 
 /// High-level server-side wrapper for `ei_connection`.
@@ -89,6 +93,18 @@ impl Connection {
         }
         self.connection()
             .disconnected(self.last_serial(), reason, explanation);
+        // If flush fails because buffer is full, client can just get an EOF without
+        // a message.
+        let _ = self.flush();
+        self.0.disconnected.store(true, Ordering::SeqCst);
+        // Shutdown read end of socket, so anything reading/polling it will get EOF,
+        // without waiting for client to disconnect first.
+        self.0.context.0.shutdown_read();
+    }
+
+    #[cfg(feature = "calloop")]
+    pub(crate) fn has_sent_disconnected(&self) -> bool {
+        self.0.disconnected.load(Ordering::SeqCst)
     }
 
     /// Sends buffered messages. Call after you're finished with sending events.
@@ -247,6 +263,7 @@ impl EisRequestConverter {
                 devices: Mutex::default(),
                 device_for_interface: Mutex::default(),
                 last_serial: Mutex::new(initial_serial),
+                disconnected: AtomicBool::new(false),
             })),
         }
     }

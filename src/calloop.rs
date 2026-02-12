@@ -86,6 +86,19 @@ impl ConnectedContextState {
     where
         F: FnMut(Result<EisRequestSourceEvent, Error>, &mut Connection) -> io::Result<PostAction>,
     {
+        // If server has sent `disconected`, return `Disconnect` event and stop polling.
+        if self.handle.has_sent_disconnected() {
+            // TODO express if server or client requested disconnect?
+            handle_result(
+                Ok(EisRequestSourceEvent::Request(
+                    request::EisRequest::Disconnect,
+                )),
+                &mut self.handle,
+                &mut cb,
+            )?;
+            return Ok(calloop::PostAction::Remove);
+        }
+
         if let Err(err) = self.context.read() {
             handle_result(Err(Error::Io(err)), &mut self.handle, &mut cb)?;
             return Ok(calloop::PostAction::Remove);
