@@ -34,6 +34,8 @@ pub use object::Object;
 mod util;
 mod wire;
 
+pub use enumflags2;
+
 pub use wire::Interface;
 pub use wire::ParseError;
 
