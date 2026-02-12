@@ -326,6 +326,11 @@ impl Backend {
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.write.lock().unwrap().flush_write(&self.0.socket)
     }
+
+    /// Shutdown read end of socket, so all future reads will return EOF
+    pub(crate) fn shutdown_read(&self) {
+        let _ = self.0.socket.shutdown(std::net::Shutdown::Read);
+    }
 }
 
 fn is_reis_debug() -> bool {
