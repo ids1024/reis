@@ -15,6 +15,7 @@
 //!   incomplete.
 
 #![forbid(unsafe_code)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 // TODO split up
 
