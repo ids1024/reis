@@ -39,6 +39,10 @@ string_to_string = "warn"
 cast_possible_wrap = { level = "allow", priority = 1 }
 cast_possible_truncation = { level = "allow", priority = 1 }
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [features]
 tokio = ["dep:tokio", "futures"]
 # Experimental and somewhat incomplete
