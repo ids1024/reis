@@ -121,10 +121,12 @@ impl LockFile {
             .write(true)
             .mode(0o660)
             .open(&path)?;
-        let inner = UnlinkOnDrop::new(inner, path);
-        let locked =
-            rustix::fs::flock(&inner.inner, FlockOperation::NonBlockingLockExclusive).is_ok();
-        Ok(Some(inner).filter(|_| locked).map(Self))
+        let locked = rustix::fs::flock(&inner, FlockOperation::NonBlockingLockExclusive).is_ok();
+        Ok(if locked {
+            Some(Self(UnlinkOnDrop::new(inner, path)))
+        } else {
+            None
+        })
     }
 }
 
