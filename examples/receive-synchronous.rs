@@ -1,7 +1,10 @@
 //! Capturing input synchronously.
 #![allow(clippy::incompatible_msrv)]
 
-use ashpd::desktop::input_capture::{Barrier, Capabilities, InputCapture};
+use ashpd::desktop::input_capture::{
+    Barrier, Capabilities, ConnectToEISOptions, CreateSessionOptions, EnableOptions,
+    GetZonesOptions, InputCapture, SetPointerBarriersOptions,
+};
 use pollster::FutureExt as _;
 use reis::{ei, event::DeviceCapability};
 use std::{num::NonZero, os::unix::net::UnixStream};
@@ -12,18 +15,17 @@ async fn open_connection() -> ei::Context {
     } else {
         eprintln!("Unable to find ei socket. Trying xdg desktop portal.");
         let input_capture = InputCapture::new().await.unwrap();
-        let session = input_capture
-            .create_session(
-                None,
-                Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen,
-            )
+        let options = CreateSessionOptions::default().set_capabilities(
+            Capabilities::Keyboard | Capabilities::Pointer | Capabilities::Touchscreen,
+        );
+        let session = input_capture.create_session(None, options).await.unwrap().0;
+        let fd = input_capture
+            .connect_to_eis(&session, ConnectToEISOptions::default())
             .await
-            .unwrap()
-            .0;
-        let fd = input_capture.connect_to_eis(&session).await.unwrap();
+            .unwrap();
         let stream = UnixStream::from(fd);
         let zones = input_capture
-            .zones(&session)
+            .zones(&session, GetZonesOptions::default())
             .await
             .unwrap()
             .response()
@@ -42,7 +44,12 @@ async fn open_connection() -> ei::Context {
             })
             .collect::<Vec<_>>();
         let resp = input_capture
-            .set_pointer_barriers(&session, &barriers, zones.zone_set())
+            .set_pointer_barriers(
+                &session,
+                &barriers,
+                zones.zone_set(),
+                SetPointerBarriersOptions::default(),
+            )
             .await
             .unwrap()
             .response()
@@ -50,7 +57,10 @@ async fn open_connection() -> ei::Context {
         assert_eq!(&resp.failed_barriers(), &[]);
         eprintln!("Set capture barrier to top edge of screen.");
         eprintln!("(When input is captured, Esc will exit.)");
-        input_capture.enable(&session).await.unwrap();
+        input_capture
+            .enable(&session, EnableOptions::default())
+            .await
+            .unwrap();
         ei::Context::new(stream).unwrap()
     }
 }

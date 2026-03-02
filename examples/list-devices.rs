@@ -1,6 +1,11 @@
 //! List devices with sender context type.
 
-use ashpd::desktop::remote_desktop::{DeviceType, RemoteDesktop};
+use ashpd::desktop::{
+    remote_desktop::{
+        ConnectToEISOptions, DeviceType, RemoteDesktop, SelectDevicesOptions, StartOptions,
+    },
+    CreateSessionOptions,
+};
 use futures::stream::StreamExt;
 use reis::{ei, tokio::EiEventStream, PendingRequestResult};
 use std::{collections::HashMap, os::unix::net::UnixStream, process};
@@ -131,18 +136,25 @@ async fn open_connection() -> ei::Context {
     } else {
         eprintln!("Unable to find ei socket. Trying xdg desktop portal.");
         let remote_desktop = RemoteDesktop::new().await.unwrap();
-        let session = remote_desktop.create_session().await.unwrap();
-        remote_desktop
-            .select_devices(
-                &session,
-                DeviceType::Keyboard | DeviceType::Pointer | DeviceType::Touchscreen,
-                None,
-                ashpd::desktop::PersistMode::DoNot,
-            )
+        let session = remote_desktop
+            .create_session(CreateSessionOptions::default())
             .await
             .unwrap();
-        remote_desktop.start(&session, None).await.unwrap();
-        let fd = remote_desktop.connect_to_eis(&session).await.unwrap();
+        let options = SelectDevicesOptions::default()
+            .set_devices(DeviceType::Keyboard | DeviceType::Pointer | DeviceType::Touchscreen)
+            .set_persist_mode(ashpd::desktop::PersistMode::DoNot);
+        remote_desktop
+            .select_devices(&session, options)
+            .await
+            .unwrap();
+        remote_desktop
+            .start(&session, None, StartOptions::default())
+            .await
+            .unwrap();
+        let fd = remote_desktop
+            .connect_to_eis(&session, ConnectToEISOptions::default())
+            .await
+            .unwrap();
         let stream = UnixStream::from(fd);
         ei::Context::new(stream).unwrap()
     }

@@ -1,10 +1,13 @@
 //! Typing text.
 
 use ashpd::desktop::{
-    remote_desktop::{DeviceType, RemoteDesktop},
-    PersistMode,
+    remote_desktop::{
+        ConnectToEISOptions, DeviceType, RemoteDesktop, SelectDevicesOptions, StartOptions,
+    },
+    CreateSessionOptions, PersistMode,
 };
 use calloop::generic::Generic;
+use enumflags2::BitFlags;
 use once_cell::sync::Lazy;
 use reis::{ei, PendingRequestResult};
 use std::{collections::HashMap, io, os::unix::net::UnixStream};
@@ -233,18 +236,25 @@ async fn open_connection() -> ei::Context {
     } else {
         eprintln!("Unable to find ei socket. Trying xdg desktop portal.");
         let remote_desktop = RemoteDesktop::new().await.unwrap();
-        let session = remote_desktop.create_session().await.unwrap();
-        remote_desktop
-            .select_devices(
-                &session,
-                DeviceType::Keyboard.into(),
-                None,
-                PersistMode::DoNot,
-            )
+        let session = remote_desktop
+            .create_session(CreateSessionOptions::default())
             .await
             .unwrap();
-        remote_desktop.start(&session, None).await.unwrap();
-        let fd = remote_desktop.connect_to_eis(&session).await.unwrap();
+        let options = SelectDevicesOptions::default()
+            .set_devices(BitFlags::from(DeviceType::Keyboard))
+            .set_persist_mode(PersistMode::DoNot);
+        remote_desktop
+            .select_devices(&session, options)
+            .await
+            .unwrap();
+        remote_desktop
+            .start(&session, None, StartOptions::default())
+            .await
+            .unwrap();
+        let fd = remote_desktop
+            .connect_to_eis(&session, ConnectToEISOptions::default())
+            .await
+            .unwrap();
         let stream = UnixStream::from(fd);
         ei::Context::new(stream).unwrap()
     }
