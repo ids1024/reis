@@ -42,6 +42,8 @@ pub use wire::ParseError;
 
 #[cfg(feature = "async-io")]
 pub mod async_io;
+#[cfg(any(feature = "tokio", feature = "async-io"))]
+mod async_shared;
 #[cfg(feature = "calloop")]
 //#[doc(hidden)] // TODO
 pub mod calloop;
