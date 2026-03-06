@@ -40,6 +40,8 @@ pub use enumflags2;
 pub use wire::Interface;
 pub use wire::ParseError;
 
+#[cfg(feature = "async-io")]
+pub mod async_io;
 #[cfg(feature = "calloop")]
 //#[doc(hidden)] // TODO
 pub mod calloop;
