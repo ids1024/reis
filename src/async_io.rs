@@ -1,7 +1,7 @@
 //! Module containing [`async_io`] event streams.
 //!
 use async_io::Async;
-use futures::stream::{Stream, StreamExt};
+use futures_util::{Stream, StreamExt};
 use std::{
     io,
     pin::Pin,

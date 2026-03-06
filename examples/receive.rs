@@ -5,7 +5,7 @@ use ashpd::desktop::input_capture::{
     Barrier, Capabilities, ConnectToEISOptions, CreateSessionOptions, EnableOptions,
     GetZonesOptions, InputCapture, SetPointerBarriersOptions,
 };
-use futures::stream::StreamExt;
+use futures_util::StreamExt;
 use reis::{ei, event::DeviceCapability};
 use std::{num::NonZero, os::unix::net::UnixStream};
 
