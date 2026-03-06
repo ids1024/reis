@@ -6,7 +6,7 @@ use ashpd::desktop::{
     },
     CreateSessionOptions,
 };
-use futures::stream::StreamExt;
+use futures_util::StreamExt;
 use reis::{ei, tokio::EiEventStream, PendingRequestResult};
 use std::{collections::HashMap, os::unix::net::UnixStream, process};
 

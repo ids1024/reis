@@ -2,7 +2,7 @@
 
 // TODO: Handle writable fd too?
 
-use futures::stream::{Stream, StreamExt};
+use futures_util::{Stream, StreamExt};
 use std::{
     io,
     pin::Pin,
