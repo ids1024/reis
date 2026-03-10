@@ -24,7 +24,7 @@ use std::{
     fmt, io,
     os::unix::io::OwnedFd,
     sync::{
-        atomic::{AtomicU32, Ordering},
+        atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, Mutex,
     },
 };
@@ -72,6 +72,8 @@ struct ConnectionInner {
     handshake_resp: HandshakeResp,
     /// The last serial number used in an event by the server.
     serial: AtomicU32,
+    /// Set when `ei_connection.disconnected` arrives, and never cleared.
+    disconnected: AtomicBool,
 }
 
 /// High-level client-side wrapper for `ei_connection`.
@@ -104,6 +106,16 @@ impl Connection {
     #[must_use]
     pub fn serial(&self) -> u32 {
         self.0.serial.load(Ordering::Relaxed)
+    }
+
+    /// Returns the current lifecycle state of this connection.
+    #[must_use]
+    pub fn state(&self) -> EiConnectionState {
+        if self.0.disconnected.load(Ordering::SeqCst) {
+            EiConnectionState::Disconnected
+        } else {
+            EiConnectionState::Connected
+        }
     }
 }
 
@@ -144,6 +156,7 @@ impl EiEventConverter {
                 context: context.clone(),
                 serial: AtomicU32::new(handshake_resp.serial),
                 handshake_resp,
+                disconnected: AtomicBool::new(false),
             })),
         }
     }
@@ -198,6 +211,10 @@ impl EiEventConverter {
     /// Handles a low-level protocol-level [`ei::Event`], possibly converting it into a high-level
     /// [`EiEvent`].
     ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    ///
     /// # Errors
     ///
     /// The errors returned are protocol violations.
@@ -220,6 +237,7 @@ impl EiEventConverter {
                             proto_seat: seat,
                             name: None,
                             capability_map: CapabilityMap::default(),
+                            state: Mutex::new(EiSeatState::New),
                         },
                     );
                 }
@@ -235,6 +253,7 @@ impl EiEventConverter {
                     reason,
                     explanation,
                 } => {
+                    self.connection.0.disconnected.store(true, Ordering::SeqCst);
                     self.queue_event(EiEvent::Disconnected(Disconnected {
                         last_serial,
                         reason,
@@ -280,6 +299,7 @@ impl EiEventConverter {
                         .pending_seats
                         .remove(&seat)
                         .ok_or(EventError::SeatSetupEventAfterDone)?;
+                    *seat.state.lock().unwrap() = EiSeatState::Done;
                     let seat = Seat(Arc::new(seat));
                     self.seats.insert(seat.0.proto_seat.clone(), seat.clone());
                     self.queue_event(EiEvent::SeatAdded(SeatAdded { seat }));
@@ -302,6 +322,7 @@ impl EiEventConverter {
                             next_region_mapping_id: None,
                             keymap: None,
                             pending_events: Mutex::new(VecDeque::new()),
+                            state: Mutex::new(EiDeviceState::Paused),
                         },
                     );
                 }
@@ -309,6 +330,7 @@ impl EiEventConverter {
                     self.connection.update_serial(serial);
                     self.pending_seats.remove(&seat);
                     if let Some(seat) = self.seats.remove(&seat) {
+                        *seat.0.state.lock().unwrap() = EiSeatState::Removed;
                         self.queue_event(EiEvent::SeatRemoved(SeatRemoved { seat }));
                     }
                 }
@@ -387,6 +409,7 @@ impl EiEventConverter {
                         .devices
                         .get(&device)
                         .ok_or(EventError::DeviceEventBeforeDone)?;
+                    *device.0.state.lock().unwrap() = EiDeviceState::Resumed;
                     self.queue_event(EiEvent::DeviceResumed(DeviceResumed {
                         device: device.clone(),
                         serial,
@@ -398,6 +421,7 @@ impl EiEventConverter {
                         .devices
                         .get(&device)
                         .ok_or(EventError::DeviceEventBeforeDone)?;
+                    *device.0.state.lock().unwrap() = EiDeviceState::Paused;
                     self.queue_event(EiEvent::DevicePaused(DevicePaused {
                         device: device.clone(),
                         serial,
@@ -409,6 +433,7 @@ impl EiEventConverter {
                         .devices
                         .get(&device)
                         .ok_or(EventError::DeviceEventBeforeDone)?;
+                    *device.0.state.lock().unwrap() = EiDeviceState::Emulating;
                     self.queue_event(EiEvent::DeviceStartEmulating(DeviceStartEmulating {
                         device: device.clone(),
                         serial,
@@ -421,6 +446,7 @@ impl EiEventConverter {
                         .devices
                         .get(&device)
                         .ok_or(EventError::DeviceEventBeforeDone)?;
+                    *device.0.state.lock().unwrap() = EiDeviceState::Resumed;
                     self.queue_event(EiEvent::DeviceStopEmulating(DeviceStopEmulating {
                         device: device.clone(),
                         serial,
@@ -449,6 +475,7 @@ impl EiEventConverter {
                     self.connection.update_serial(serial);
                     self.pending_devices.remove(&device);
                     if let Some(device) = self.devices.remove(&device) {
+                        *device.0.state.lock().unwrap() = EiDeviceState::RemovedFromServer;
                         for (_, obj) in device.0.interfaces.lock().unwrap().drain() {
                             self.device_for_interface.remove(&obj);
                         }
@@ -837,6 +864,54 @@ impl DeviceCapability {
     }
 }
 
+/// Lifecycle state of a device, client side.
+///
+/// Mirrors libei's internal `ei_device_state` so the high-level layer can track and (later)
+/// validate device lifecycle the same way libei does. States the client converter never observes
+/// are omitted: the pre-`done` `NEW`/`AWAITING_READY` phases (a device is only exposed after its
+/// `done` event), and `REMOVED_FROM_CLIENT`/`DEAD` (the converter does not model client-initiated
+/// release).
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum EiDeviceState {
+    /// Input cannot flow. A newly delivered device starts here.
+    Paused,
+    /// Input may flow, but emulation has not started.
+    Resumed,
+    /// The device is actively emulating input (between `start_emulating` and `stop_emulating`).
+    Emulating,
+    /// The server destroyed the device.
+    RemovedFromServer,
+}
+
+/// Lifecycle state of a seat, client side.
+///
+/// Mirrors libei's `ei_seat_state`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum EiSeatState {
+    /// The seat has been added but its capability advertisement is not yet complete.
+    New,
+    /// The seat is fully advertised and bindable.
+    Done,
+    /// The seat has been removed.
+    Removed,
+}
+
+/// Lifecycle state of a connection, client side.
+///
+/// Reduced from libei's `ei_state` to the phases observable after the handshake completes,
+/// since the converter only runs post-handshake. Pre-handshake validation is handled
+/// separately in the handshake path.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum EiConnectionState {
+    /// The connection is active.
+    Connected,
+    /// The connection is fully disconnected.
+    Disconnected,
+}
+
 /// Lookup table from [`DeviceCapability`] to a protocol capability.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 struct CapabilityMap([u64; BitFlags::<DeviceCapability>::ALL.bits_c().count_ones() as usize]);
@@ -857,6 +932,7 @@ struct SeatInner {
     proto_seat: ei::Seat,
     name: Option<String>,
     capability_map: CapabilityMap,
+    state: Mutex<EiSeatState>,
 }
 
 /// High-level client-side wrapper for `ei_seat`.
@@ -894,6 +970,16 @@ impl Seat {
         self.0.name.as_deref()
     }
 
+    /// Returns the current lifecycle state of this seat.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn state(&self) -> EiSeatState {
+        *self.0.state.lock().unwrap()
+    }
+
     // TODO has_capability
 
     /// Binds to a selection of the advertised capabilities received through
@@ -924,6 +1010,7 @@ struct DeviceInner {
     keymap: Option<Keymap>,
     // Events received for this device but not yet committed by an `ei_device.frame`.
     pending_events: Mutex<VecDeque<EiEvent>>,
+    state: Mutex<EiDeviceState>,
 }
 
 /// High-level client-side wrapper for `ei_device`.
@@ -982,6 +1069,16 @@ impl Device {
     #[must_use]
     pub fn keymap(&self) -> Option<&Keymap> {
         self.0.keymap.as_ref()
+    }
+
+    /// Returns the current lifecycle state of this device.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn state(&self) -> EiDeviceState {
+        *self.0.state.lock().unwrap()
     }
 
     /// Returns an interface proxy if it is implemented for this device.
