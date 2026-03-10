@@ -714,12 +714,12 @@ impl Seat {
             device,
             seat: self.clone(),
             name: name.map(std::string::ToString::to_string),
-            interfaces,
+            interfaces: Mutex::new(interfaces),
             handle: self.0.handle.clone(),
             down_touch_ids: Mutex::new(HashSet::new()),
         }));
         if let Some(handle) = connection {
-            for interface in device.0.interfaces.values() {
+            for interface in device.0.interfaces.lock().unwrap().values() {
                 handle
                     .0
                     .device_for_interface
@@ -830,7 +830,7 @@ struct DeviceInner {
     device: eis::Device,
     seat: Seat,
     name: Option<String>,
-    interfaces: HashMap<String, crate::Object>,
+    interfaces: Mutex<HashMap<String, crate::Object>>,
     handle: Weak<ConnectionInner>,
     // Applicable only for touch devices
     down_touch_ids: Mutex<HashSet<u32>>,
@@ -871,26 +871,57 @@ impl Device {
 
     /// Returns an interface proxy if it is implemented for this device.
     ///
-    /// Interfaces of devices are implemented, such that there is one `ei_device` object and other objects (for example `ei_keyboard`) denoting capabilities.
+    /// Interfaces of devices are implemented, such that there is one `ei_device` object and
+    /// other objects (for example `ei_keyboard`) denoting capabilities. An interface is removed
+    /// when the device is [`remove`](Self::remove)d.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     #[must_use]
     pub fn interface<T: DeviceInterface>(&self) -> Option<T> {
-        self.0.interfaces.get(T::NAME)?.clone().downcast()
+        self.0
+            .interfaces
+            .lock()
+            .unwrap()
+            .get(T::NAME)?
+            .clone()
+            .downcast()
     }
 
     /// Returns `true` if this device has an interface matching the provided capability.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     #[must_use]
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
-        self.0.interfaces.contains_key(capability.interface_name())
+        self.0
+            .interfaces
+            .lock()
+            .unwrap()
+            .contains_key(capability.interface_name())
     }
 
     /// Removes this device and associated interfaces from the connection.
+    ///
+    /// After removal, [`interface`](Self::interface) returns `None` and
+    /// [`has_capability`](Self::has_capability) returns `false` for all capabilities.
     ///
     /// # Panics
     ///
     /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
-            for interface in self.0.interfaces.values() {
+            let interfaces: Vec<_> = self
+                .0
+                .interfaces
+                .lock()
+                .unwrap()
+                .drain()
+                .map(|(_, obj)| obj)
+                .collect();
+            for interface in &interfaces {
                 handle
                     .0
                     .device_for_interface
