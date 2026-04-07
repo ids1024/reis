@@ -1337,14 +1337,6 @@ impl Iterator for EiConvertEventIterator {
             if let Some(event) = self.converter.next_event() {
                 return Some(Ok(event));
             }
-            if let Err(err) = util::poll_readable(&self.context) {
-                return Some(Err(err.into()));
-            }
-            match self.context.read() {
-                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return None,
-                Err(err) => return Some(Err(err.into())),
-                Ok(_) => {}
-            }
             while let Some(result) = self.context.pending_event() {
                 let request = match result {
                     PendingRequestResult::Request(request) => request,
@@ -1360,6 +1352,14 @@ impl Iterator for EiConvertEventIterator {
                 if let Err(err) = self.converter.handle_event(request) {
                     return Some(Err(err.into()));
                 }
+            }
+            if let Err(err) = util::poll_readable(&self.context) {
+                return Some(Err(err.into()));
+            }
+            match self.context.read() {
+                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return None,
+                Err(err) => return Some(Err(err.into())),
+                Ok(_) => {}
             }
         }
     }
