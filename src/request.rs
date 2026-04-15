@@ -337,73 +337,19 @@ impl EisRequestConverter {
             eis::Request::Seat(seat, request) => self.handle_seat_request(&seat, &request)?,
             eis::Request::Device(device, request) => self.handle_device_request(device, request),
             eis::Request::Keyboard(keyboard, request) => {
-                let Some(device) = self.connection.device_for_interface(&keyboard) else {
-                    return Ok(());
-                };
-                match request {
-                    eis::keyboard::Request::Release => {}
-                    eis::keyboard::Request::Key { key, state } => {
-                        self.queue_request(EisRequest::KeyboardKey(KeyboardKey {
-                            device,
-                            key,
-                            state,
-                            time: 0,
-                        }));
-                    }
-                }
+                self.handle_keyboard_request(keyboard, request);
             }
             eis::Request::Pointer(pointer, request) => {
-                let Some(device) = self.connection.device_for_interface(&pointer) else {
-                    return Ok(());
-                };
-                match request {
-                    eis::pointer::Request::Release => {}
-                    eis::pointer::Request::MotionRelative { x, y } => {
-                        self.queue_request(EisRequest::PointerMotion(PointerMotion {
-                            device,
-                            dx: x,
-                            dy: y,
-                            time: 0,
-                        }));
-                    }
-                }
+                self.handle_pointer_request(pointer, request);
             }
             eis::Request::PointerAbsolute(pointer_absolute, request) => {
-                let Some(device) = self.connection.device_for_interface(&pointer_absolute) else {
-                    return Ok(());
-                };
-                match request {
-                    eis::pointer_absolute::Request::Release => {}
-                    eis::pointer_absolute::Request::MotionAbsolute { x, y } => {
-                        self.queue_request(EisRequest::PointerMotionAbsolute(
-                            PointerMotionAbsolute {
-                                device,
-                                dx_absolute: x,
-                                dy_absolute: y,
-                                time: 0,
-                            },
-                        ));
-                    }
-                }
+                self.handle_pointer_absolute_request(pointer_absolute, request);
             }
             eis::Request::Scroll(scroll, request) => {
                 self.handle_scroll_request(scroll, request);
             }
             eis::Request::Button(button, request) => {
-                let Some(device) = self.connection.device_for_interface(&button) else {
-                    return Ok(());
-                };
-                match request {
-                    eis::button::Request::Release => {}
-                    eis::button::Request::Button { button, state } => {
-                        self.queue_request(EisRequest::Button(Button {
-                            device,
-                            button,
-                            state,
-                            time: 0,
-                        }));
-                    }
-                }
+                self.handle_button_request(button, request);
             }
             eis::Request::Touchscreen(touchscreen, request) => {
                 self.handle_touchscreen_request(touchscreen, request)?;
@@ -480,7 +426,11 @@ impl EisRequestConverter {
             return;
         };
         match request {
-            eis::device::Request::Release => {}
+            eis::device::Request::Release => {
+                self.queue_request(EisRequest::DeviceClosedByClient(DeviceClosedByClient {
+                    device,
+                }));
+            }
             eis::device::Request::StartEmulating {
                 last_serial,
                 sequence,
@@ -510,13 +460,138 @@ impl EisRequestConverter {
         }
     }
 
+    #[allow(clippy::needless_pass_by_value)]
+    fn handle_keyboard_request(
+        &mut self,
+        keyboard: eis::Keyboard,
+        request: eis::keyboard::Request,
+    ) {
+        let Some(device) = self.connection.device_for_interface(&keyboard) else {
+            return;
+        };
+        match request {
+            eis::keyboard::Request::Release => {
+                self.connection
+                    .0
+                    .device_for_interface
+                    .lock()
+                    .unwrap()
+                    .remove(keyboard.as_object());
+                self.connection
+                    .with_next_serial(|serial| keyboard.destroyed(serial));
+            }
+            eis::keyboard::Request::Key { key, state } => {
+                self.queue_request(EisRequest::KeyboardKey(KeyboardKey {
+                    device,
+                    key,
+                    state,
+                    time: 0,
+                }));
+            }
+        }
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn handle_pointer_request(&mut self, pointer: eis::Pointer, request: eis::pointer::Request) {
+        let Some(device) = self.connection.device_for_interface(&pointer) else {
+            return;
+        };
+        match request {
+            eis::pointer::Request::Release => {
+                self.connection
+                    .0
+                    .device_for_interface
+                    .lock()
+                    .unwrap()
+                    .remove(pointer.as_object());
+                self.connection
+                    .with_next_serial(|serial| pointer.destroyed(serial));
+            }
+            eis::pointer::Request::MotionRelative { x, y } => {
+                self.queue_request(EisRequest::PointerMotion(PointerMotion {
+                    device,
+                    dx: x,
+                    dy: y,
+                    time: 0,
+                }));
+            }
+        }
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn handle_pointer_absolute_request(
+        &mut self,
+        pointer_absolute: eis::PointerAbsolute,
+        request: eis::pointer_absolute::Request,
+    ) {
+        let Some(device) = self.connection.device_for_interface(&pointer_absolute) else {
+            return;
+        };
+        match request {
+            eis::pointer_absolute::Request::Release => {
+                self.connection
+                    .0
+                    .device_for_interface
+                    .lock()
+                    .unwrap()
+                    .remove(pointer_absolute.as_object());
+                self.connection
+                    .with_next_serial(|serial| pointer_absolute.destroyed(serial));
+            }
+            eis::pointer_absolute::Request::MotionAbsolute { x, y } => {
+                self.queue_request(EisRequest::PointerMotionAbsolute(PointerMotionAbsolute {
+                    device,
+                    dx_absolute: x,
+                    dy_absolute: y,
+                    time: 0,
+                }));
+            }
+        }
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn handle_button_request(&mut self, button: eis::Button, request: eis::button::Request) {
+        let Some(device) = self.connection.device_for_interface(&button) else {
+            return;
+        };
+        match request {
+            eis::button::Request::Release => {
+                self.connection
+                    .0
+                    .device_for_interface
+                    .lock()
+                    .unwrap()
+                    .remove(button.as_object());
+                self.connection
+                    .with_next_serial(|serial| button.destroyed(serial));
+            }
+            eis::button::Request::Button { button, state } => {
+                self.queue_request(EisRequest::Button(Button {
+                    device,
+                    button,
+                    state,
+                    time: 0,
+                }));
+            }
+        }
+    }
+
     #[allow(clippy::needless_pass_by_value)] // Arguably better code when we don't have to dereference data
     fn handle_scroll_request(&mut self, scroll: eis::Scroll, request: eis::scroll::Request) {
         let Some(device) = self.connection.device_for_interface(&scroll) else {
             return;
         };
         match request {
-            eis::scroll::Request::Release => {}
+            eis::scroll::Request::Release => {
+                self.connection
+                    .0
+                    .device_for_interface
+                    .lock()
+                    .unwrap()
+                    .remove(scroll.as_object());
+                self.connection
+                    .with_next_serial(|serial| scroll.destroyed(serial));
+            }
             eis::scroll::Request::Scroll { x, y } => {
                 self.queue_request(EisRequest::ScrollDelta(ScrollDelta {
                     device,
@@ -563,7 +638,16 @@ impl EisRequestConverter {
             return Ok(());
         };
         match request {
-            eis::touchscreen::Request::Release => {}
+            eis::touchscreen::Request::Release => {
+                self.connection
+                    .0
+                    .device_for_interface
+                    .lock()
+                    .unwrap()
+                    .remove(touchscreen.as_object());
+                self.connection
+                    .with_next_serial(|serial| touchscreen.destroyed(serial));
+            }
             eis::touchscreen::Request::Down { touchid, x, y } => {
                 let mut down_touch_ids = device.0.down_touch_ids.lock().unwrap();
                 if down_touch_ids.len() == EIS_MAX_TOUCHES {
@@ -984,9 +1068,10 @@ impl std::hash::Hash for Device {
 #[derive(Clone, Debug, PartialEq)]
 #[allow(missing_docs)] // Inner types have docs
 pub enum EisRequest {
-    // TODO connect, disconnect, device closed
+    // TODO connect, disconnect
     Disconnect,
     Bind(Bind),
+    DeviceClosedByClient(DeviceClosedByClient),
     // Only for sender context
     Frame(Frame),
     DeviceStartEmulating(DeviceStartEmulating),
@@ -1025,6 +1110,7 @@ impl EisRequest {
             Self::TouchCancel(evt) => Some(&mut evt.time),
             Self::Disconnect
             | Self::Bind(_)
+            | Self::DeviceClosedByClient(_)
             | Self::Frame(_)
             | Self::DeviceStartEmulating(_)
             | Self::DeviceStopEmulating(_) => None,
@@ -1035,6 +1121,7 @@ impl EisRequest {
     #[must_use]
     pub fn device(&self) -> Option<&Device> {
         match self {
+            Self::DeviceClosedByClient(evt) => Some(&evt.device),
             Self::Frame(evt) => Some(&evt.device),
             Self::DeviceStartEmulating(evt) => Some(&evt.device),
             Self::DeviceStopEmulating(evt) => Some(&evt.device),
@@ -1093,6 +1180,17 @@ pub struct DeviceStopEmulating {
     pub device: Device,
     /// Last serial sent by the EIS implementation.
     pub last_serial: u32,
+}
+
+/// The client has released a device via [`ei_device.release`](eis::device::Request::Release).
+///
+/// This is the libei equivalent of `EIS_EVENT_DEVICE_CLOSED`. The server
+/// should perform any cleanup, then call [`Device::remove`] to complete
+/// the teardown and send the protocol `destroyed` events.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DeviceClosedByClient {
+    /// The device the client released.
+    pub device: Device,
 }
 
 /// High-level translation of [`ei_pointer.motion_relative`](eis::pointer::Request::MotionRelative).
@@ -1305,6 +1403,7 @@ macro_rules! impl_device_trait {
 }
 
 impl_device_trait!(Frame; time);
+impl_device_trait!(DeviceClosedByClient);
 impl_device_trait!(DeviceStartEmulating);
 impl_device_trait!(DeviceStopEmulating);
 impl_device_trait!(PointerMotion; time);
