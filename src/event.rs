@@ -627,6 +627,11 @@ impl EiEventConverter {
                     }
                 }
             }
+            ei::Event::Text(text, event) => match event {
+                ei::text::Event::Keysym { keysym, state } => {}
+                ei::text::Event::Utf8 { text } => {}
+                ei::text::Event::Destroyed { serial } => {}
+            },
         }
         Ok(())
     }

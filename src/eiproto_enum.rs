@@ -351,3 +351,7 @@ pub(crate) mod keyboard {
 pub(crate) mod touchscreen {
     use crate::wire;
 }
+
+pub(crate) mod text {
+    use crate::wire;
+}
