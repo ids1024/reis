@@ -627,6 +627,16 @@ impl EiEventConverter {
                     }
                 }
             }
+            #[allow(clippy::missing_panics_doc)]
+            ei::Event::Text(_text, event) => match event {
+                ei::text::Event::Keysym { keysym, state } => {
+                    panic!("{:?}", (keysym, state));
+                }
+                ei::text::Event::Utf8 { text } => {
+                    panic!("{text:?}");
+                }
+                ei::text::Event::Destroyed { serial: _ } => {}
+            },
         }
         Ok(())
     }
