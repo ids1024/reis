@@ -25,7 +25,7 @@ use std::{
     os::unix::io::OwnedFd,
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc,
+        Arc, Mutex,
     },
 };
 
@@ -173,6 +173,10 @@ impl EiEventConverter {
     /// # Errors
     ///
     /// The errors returned are protocol violations.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     #[allow(clippy::too_many_lines)] // Handler is allowed to be big
     pub fn handle_event(&mut self, event: ei::Event) -> Result<(), EventError> {
         match event {
@@ -263,7 +267,7 @@ impl EiEventConverter {
                             seat: seat.clone(),
                             name: None,
                             device_type: None,
-                            interfaces: HashMap::new(),
+                            interfaces: Mutex::new(HashMap::new()),
                             dimensions: None,
                             regions: Vec::new(),
                             next_region_mapping_id: None,
@@ -301,6 +305,8 @@ impl EiEventConverter {
                         .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     device
                         .interfaces
+                        .lock()
+                        .unwrap()
                         .insert(object.interface().to_owned(), object);
                 }
                 ei::device::Event::Dimensions { width, height } => {
@@ -340,7 +346,7 @@ impl EiEventConverter {
                     }
                     let device = Device(Arc::new(device));
                     self.devices.insert(device.0.device.clone(), device.clone());
-                    for i in device.0.interfaces.values() {
+                    for i in device.0.interfaces.lock().unwrap().values() {
                         self.device_for_interface.insert(i.clone(), device.clone());
                     }
                     self.queue_event(EiEvent::DeviceAdded(DeviceAdded { device }));
@@ -413,6 +419,9 @@ impl EiEventConverter {
                     self.connection.update_serial(serial);
                     self.pending_devices.remove(&device);
                     if let Some(device) = self.devices.remove(&device) {
+                        for (_, obj) in device.0.interfaces.lock().unwrap().drain() {
+                            self.device_for_interface.remove(&obj);
+                        }
                         self.queue_event(EiEvent::DeviceRemoved(DeviceRemoved { device }));
                     }
                 }
@@ -426,7 +435,13 @@ impl EiEventConverter {
                     let device = self
                         .pending_devices
                         .values_mut()
-                        .find(|i| i.interfaces.values().any(|j| j == &keyboard.0))
+                        .find(|i| {
+                            i.interfaces
+                                .lock()
+                                .unwrap()
+                                .values()
+                                .any(|j| j == &keyboard.0)
+                        })
                         .ok_or(EventError::DeviceSetupEventAfterDone)?;
                     device.keymap = Some(Keymap {
                         type_: keymap_type,
@@ -469,8 +484,14 @@ impl EiEventConverter {
                 }
                 ei::keyboard::Event::Destroyed { serial } => {
                     self.connection.update_serial(serial);
-                    // TODO does interface need to be removed from `Device`?
-                    self.device_for_interface.remove(&keyboard.0);
+                    if let Some(device) = self.device_for_interface.remove(&keyboard.0) {
+                        device
+                            .0
+                            .interfaces
+                            .lock()
+                            .unwrap()
+                            .remove(ei::Keyboard::NAME);
+                    }
                 }
             },
             ei::Event::Pointer(pointer, event) => {
@@ -489,8 +510,14 @@ impl EiEventConverter {
                     }
                     ei::pointer::Event::Destroyed { serial } => {
                         self.connection.update_serial(serial);
-                        // TODO does interface need to be removed from `Device`?
-                        self.device_for_interface.remove(&pointer.0);
+                        if let Some(device) = self.device_for_interface.remove(&pointer.0) {
+                            device
+                                .0
+                                .interfaces
+                                .lock()
+                                .unwrap()
+                                .remove(ei::Pointer::NAME);
+                        }
                     }
                 }
             }
@@ -510,8 +537,15 @@ impl EiEventConverter {
                     }
                     ei::pointer_absolute::Event::Destroyed { serial } => {
                         self.connection.update_serial(serial);
-                        // TODO does interface need to be removed from `Device`?
-                        self.device_for_interface.remove(&pointer_absolute.0);
+                        if let Some(device) = self.device_for_interface.remove(&pointer_absolute.0)
+                        {
+                            device
+                                .0
+                                .interfaces
+                                .lock()
+                                .unwrap()
+                                .remove(ei::PointerAbsolute::NAME);
+                        }
                     }
                 }
             }
@@ -556,8 +590,9 @@ impl EiEventConverter {
                     }
                     ei::scroll::Event::Destroyed { serial } => {
                         self.connection.update_serial(serial);
-                        // TODO does interface need to be removed from `Device`?
-                        self.device_for_interface.remove(&scroll.0);
+                        if let Some(device) = self.device_for_interface.remove(&scroll.0) {
+                            device.0.interfaces.lock().unwrap().remove(ei::Scroll::NAME);
+                        }
                     }
                 }
             }
@@ -577,8 +612,9 @@ impl EiEventConverter {
                     }
                     ei::button::Event::Destroyed { serial } => {
                         self.connection.update_serial(serial);
-                        // TODO does interface need to be removed from `Device`?
-                        self.device_for_interface.remove(&button.0);
+                        if let Some(device) = self.device_for_interface.remove(&button.0) {
+                            device.0.interfaces.lock().unwrap().remove(ei::Button::NAME);
+                        }
                     }
                 }
             }
@@ -622,8 +658,14 @@ impl EiEventConverter {
                     }
                     ei::touchscreen::Event::Destroyed { serial } => {
                         self.connection.update_serial(serial);
-                        // TODO does interface need to be removed from `Device`?
-                        self.device_for_interface.remove(&touchscreen.0);
+                        if let Some(device) = self.device_for_interface.remove(&touchscreen.0) {
+                            device
+                                .0
+                                .interfaces
+                                .lock()
+                                .unwrap()
+                                .remove(ei::Touchscreen::NAME);
+                        }
                     }
                 }
             }
@@ -808,7 +850,7 @@ struct DeviceInner {
     seat: Seat,
     name: Option<String>,
     device_type: Option<ei::device::DeviceType>,
-    interfaces: HashMap<String, crate::Object>,
+    interfaces: Mutex<HashMap<String, crate::Object>>,
     dimensions: Option<(u32, u32)>,
     regions: Vec<Region>,
     // Only used before `done`
@@ -877,16 +919,36 @@ impl Device {
 
     /// Returns an interface proxy if it is implemented for this device.
     ///
-    /// Interfaces of devices are implemented, such that there is one `ei_device` object and other objects (for example `ei_keyboard`) denoting capabilities.
+    /// Interfaces of devices are implemented, such that there is one `ei_device` object and
+    /// other objects (for example `ei_keyboard`) denoting capabilities. An interface is removed
+    /// when the server sends its destroyed event.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     #[must_use]
     pub fn interface<T: ei::Interface>(&self) -> Option<T> {
-        self.0.interfaces.get(T::NAME)?.clone().downcast()
+        self.0
+            .interfaces
+            .lock()
+            .unwrap()
+            .get(T::NAME)?
+            .clone()
+            .downcast()
     }
 
     /// Returns `true` if this device has an interface matching the provided capability.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     #[must_use]
     pub fn has_capability(&self, capability: DeviceCapability) -> bool {
-        self.0.interfaces.contains_key(capability.interface_name())
+        self.0
+            .interfaces
+            .lock()
+            .unwrap()
+            .contains_key(capability.interface_name())
     }
 }
 
