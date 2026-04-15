@@ -31,7 +31,7 @@ use crate::wire;
 {% endmacro -%}
 
 {%- macro arg_type(arg, owned, generic) -%}
-    {%- if arg.enum != None -%} {{ arg.enum.name|camel }}
+    {%- if arg.enum != None -%} super::{{ arg.enum.interface.plainname }}::{{ arg.enum.name|camel }}
     {%- elif arg.protocol_type == 'string' and owned and arg.allow_null -%} Option<String>
     {%- elif arg.protocol_type == 'string' and owned -%} String
     {%- elif arg.protocol_type == 'string' and arg.allow_null -%} Option<&str>

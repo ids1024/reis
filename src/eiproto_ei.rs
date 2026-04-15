@@ -162,7 +162,7 @@ pub mod handshake {
         ///
         /// - `context_type`: The connection's context type.
         ///
-        pub fn context_type(&self, context_type: ContextType) -> () {
+        pub fn context_type(&self, context_type: super::handshake::ContextType) -> () {
             let args = &[wire::Arg::Uint32(context_type.into())];
 
             self.0.request(2, args);
@@ -540,7 +540,7 @@ pub mod connection {
             /// The last serial sent by the eis implementation.
             last_serial: u32,
             /// The reason for being disconnected.
-            reason: DisconnectReason,
+            reason: super::connection::DisconnectReason,
             /// An explanation for debugging purposes.
             explanation: Option<String>,
         },
@@ -1469,7 +1469,7 @@ pub mod device {
         /// It is a protocol violation to send this event after the `ei_device.done` event.
         DeviceType {
             /// The device type.
-            device_type: DeviceType,
+            device_type: super::device::DeviceType,
         },
         /// Device dimensions notification.
         ///
@@ -2671,7 +2671,7 @@ pub mod button {
         /// - `button`: Button code.
         /// - `state`
         ///
-        pub fn button(&self, button: u32, state: ButtonState) -> () {
+        pub fn button(&self, button: u32, state: super::button::ButtonState) -> () {
             let args = &[
                 wire::Arg::Uint32(button.into()),
                 wire::Arg::Uint32(state.into()),
@@ -2720,7 +2720,7 @@ pub mod button {
             /// .
             button: u32,
             /// .
-            state: ButtonState,
+            state: super::button::ButtonState,
         },
     }
 
@@ -2878,7 +2878,7 @@ pub mod keyboard {
         /// - `key`: The key code.
         /// - `state`: Logical state of the key.
         ///
-        pub fn key(&self, key: u32, state: KeyState) -> () {
+        pub fn key(&self, key: u32, state: super::keyboard::KeyState) -> () {
             let args = &[
                 wire::Arg::Uint32(key.into()),
                 wire::Arg::Uint32(state.into()),
@@ -2933,7 +2933,7 @@ pub mod keyboard {
         /// event after the `ei_device.done` event.
         Keymap {
             /// The keymap type.
-            keymap_type: KeymapType,
+            keymap_type: super::keyboard::KeymapType,
             /// The keymap size in bytes.
             size: u32,
             /// File descriptor to the keymap.
@@ -2954,7 +2954,7 @@ pub mod keyboard {
             /// .
             key: u32,
             /// .
-            state: KeyState,
+            state: super::keyboard::KeyState,
         },
         /// Modifier change event.
         ///

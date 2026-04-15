@@ -251,7 +251,7 @@ pub mod handshake {
         /// ei_handshake.finish.
         ContextType {
             /// The connection's context type.
-            context_type: ContextType,
+            context_type: super::handshake::ContextType,
         },
         /// Client name.
         ///
@@ -475,7 +475,7 @@ pub mod connection {
         pub fn disconnected(
             &self,
             last_serial: u32,
-            reason: DisconnectReason,
+            reason: super::connection::DisconnectReason,
             explanation: Option<&str>,
         ) -> () {
             let args = &[
@@ -1349,7 +1349,7 @@ pub mod device {
         ///
         /// - `device_type`: The device type.
         ///
-        pub fn device_type(&self, device_type: DeviceType) -> () {
+        pub fn device_type(&self, device_type: super::device::DeviceType) -> () {
             let args = &[wire::Arg::Uint32(device_type.into())];
 
             self.0.request(2, args);
@@ -2649,7 +2649,7 @@ pub mod button {
         /// - `button`
         /// - `state`
         ///
-        pub fn button(&self, button: u32, state: ButtonState) -> () {
+        pub fn button(&self, button: u32, state: super::button::ButtonState) -> () {
             let args = &[
                 wire::Arg::Uint32(button.into()),
                 wire::Arg::Uint32(state.into()),
@@ -2693,7 +2693,7 @@ pub mod button {
             /// Button code.
             button: u32,
             /// .
-            state: ButtonState,
+            state: super::button::ButtonState,
         },
     }
 
@@ -2861,7 +2861,7 @@ pub mod keyboard {
         ///
         pub fn keymap(
             &self,
-            keymap_type: KeymapType,
+            keymap_type: super::keyboard::KeymapType,
             size: u32,
             keymap: std::os::unix::io::BorrowedFd,
         ) -> () {
@@ -2892,7 +2892,7 @@ pub mod keyboard {
         /// - `key`
         /// - `state`
         ///
-        pub fn key(&self, key: u32, state: KeyState) -> () {
+        pub fn key(&self, key: u32, state: super::keyboard::KeyState) -> () {
             let args = &[
                 wire::Arg::Uint32(key.into()),
                 wire::Arg::Uint32(state.into()),
@@ -3014,7 +3014,7 @@ pub mod keyboard {
             /// The key code.
             key: u32,
             /// Logical state of the key.
-            state: KeyState,
+            state: super::keyboard::KeyState,
         },
     }
 
