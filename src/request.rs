@@ -19,7 +19,7 @@ use std::{
     },
 };
 
-pub use crate::event::DeviceCapability;
+pub use crate::event::{ConnectionState, DeviceCapability, DeviceState, SeatState};
 
 // For compatability, defined the same way as libei
 const EIS_MAX_TOUCHES: usize = 16;
@@ -114,6 +114,16 @@ impl Connection {
     /// An error will be returned if sending the buffered messages fails.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.context.flush()
+    }
+
+    /// Returns the current lifecycle state of this connection.
+    #[must_use]
+    pub fn state(&self) -> ConnectionState {
+        if self.0.disconnected.load(Ordering::SeqCst) {
+            ConnectionState::Disconnected
+        } else {
+            ConnectionState::Connected
+        }
     }
 
     /// Returns the context type of this this connection.
@@ -217,6 +227,7 @@ impl Connection {
             name: name.map(std::borrow::ToOwned::to_owned),
             handle: Arc::downgrade(&self.0),
             advertised_capabilities: capabilities,
+            state: Mutex::new(SeatState::Active),
         }));
         self.0
             .seats
@@ -337,20 +348,7 @@ impl EisRequestConverter {
             eis::Request::Seat(seat, request) => self.handle_seat_request(&seat, &request)?,
             eis::Request::Device(device, request) => self.handle_device_request(device, request),
             eis::Request::Keyboard(keyboard, request) => {
-                let Some(device) = self.connection.device_for_interface(&keyboard) else {
-                    return Ok(());
-                };
-                match request {
-                    eis::keyboard::Request::Release => {}
-                    eis::keyboard::Request::Key { key, state } => {
-                        self.queue_request(EisRequest::KeyboardKey(KeyboardKey {
-                            device,
-                            key,
-                            state,
-                            time: 0,
-                        }));
-                    }
-                }
+                self.handle_keyboard_request(keyboard, request);
             }
             eis::Request::Pointer(pointer, request) => {
                 let Some(device) = self.connection.device_for_interface(&pointer) else {
@@ -390,20 +388,7 @@ impl EisRequestConverter {
                 self.handle_scroll_request(scroll, request);
             }
             eis::Request::Button(button, request) => {
-                let Some(device) = self.connection.device_for_interface(&button) else {
-                    return Ok(());
-                };
-                match request {
-                    eis::button::Request::Release => {}
-                    eis::button::Request::Button { button, state } => {
-                        self.queue_request(EisRequest::Button(Button {
-                            device,
-                            button,
-                            state,
-                            time: 0,
-                        }));
-                    }
-                }
+                self.handle_button_request(button, request);
             }
             eis::Request::Touchscreen(touchscreen, request) => {
                 self.handle_touchscreen_request(touchscreen, request)?;
@@ -553,6 +538,62 @@ impl EisRequestConverter {
         }
     }
 
+    #[allow(clippy::needless_pass_by_value)]
+    fn handle_keyboard_request(
+        &mut self,
+        keyboard: eis::Keyboard,
+        request: eis::keyboard::Request,
+    ) {
+        let Some(device) = self.connection.device_for_interface(&keyboard) else {
+            return;
+        };
+        match request {
+            eis::keyboard::Request::Release => {}
+            eis::keyboard::Request::Key { key, state } => {
+                match state {
+                    eis::keyboard::KeyState::Press => {
+                        device.0.pressed_keys.lock().unwrap().insert(key);
+                    }
+                    eis::keyboard::KeyState::Released => {
+                        device.0.pressed_keys.lock().unwrap().remove(&key);
+                    }
+                }
+                self.queue_request(EisRequest::KeyboardKey(KeyboardKey {
+                    device,
+                    key,
+                    state,
+                    time: 0,
+                }));
+            }
+        }
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    fn handle_button_request(&mut self, button: eis::Button, request: eis::button::Request) {
+        let Some(device) = self.connection.device_for_interface(&button) else {
+            return;
+        };
+        match request {
+            eis::button::Request::Release => {}
+            eis::button::Request::Button { button, state } => {
+                match state {
+                    eis::button::ButtonState::Press => {
+                        device.0.pressed_buttons.lock().unwrap().insert(button);
+                    }
+                    eis::button::ButtonState::Released => {
+                        device.0.pressed_buttons.lock().unwrap().remove(&button);
+                    }
+                }
+                self.queue_request(EisRequest::Button(Button {
+                    device,
+                    button,
+                    state,
+                    time: 0,
+                }));
+            }
+        }
+    }
+
     #[allow(clippy::needless_pass_by_value)] // Arguably better code when we don't have to dereference data
     fn handle_touchscreen_request(
         &mut self,
@@ -626,6 +667,7 @@ struct SeatInner {
     name: Option<String>,
     handle: Weak<ConnectionInner>,
     advertised_capabilities: BitFlags<DeviceCapability>,
+    state: Mutex<SeatState>,
 }
 
 /// High-level server-side wrapper for `ei_seat`.
@@ -649,6 +691,16 @@ impl Seat {
     #[must_use]
     pub fn eis_seat(&self) -> &eis::Seat {
         &self.0.seat
+    }
+
+    /// Returns the current lifecycle state of this seat.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn state(&self) -> SeatState {
+        *self.0.state.lock().unwrap()
     }
 
     // builder pattern?
@@ -716,7 +768,10 @@ impl Seat {
             name: name.map(std::string::ToString::to_string),
             interfaces,
             handle: self.0.handle.clone(),
+            state: Mutex::new(DeviceState::Paused),
             down_touch_ids: Mutex::new(HashSet::new()),
+            pressed_keys: Mutex::new(HashSet::new()),
+            pressed_buttons: Mutex::new(HashSet::new()),
         }));
         if let Some(handle) = connection {
             for interface in device.0.interfaces.values() {
@@ -747,6 +802,7 @@ impl Seat {
     ///
     /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
+        *self.0.state.lock().unwrap() = SeatState::Closed;
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             let devices = handle
                 .0
@@ -832,8 +888,10 @@ struct DeviceInner {
     name: Option<String>,
     interfaces: HashMap<String, crate::Object>,
     handle: Weak<ConnectionInner>,
-    // Applicable only for touch devices
+    state: Mutex<DeviceState>,
     down_touch_ids: Mutex<HashSet<u32>>,
+    pressed_keys: Mutex<HashSet<u32>>,
+    pressed_buttons: Mutex<HashSet<u32>>,
 }
 
 /// High-level server-side wrapper for `ei_device`.
@@ -883,12 +941,63 @@ impl Device {
         self.0.interfaces.contains_key(capability.interface_name())
     }
 
+    /// Returns the current lifecycle state of this device.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn state(&self) -> DeviceState {
+        *self.0.state.lock().unwrap()
+    }
+
+    /// Returns a snapshot of the currently pressed keys.
+    ///
+    /// Keys are tracked as they are received via [`EisRequest::KeyboardKey`] events and cleared
+    /// when the device is [`paused`](Self::paused).
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn pressed_keys(&self) -> HashSet<u32> {
+        self.0.pressed_keys.lock().unwrap().clone()
+    }
+
+    /// Returns a snapshot of the currently pressed buttons.
+    ///
+    /// Buttons are tracked as they are received via [`EisRequest::Button`] events and cleared
+    /// when the device is [`paused`](Self::paused).
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn pressed_buttons(&self) -> HashSet<u32> {
+        self.0.pressed_buttons.lock().unwrap().clone()
+    }
+
+    /// Returns a snapshot of the currently active touch IDs.
+    ///
+    /// Touch IDs are tracked as they are received via [`EisRequest::TouchDown`] and
+    /// [`EisRequest::TouchUp`] events and cleared when the device is
+    /// [`paused`](Self::paused).
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn down_touch_ids(&self) -> HashSet<u32> {
+        self.0.down_touch_ids.lock().unwrap().clone()
+    }
+
     /// Removes this device and associated interfaces from the connection.
     ///
     /// # Panics
     ///
     /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
+        *self.0.state.lock().unwrap() = DeviceState::Closed;
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             for interface in self.0.interfaces.values() {
                 handle
@@ -908,7 +1017,12 @@ impl Device {
     /// Notifies to the client that, depending on the context type, it may request to start emulating or receiving input events. A newly advertised device is in the [`paused`](Self::paused) state.
     ///
     /// See [`eis::Device::resumed`] for documentation from the protocol specification.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn resumed(&self) {
+        *self.0.state.lock().unwrap() = DeviceState::Resumed;
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().resumed(serial));
         }
@@ -923,10 +1037,13 @@ impl Device {
     ///
     /// Will panic if an internal Mutex is poisoned.
     pub fn paused(&self) {
+        *self.0.state.lock().unwrap() = DeviceState::Paused;
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().paused(serial));
         }
         self.0.down_touch_ids.lock().unwrap().clear();
+        self.0.pressed_keys.lock().unwrap().clear();
+        self.0.pressed_buttons.lock().unwrap().clear();
     }
 
     // TODO: statically restrict the below to receiver context?

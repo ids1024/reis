@@ -20,12 +20,12 @@ use enumflags2::BitFlags;
 
 use crate::{ei, handshake::HandshakeResp, util, Error, Interface, Object, PendingRequestResult};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     fmt, io,
     os::unix::io::OwnedFd,
     sync::{
         atomic::{AtomicU32, Ordering},
-        Arc,
+        Arc, Mutex,
     },
 };
 
@@ -72,6 +72,7 @@ struct ConnectionInner {
     handshake_resp: HandshakeResp,
     /// The last serial number used in an event by the server.
     serial: AtomicU32,
+    state: Mutex<ConnectionState>,
 }
 
 /// High-level client-side wrapper for `ei_connection`.
@@ -104,6 +105,16 @@ impl Connection {
     #[must_use]
     pub fn serial(&self) -> u32 {
         self.0.serial.load(Ordering::Relaxed)
+    }
+
+    /// Returns the current lifecycle state of this connection.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn state(&self) -> ConnectionState {
+        *self.0.state.lock().unwrap()
     }
 }
 
@@ -138,6 +149,7 @@ impl EiEventConverter {
                 context: context.clone(),
                 serial: AtomicU32::new(handshake_resp.serial),
                 handshake_resp,
+                state: Mutex::new(ConnectionState::Connected),
             })),
         }
     }
@@ -170,6 +182,10 @@ impl EiEventConverter {
     /// Handles a low-level protocol-level [`ei::Event`], possibly converting it into a high-level
     /// [`EiEvent`].
     ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    ///
     /// # Errors
     ///
     /// The errors returned are protocol violations.
@@ -187,6 +203,7 @@ impl EiEventConverter {
                             proto_seat: seat,
                             name: None,
                             capability_map: CapabilityMap::default(),
+                            state: Mutex::new(SeatState::Active),
                         },
                     );
                 }
@@ -202,6 +219,7 @@ impl EiEventConverter {
                     reason,
                     explanation,
                 } => {
+                    *self.connection.0.state.lock().unwrap() = ConnectionState::Disconnected;
                     self.queue_event(EiEvent::Disconnected(Disconnected {
                         last_serial,
                         reason,
@@ -268,6 +286,10 @@ impl EiEventConverter {
                             regions: Vec::new(),
                             next_region_mapping_id: None,
                             keymap: None,
+                            state: Mutex::new(DeviceState::Paused),
+                            pressed_keys: Mutex::new(HashSet::new()),
+                            pressed_buttons: Mutex::new(HashSet::new()),
+                            down_touch_ids: Mutex::new(HashSet::new()),
                         },
                     );
                 }
@@ -275,6 +297,7 @@ impl EiEventConverter {
                     self.connection.update_serial(serial);
                     self.pending_seats.remove(&seat);
                     if let Some(seat) = self.seats.remove(&seat) {
+                        *seat.0.state.lock().unwrap() = SeatState::Closed;
                         self.queue_event(EiEvent::SeatRemoved(SeatRemoved { seat }));
                     }
                 }
@@ -351,6 +374,7 @@ impl EiEventConverter {
                         .devices
                         .get(&device)
                         .ok_or(EventError::DeviceEventBeforeDone)?;
+                    *device.0.state.lock().unwrap() = DeviceState::Resumed;
                     self.queue_event(EiEvent::DeviceResumed(DeviceResumed {
                         device: device.clone(),
                         serial,
@@ -362,6 +386,10 @@ impl EiEventConverter {
                         .devices
                         .get(&device)
                         .ok_or(EventError::DeviceEventBeforeDone)?;
+                    *device.0.state.lock().unwrap() = DeviceState::Paused;
+                    device.0.pressed_keys.lock().unwrap().clear();
+                    device.0.pressed_buttons.lock().unwrap().clear();
+                    device.0.down_touch_ids.lock().unwrap().clear();
                     self.queue_event(EiEvent::DevicePaused(DevicePaused {
                         device: device.clone(),
                         serial,
@@ -413,6 +441,7 @@ impl EiEventConverter {
                     self.connection.update_serial(serial);
                     self.pending_devices.remove(&device);
                     if let Some(device) = self.devices.remove(&device) {
+                        *device.0.state.lock().unwrap() = DeviceState::Closed;
                         self.queue_event(EiEvent::DeviceRemoved(DeviceRemoved { device }));
                     }
                 }
@@ -439,6 +468,14 @@ impl EiEventConverter {
                         .device_for_interface
                         .get(&keyboard.0)
                         .ok_or(EventError::DeviceEventBeforeDone)?;
+                    match state {
+                        ei::keyboard::KeyState::Press => {
+                            device.0.pressed_keys.lock().unwrap().insert(key);
+                        }
+                        ei::keyboard::KeyState::Released => {
+                            device.0.pressed_keys.lock().unwrap().remove(&key);
+                        }
+                    }
                     self.queue_event(EiEvent::KeyboardKey(KeyboardKey {
                         device: device.clone(),
                         time: 0,
@@ -568,6 +605,14 @@ impl EiEventConverter {
                     .ok_or(EventError::DeviceEventBeforeDone)?;
                 match event {
                     ei::button::Event::Button { button, state } => {
+                        match state {
+                            ei::button::ButtonState::Press => {
+                                device.0.pressed_buttons.lock().unwrap().insert(button);
+                            }
+                            ei::button::ButtonState::Released => {
+                                device.0.pressed_buttons.lock().unwrap().remove(&button);
+                            }
+                        }
                         self.queue_event(EiEvent::Button(Button {
                             device: device.clone(),
                             time: 0,
@@ -589,6 +634,7 @@ impl EiEventConverter {
                     .ok_or(EventError::DeviceEventBeforeDone)?;
                 match event {
                     ei::touchscreen::Event::Down { touchid, x, y } => {
+                        device.0.down_touch_ids.lock().unwrap().insert(touchid);
                         self.queue_event(EiEvent::TouchDown(TouchDown {
                             device: device.clone(),
                             time: 0,
@@ -607,6 +653,7 @@ impl EiEventConverter {
                         }));
                     }
                     ei::touchscreen::Event::Up { touchid } => {
+                        device.0.down_touch_ids.lock().unwrap().remove(&touchid);
                         self.queue_event(EiEvent::TouchUp(TouchUp {
                             device: device.clone(),
                             time: 0,
@@ -614,6 +661,7 @@ impl EiEventConverter {
                         }));
                     }
                     ei::touchscreen::Event::Cancel { touchid } => {
+                        device.0.down_touch_ids.lock().unwrap().remove(&touchid);
                         self.queue_event(EiEvent::TouchCancel(TouchCancel {
                             device: device.clone(),
                             time: 0,
@@ -730,6 +778,46 @@ impl DeviceCapability {
     }
 }
 
+/// Lifecycle state of a device.
+///
+/// A newly added device starts in the [`Paused`](Self::Paused) state. The server toggles
+/// between [`Paused`](Self::Paused) and [`Resumed`](Self::Resumed) to control when input
+/// may flow. A device enters the [`Closed`](Self::Closed) state when it is removed.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum DeviceState {
+    /// Input events cannot be sent or received.
+    Paused,
+    /// Input events can be sent or received.
+    Resumed,
+    /// The device has been removed.
+    Closed,
+}
+
+/// Lifecycle state of a seat.
+///
+/// A newly added seat starts in the [`Active`](Self::Active) state. It enters the
+/// [`Closed`](Self::Closed) state when it is removed.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum SeatState {
+    /// The seat is available.
+    Active,
+    /// The seat has been removed.
+    Closed,
+}
+
+/// Lifecycle state of a connection.
+///
+/// A connection starts in the [`Connected`](Self::Connected) state after the handshake
+/// completes. It enters the [`Disconnected`](Self::Disconnected) state when either side
+/// initiates disconnection.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ConnectionState {
+    /// The connection is active.
+    Connected,
+    /// The connection has been disconnected.
+    Disconnected,
+}
+
 /// Lookup table from [`DeviceCapability`] to a protocol capability.
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 struct CapabilityMap([u64; BitFlags::<DeviceCapability>::ALL.bits_c().count_ones() as usize]);
@@ -750,6 +838,7 @@ struct SeatInner {
     proto_seat: ei::Seat,
     name: Option<String>,
     capability_map: CapabilityMap,
+    state: Mutex<SeatState>,
 }
 
 /// High-level client-side wrapper for `ei_seat`.
@@ -787,6 +876,16 @@ impl Seat {
         self.0.name.as_deref()
     }
 
+    /// Returns the current lifecycle state of this seat.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn state(&self) -> SeatState {
+        *self.0.state.lock().unwrap()
+    }
+
     // TODO has_capability
 
     /// Binds to a selection of the advertised capabilities received through
@@ -815,6 +914,10 @@ struct DeviceInner {
     next_region_mapping_id: Option<String>,
     // Only defined device with `ei_keyboard` interface
     keymap: Option<Keymap>,
+    state: Mutex<DeviceState>,
+    pressed_keys: Mutex<HashSet<u32>>,
+    pressed_buttons: Mutex<HashSet<u32>>,
+    down_touch_ids: Mutex<HashSet<u32>>,
 }
 
 /// High-level client-side wrapper for `ei_device`.
@@ -873,6 +976,56 @@ impl Device {
     #[must_use]
     pub fn keymap(&self) -> Option<&Keymap> {
         self.0.keymap.as_ref()
+    }
+
+    /// Returns the current lifecycle state of this device.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn state(&self) -> DeviceState {
+        *self.0.state.lock().unwrap()
+    }
+
+    /// Returns a snapshot of the currently pressed keys.
+    ///
+    /// Keys are tracked as they are received via [`EiEvent::KeyboardKey`] events and cleared
+    /// when the device is [`paused`](EiEvent::DevicePaused).
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn pressed_keys(&self) -> HashSet<u32> {
+        self.0.pressed_keys.lock().unwrap().clone()
+    }
+
+    /// Returns a snapshot of the currently pressed buttons.
+    ///
+    /// Buttons are tracked as they are received via [`EiEvent::Button`] events and cleared
+    /// when the device is [`paused`](EiEvent::DevicePaused).
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn pressed_buttons(&self) -> HashSet<u32> {
+        self.0.pressed_buttons.lock().unwrap().clone()
+    }
+
+    /// Returns a snapshot of the currently active touch IDs.
+    ///
+    /// Touch IDs are tracked as they are received via [`EiEvent::TouchDown`] and
+    /// [`EiEvent::TouchUp`] events and cleared when the device is
+    /// [`paused`](EiEvent::DevicePaused).
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn down_touch_ids(&self) -> HashSet<u32> {
+        self.0.down_touch_ids.lock().unwrap().clone()
     }
 
     /// Returns an interface proxy if it is implemented for this device.
