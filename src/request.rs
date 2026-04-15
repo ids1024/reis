@@ -408,9 +408,13 @@ impl EisRequestConverter {
             eis::Request::Touchscreen(touchscreen, request) => {
                 self.handle_touchscreen_request(touchscreen, request)?;
             }
-            eis::Request::Text(text, request) => match request {
-                eis::text::Request::Keysym { keysym, state } => {}
-                eis::text::Request::Utf8 { text } => {}
+            eis::Request::Text(_text, request) => match request {
+                eis::text::Request::Keysym { keysym, state } => {
+                    panic!("{:?}", (keysym, state));
+                }
+                eis::text::Request::Utf8 { text } => {
+                    panic!("{text:?}");
+                }
                 eis::text::Request::Release => {}
             },
         }
