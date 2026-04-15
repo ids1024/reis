@@ -33,11 +33,19 @@ pub fn send_with_fds(
     buf: &[IoSlice],
     fds: &[BorrowedFd],
 ) -> rustix::io::Result<usize> {
-    #[allow(clippy::manual_slice_size_calculation)]
-    let mut cmsg_space = vec![MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(fds.len()))];
-    let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
-    cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(fds));
-    retry_on_intr(|| net::sendmsg(socket, buf, &mut cmsg_buffer, net::SendFlags::NOSIGNAL))
+    if fds.is_empty() {
+        // No fds to send — use sendmsg without ancillary data.
+        // Sending an empty SCM_RIGHTS message confuses some EIS servers (KWin).
+        let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut []);
+        retry_on_intr(|| net::sendmsg(socket, buf, &mut cmsg_buffer, net::SendFlags::NOSIGNAL))
+    } else {
+        #[allow(clippy::manual_slice_size_calculation)]
+        let mut cmsg_space =
+            vec![MaybeUninit::uninit(); rustix::cmsg_space!(ScmRights(fds.len()))];
+        let mut cmsg_buffer = net::SendAncillaryBuffer::new(&mut cmsg_space);
+        cmsg_buffer.push(net::SendAncillaryMessage::ScmRights(fds));
+        retry_on_intr(|| net::sendmsg(socket, buf, &mut cmsg_buffer, net::SendFlags::NOSIGNAL))
+    }
 }
 
 pub fn recv_with_fds(
