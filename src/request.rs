@@ -713,7 +713,7 @@ impl Seat {
         let device = Device(Arc::new(DeviceInner {
             device,
             seat: self.clone(),
-            name: name.map(std::string::ToString::to_string),
+            name: name.map(ToOwned::to_owned),
             interfaces,
             handle: self.0.handle.clone(),
             down_touch_ids: Mutex::new(HashSet::new()),

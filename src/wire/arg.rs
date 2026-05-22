@@ -66,7 +66,7 @@ impl Arg<'_> {
                 // Write contents of string, as UTF-8
                 buf.extend(value.as_bytes().iter().copied());
                 // Add NUL terminator
-                buf.extend([b'\0']);
+                buf.extend(*b"\0");
                 // Pad to multiple of 32 bits
                 if len % 4 != 0 {
                     buf.extend((0..4 - (len % 4)).map(|_| b'\0'));

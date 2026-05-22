@@ -99,12 +99,11 @@ fn main() {
                 }
                 // Interfaces?
             }
-            reis::event::EiEvent::KeyboardKey(evt) => {
+            reis::event::EiEvent::KeyboardKey(evt)
                 // Escape key
-                if evt.key == 1 {
+                if evt.key == 1 => {
                     std::process::exit(0);
                 }
-            }
             _ => {}
         }
     }

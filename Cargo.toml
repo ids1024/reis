@@ -36,7 +36,7 @@ pedantic = "warn"
 #allow_attributes_without_reason = "warn"
 #should_panic_without_expect = "warn"
 str_to_string = "warn"
-string_to_string = "warn"
+implicit_clone = "warn"
 cast_possible_wrap = { level = "allow", priority = 1 }
 cast_possible_truncation = { level = "allow", priority = 1 }
 
