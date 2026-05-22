@@ -22,6 +22,7 @@ struct ContextState {
     device_pointer: Option<reis::request::Device>,
     device_pointer_absolute: Option<reis::request::Device>,
     device_touch: Option<reis::request::Device>,
+    device_text: Option<reis::request::Device>,
     sequence: u32,
 }
 
@@ -84,6 +85,17 @@ impl ContextState {
                         DeviceCapability::PointerAbsolute
                             | DeviceCapability::Button
                             | DeviceCapability::Scroll,
+                        |_| {},
+                        &request.seat,
+                        connection,
+                        &mut self.sequence,
+                    ));
+                }
+
+                if self.device_text.is_none() && capabilities.contains(DeviceCapability::Text) {
+                    self.device_text = Some(add_device(
+                        "text",
+                        DeviceCapability::Text.into(),
                         |_| {},
                         &request.seat,
                         connection,
@@ -164,7 +176,8 @@ impl State {
                         | DeviceCapability::Keyboard
                         | DeviceCapability::Touch
                         | DeviceCapability::Scroll
-                        | DeviceCapability::Button,
+                        | DeviceCapability::Button
+                        | DeviceCapability::Text,
                 );
 
                 context_state.seat = Some(seat);
