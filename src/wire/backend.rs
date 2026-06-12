@@ -21,6 +21,9 @@ use crate::{
     Object,
 };
 
+// 1 MiB. Matches `max_msglen` in libei
+const MAX_MSGLEN: u32 = 1024 * 1024;
+
 #[derive(Debug, Default)]
 struct Buffer {
     buf: VecDeque<u8>,
@@ -176,13 +179,13 @@ impl Backend {
         if read.buf.len() >= 16 {
             let header_bytes = util::array_from_iterator_unchecked(read.buf.iter().copied());
             let header = Header::parse(header_bytes);
-            if read.buf.len() < header.length as usize {
-                return None;
-            }
-            if header.length < 16 {
+            if header.length < 16 || header.length > MAX_MSGLEN {
                 return Some(PendingRequestResult::ParseError(ParseError::HeaderLength(
                     header.length,
                 )));
+            }
+            if read.buf.len() < header.length as usize {
+                return None;
             }
             if let Some(object) = self.object_for_id(header.object_id) {
                 let read = &mut *read;
