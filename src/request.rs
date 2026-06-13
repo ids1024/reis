@@ -24,6 +24,10 @@ pub use crate::event::DeviceCapability;
 // For compatability, defined the same way as libei
 const EIS_MAX_TOUCHES: usize = 16;
 
+// `ei_text.utf8` caps content at 254 bytes: the protocol's 255-byte limit
+// counts a trailing null byte that a Rust String does not store.
+const EI_TEXT_MAX_UTF8_LEN: usize = 254;
+
 /// Protocol errors of the client.
 #[derive(Debug)]
 pub enum RequestError {
@@ -33,6 +37,8 @@ pub enum RequestError {
     DuplicatedTouchDown,
     /// Too many touches
     TooManyTouches,
+    /// Empty or too long text in `ei_text.utf8`
+    InvalidTextLength,
 }
 impl fmt::Display for RequestError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -40,6 +46,7 @@ impl fmt::Display for RequestError {
             Self::InvalidCapabilities => write!(f, "Invalid capabilities"),
             Self::DuplicatedTouchDown => write!(f, "Touch down event for duplicated touch ID"),
             Self::TooManyTouches => write!(f, "Too many simultaneous touch events"),
+            Self::InvalidTextLength => write!(f, "Empty or too long text string"),
         }
     }
 }
@@ -354,15 +361,9 @@ impl EisRequestConverter {
             eis::Request::Touchscreen(touchscreen, request) => {
                 self.handle_touchscreen_request(touchscreen, request)?;
             }
-            eis::Request::Text(_text, request) => match request {
-                eis::text::Request::Keysym { keysym, state } => {
-                    panic!("{:?}", (keysym, state));
-                }
-                eis::text::Request::Utf8 { text } => {
-                    panic!("{text:?}");
-                }
-                eis::text::Request::Release => {}
-            },
+            eis::Request::Text(text, request) => {
+                self.handle_text_request(text, request)?;
+            }
         }
 
         Ok(())
@@ -729,6 +730,48 @@ impl EisRequestConverter {
         }
         Ok(())
     }
+
+    #[allow(clippy::needless_pass_by_value)] // Arguably better code when we don't have to dereference data
+    fn handle_text_request(
+        &mut self,
+        text: eis::Text,
+        request: eis::text::Request,
+    ) -> Result<(), Error> {
+        let Some(device) = self.connection.device_for_interface(&text) else {
+            return Ok(());
+        };
+        match request {
+            eis::text::Request::Release => {
+                self.connection
+                    .0
+                    .device_for_interface
+                    .lock()
+                    .unwrap()
+                    .remove(text.as_object());
+                self.connection
+                    .with_next_serial(|serial| text.destroyed(serial));
+            }
+            eis::text::Request::Keysym { keysym, state } => {
+                self.queue_request(EisRequest::TextKeysym(TextKeysym {
+                    device,
+                    keysym,
+                    state,
+                    time: 0,
+                }));
+            }
+            eis::text::Request::Utf8 { text: string } => {
+                if string.is_empty() || string.len() > EI_TEXT_MAX_UTF8_LEN {
+                    return Err(RequestError::InvalidTextLength.into());
+                }
+                self.queue_request(EisRequest::TextUtf8(TextUtf8 {
+                    device,
+                    text: string,
+                    time: 0,
+                }));
+            }
+        }
+        Ok(())
+    }
 }
 
 struct SeatInner {
@@ -916,6 +959,7 @@ impl_device_interface!(eis::Scroll);
 impl_device_interface!(eis::Button);
 impl_device_interface!(eis::Keyboard);
 impl_device_interface!(eis::Touchscreen);
+impl_device_interface!(eis::Text);
 
 fn destroy_interface(object: crate::Object, serial: u32) {
     match object.interface() {
@@ -933,6 +977,7 @@ fn destroy_interface(object: crate::Object, serial: u32) {
         eis::Touchscreen::NAME => object
             .downcast_unchecked::<eis::Touchscreen>()
             .destroyed(serial),
+        eis::Text::NAME => object.downcast_unchecked::<eis::Text>().destroyed(serial),
         _ => unreachable!(),
     }
 }
@@ -1148,6 +1193,8 @@ pub enum EisRequest {
     TouchUp(TouchUp),
     TouchMotion(TouchMotion),
     TouchCancel(TouchCancel),
+    TextKeysym(TextKeysym),
+    TextUtf8(TextUtf8),
 }
 
 impl EisRequest {
@@ -1168,6 +1215,8 @@ impl EisRequest {
             Self::TouchUp(evt) => Some(&mut evt.time),
             Self::TouchMotion(evt) => Some(&mut evt.time),
             Self::TouchCancel(evt) => Some(&mut evt.time),
+            Self::TextKeysym(evt) => Some(&mut evt.time),
+            Self::TextUtf8(evt) => Some(&mut evt.time),
             Self::Disconnect
             | Self::Bind(_)
             | Self::RequestDevice(_)
@@ -1200,6 +1249,8 @@ impl EisRequest {
             Self::TouchUp(evt) => Some(&evt.device),
             Self::TouchMotion(evt) => Some(&evt.device),
             Self::TouchCancel(evt) => Some(&evt.device),
+            Self::TextKeysym(evt) => Some(&evt.device),
+            Self::TextUtf8(evt) => Some(&evt.device),
             Self::Disconnect | Self::Bind(_) | Self::RequestDevice(_) => None,
         }
     }
@@ -1428,6 +1479,30 @@ pub struct TouchCancel {
     pub touch_id: u32,
 }
 
+/// High-level translation of [`ei_text.keysym`](eis::text::Request::Keysym).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextKeysym {
+    /// High-level [`Device`] wrapper.
+    pub device: Device,
+    /// Timestamp in microseconds.
+    pub time: u64,
+    /// XKB keysym.
+    pub keysym: u32,
+    /// Logical state of the keysym.
+    pub state: eis::keyboard::KeyState,
+}
+
+/// High-level translation of [`ei_text.utf8`](eis::text::Request::Utf8).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextUtf8 {
+    /// High-level [`Device`] wrapper.
+    pub device: Device,
+    /// Timestamp in microseconds.
+    pub time: u64,
+    /// The UTF-8 compatible text.
+    pub text: String,
+}
+
 // TODO(axka, 2025-07-08): event and request terms collide when the below traits are implemented on
 // variants of `EisRequest`. Furthermore, the name of the module is slightly confusing.
 
@@ -1497,3 +1572,5 @@ impl_device_trait!(TouchDown; time);
 impl_device_trait!(TouchUp; time);
 impl_device_trait!(TouchMotion; time);
 impl_device_trait!(TouchCancel; time);
+impl_device_trait!(TextKeysym; time);
+impl_device_trait!(TextUtf8; time);

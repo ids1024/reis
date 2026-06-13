@@ -669,15 +669,36 @@ impl EiEventConverter {
                     }
                 }
             }
-            #[allow(clippy::missing_panics_doc)]
-            ei::Event::Text(_text, event) => match event {
+            ei::Event::Text(text, event) => match event {
                 ei::text::Event::Keysym { keysym, state } => {
-                    panic!("{:?}", (keysym, state));
+                    let device = self
+                        .device_for_interface
+                        .get(&text.0)
+                        .ok_or(EventError::DeviceEventBeforeDone)?;
+                    self.queue_event(EiEvent::TextKeysym(TextKeysym {
+                        device: device.clone(),
+                        time: 0,
+                        keysym,
+                        state,
+                    }));
                 }
-                ei::text::Event::Utf8 { text } => {
-                    panic!("{text:?}");
+                ei::text::Event::Utf8 { text: string } => {
+                    let device = self
+                        .device_for_interface
+                        .get(&text.0)
+                        .ok_or(EventError::DeviceEventBeforeDone)?;
+                    self.queue_event(EiEvent::TextUtf8(TextUtf8 {
+                        device: device.clone(),
+                        time: 0,
+                        text: string,
+                    }));
                 }
-                ei::text::Event::Destroyed { serial: _ } => {}
+                ei::text::Event::Destroyed { serial } => {
+                    self.connection.update_serial(serial);
+                    if let Some(device) = self.device_for_interface.remove(&text.0) {
+                        device.0.interfaces.lock().unwrap().remove(ei::Text::NAME);
+                    }
+                }
             },
         }
         Ok(())
@@ -1009,6 +1030,8 @@ pub enum EiEvent {
     TouchUp(TouchUp),
     TouchMotion(TouchMotion),
     TouchCancel(TouchCancel),
+    TextKeysym(TextKeysym),
+    TextUtf8(TextUtf8),
 }
 
 impl EiEvent {
@@ -1029,6 +1052,8 @@ impl EiEvent {
             Self::TouchUp(evt) => Some(&mut evt.time),
             Self::TouchMotion(evt) => Some(&mut evt.time),
             Self::TouchCancel(evt) => Some(&mut evt.time),
+            Self::TextKeysym(evt) => Some(&mut evt.time),
+            Self::TextUtf8(evt) => Some(&mut evt.time),
             Self::Disconnected(_)
             | Self::SeatAdded(_)
             | Self::SeatRemoved(_)
@@ -1311,6 +1336,30 @@ pub struct TouchCancel {
     pub touch_id: u32,
 }
 
+/// High-level translation of [`ei_text.keysym`](ei::text::Event::Keysym).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextKeysym {
+    /// High-level [`Device`] wrapper.
+    pub device: Device,
+    /// Timestamp in microseconds.
+    pub time: u64,
+    /// XKB keysym.
+    pub keysym: u32,
+    /// Logical state of the keysym.
+    pub state: ei::keyboard::KeyState,
+}
+
+/// High-level translation of [`ei_text.utf8`](ei::text::Event::Utf8).
+#[derive(Clone, Debug, PartialEq)]
+pub struct TextUtf8 {
+    /// High-level [`Device`] wrapper.
+    pub device: Device,
+    /// Timestamp in microseconds.
+    pub time: u64,
+    /// The UTF-8 compatible text.
+    pub text: String,
+}
+
 /// Trait marking events that happen on a seat.
 pub trait SeatEvent {
     /// Returns the high-level [`Seat`] wrapper for this event.
@@ -1388,6 +1437,8 @@ impl_device_trait!(TouchDown; time);
 impl_device_trait!(TouchUp; time);
 impl_device_trait!(TouchMotion; time);
 impl_device_trait!(TouchCancel; time);
+impl_device_trait!(TextKeysym; time);
+impl_device_trait!(TextUtf8; time);
 
 /// An iterator that uses [`EiEventConverter`] to convert low-level protocol-level events into
 /// high-level events defined in this module.
