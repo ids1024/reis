@@ -62,6 +62,9 @@ required-features = ["tokio"]
 name = "type-text"
 required-features = ["calloop"]
 
+[[example]]
+name = "type-text-ei"
+required-features = ["calloop"]
 
 [[example]]
 name = "reis-demo-server"
