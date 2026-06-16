@@ -853,7 +853,7 @@ impl Eq for Seat {}
 
 impl std::hash::Hash for Seat {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.proto_seat.0.id().hash(state);
+        Arc::as_ptr(&self.0).hash(state);
     }
 }
 
@@ -997,7 +997,7 @@ impl Eq for Device {}
 
 impl std::hash::Hash for Device {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.device.0.id().hash(state);
+        Arc::as_ptr(&self.0).hash(state);
     }
 }
 

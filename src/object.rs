@@ -30,7 +30,7 @@ impl Eq for Object {}
 
 impl hash::Hash for Object {
     fn hash<H: hash::Hasher>(&self, hasher: &mut H) {
-        self.0.id.hash(hasher);
+        Arc::as_ptr(&self.0).hash(hasher);
     }
 }
 
