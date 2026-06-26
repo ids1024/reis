@@ -1542,6 +1542,9 @@ impl Iterator for EiConvertEventIterator {
                     return Some(Err(err.into()));
                 }
             }
+            if let Some(event) = self.converter.next_event() {
+                return Some(Ok(event));
+            }
             if let Err(err) = util::poll_readable(&self.context) {
                 return Some(Err(err.into()));
             }
