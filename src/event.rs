@@ -116,9 +116,16 @@ pub struct EiEventConverter {
     devices: HashMap<ei::Device, Device>,
     device_for_interface: HashMap<Object, Device>,
     events: VecDeque<EiEvent>,
-    pending_events: VecDeque<EiEvent>,
     callbacks: HashMap<ei::Callback, Box<dyn FnOnce(u64)>>,
     connection: Connection,
+}
+
+impl Drop for EiEventConverter {
+    fn drop(&mut self) {
+        for device in self.devices.values() {
+            device.0.pending_events.lock().unwrap().clear();
+        }
+    }
 }
 
 impl EiEventConverter {
@@ -132,7 +139,6 @@ impl EiEventConverter {
             devices: HashMap::new(),
             device_for_interface: HashMap::new(),
             events: VecDeque::new(),
-            pending_events: VecDeque::new(),
             callbacks: HashMap::new(),
             connection: Connection(Arc::new(ConnectionInner {
                 context: context.clone(),
@@ -148,21 +154,43 @@ impl EiEventConverter {
         &self.connection
     }
 
+    fn queue_frame_event(&mut self, device: &Device) {
+        self.queue_event(EiEvent::Frame(Frame {
+            device: device.clone(),
+            serial: self.connection.serial(),
+            time: crate::util::now_micros(),
+        }));
+    }
+
     // Based on behavior of `queue_event` in libei
     fn queue_event(&mut self, mut event: EiEvent) {
         if event.time_mut().is_some() {
-            self.pending_events.push_back(event);
-        } else if let EiEvent::Frame(Frame { time, .. }) = &event {
-            if self.pending_events.is_empty() {
+            // Stays pending until the device is framed.
+            let device = event
+                .device()
+                .expect("timestamped event without a device")
+                .clone();
+            device.0.pending_events.lock().unwrap().push_back(event);
+        } else if let EiEvent::Frame(Frame { device, time, .. }) = &event {
+            // A frame commits only the events pending for its own device.
+            let (device, time) = (device.clone(), *time);
+            let pending = std::mem::take(&mut *device.0.pending_events.lock().unwrap());
+            if pending.is_empty() {
                 return;
             }
-            for mut pending_event in self.pending_events.drain(..) {
-                *pending_event.time_mut().unwrap() = *time;
+            for mut pending_event in pending {
+                *pending_event.time_mut().unwrap() = time;
                 self.events.push_back(pending_event);
             }
             self.events.push_back(event);
         } else {
-            // TODO: If a device event, queue a frame if anything is pending
+            if let Some(device) = event.device() {
+                // release the lock before calling `queue_frame_event` because it calls this function
+                let has_pending = !device.0.pending_events.lock().unwrap().is_empty();
+                if has_pending {
+                    self.queue_frame_event(device);
+                }
+            }
             self.events.push_back(event);
         }
     }
@@ -176,7 +204,8 @@ impl EiEventConverter {
     ///
     /// # Panics
     ///
-    /// Will panic if an internal Mutex is poisoned.
+    /// Will panic if an internal Mutex is poisoned, or if an event carrying a timestamp
+    /// has no device
     #[allow(clippy::too_many_lines)] // Handler is allowed to be big
     pub fn handle_event(&mut self, event: ei::Event) -> Result<(), EventError> {
         match event {
@@ -272,6 +301,7 @@ impl EiEventConverter {
                             regions: Vec::new(),
                             next_region_mapping_id: None,
                             keymap: None,
+                            pending_events: Mutex::new(VecDeque::new()),
                         },
                     );
                 }
@@ -892,6 +922,8 @@ struct DeviceInner {
     next_region_mapping_id: Option<String>,
     // Only defined device with `ei_keyboard` interface
     keymap: Option<Keymap>,
+    // Events received for this device but not yet committed by an `ei_device.frame`.
+    pending_events: Mutex<VecDeque<EiEvent>>,
 }
 
 /// High-level client-side wrapper for `ei_device`.
@@ -1065,6 +1097,36 @@ impl EiEvent {
             | Self::Frame(_)
             | Self::DeviceStartEmulating(_)
             | Self::DeviceStopEmulating(_) => None,
+        }
+    }
+
+    /// Returns the high-level [`Device`] wrapper for this event, if applicable.
+    #[must_use]
+    pub fn device(&self) -> Option<&Device> {
+        match self {
+            Self::DeviceAdded(evt) => Some(&evt.device),
+            Self::DeviceRemoved(evt) => Some(&evt.device),
+            Self::DevicePaused(evt) => Some(&evt.device),
+            Self::DeviceResumed(evt) => Some(&evt.device),
+            Self::KeyboardModifiers(evt) => Some(&evt.device),
+            Self::Frame(evt) => Some(&evt.device),
+            Self::DeviceStartEmulating(evt) => Some(&evt.device),
+            Self::DeviceStopEmulating(evt) => Some(&evt.device),
+            Self::PointerMotion(evt) => Some(&evt.device),
+            Self::PointerMotionAbsolute(evt) => Some(&evt.device),
+            Self::Button(evt) => Some(&evt.device),
+            Self::ScrollDelta(evt) => Some(&evt.device),
+            Self::ScrollStop(evt) => Some(&evt.device),
+            Self::ScrollCancel(evt) => Some(&evt.device),
+            Self::ScrollDiscrete(evt) => Some(&evt.device),
+            Self::KeyboardKey(evt) => Some(&evt.device),
+            Self::TouchDown(evt) => Some(&evt.device),
+            Self::TouchUp(evt) => Some(&evt.device),
+            Self::TouchMotion(evt) => Some(&evt.device),
+            Self::TouchCancel(evt) => Some(&evt.device),
+            Self::TextKeysym(evt) => Some(&evt.device),
+            Self::TextUtf8(evt) => Some(&evt.device),
+            Self::Disconnected(_) | Self::SeatAdded(_) | Self::SeatRemoved(_) => None,
         }
     }
 }

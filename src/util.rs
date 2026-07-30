@@ -139,3 +139,11 @@ pub fn poll_readable<T: AsFd>(fd: &T) -> io::Result<()> {
     })?;
     Ok(())
 }
+
+// TODO libei has a `eis_clock_set_now_func`
+/// Returns the current monotonic time in microseconds.
+#[allow(clippy::cast_sign_loss)] // Monotonic clock never returns negatives
+pub fn now_micros() -> u64 {
+    let time = rustix::time::clock_gettime(rustix::time::ClockId::Monotonic);
+    time.tv_sec as u64 * 1_000_000 + time.tv_nsec as u64 / 1_000
+}
