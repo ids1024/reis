@@ -234,13 +234,7 @@ impl Connection {
     }
 }
 
-// TODO libei has a `eis_clock_set_now_func`
-// Return time in us
-#[allow(clippy::cast_sign_loss)] // Monotonic clock never returns negatives
-fn eis_now() -> u64 {
-    let time = rustix::time::clock_gettime(rustix::time::ClockId::Monotonic);
-    time.tv_sec as u64 * 1_000_000 + time.tv_nsec as u64 / 1_000
-}
+use crate::util::now_micros as eis_now;
 
 // need way to add seat/device?
 /// Utility that converts low-level protocol-level requests into high-level requests defined in
@@ -248,8 +242,15 @@ fn eis_now() -> u64 {
 #[derive(Debug)]
 pub struct EisRequestConverter {
     requests: VecDeque<EisRequest>,
-    pending_requests: VecDeque<EisRequest>,
     connection: Connection,
+}
+
+impl Drop for EisRequestConverter {
+    fn drop(&mut self) {
+        for device in self.connection.0.devices.lock().unwrap().values() {
+            device.0.pending_requests.lock().unwrap().clear();
+        }
+    }
 }
 
 impl EisRequestConverter {
@@ -262,7 +263,6 @@ impl EisRequestConverter {
     ) -> Self {
         Self {
             requests: VecDeque::new(),
-            pending_requests: VecDeque::new(),
             connection: Connection(Arc::new(ConnectionInner {
                 context: context.clone(),
                 handshake_resp,
@@ -292,19 +292,29 @@ impl EisRequestConverter {
     // Based on behavior of `eis_queue_request` in libeis
     fn queue_request(&mut self, mut request: EisRequest) {
         if request.time_mut().is_some() {
-            self.pending_requests.push_back(request);
-        } else if let EisRequest::Frame(Frame { time, .. }) = &request {
-            if self.pending_requests.is_empty() {
+            // Stays pending until the device is framed.
+            let device = request
+                .device()
+                .expect("timestamped request without a device")
+                .clone();
+            device.0.pending_requests.lock().unwrap().push_back(request);
+        } else if let EisRequest::Frame(Frame { device, time, .. }) = &request {
+            // A frame commits only the requests pending for its own device.
+            let (device, time) = (device.clone(), *time);
+            let pending = std::mem::take(&mut *device.0.pending_requests.lock().unwrap());
+            if pending.is_empty() {
                 return;
             }
-            for mut pending_request in self.pending_requests.drain(..) {
-                *pending_request.time_mut().unwrap() = *time;
+            for mut pending_request in pending {
+                *pending_request.time_mut().unwrap() = time;
                 self.requests.push_back(pending_request);
             }
             self.requests.push_back(request);
         } else {
             if let Some(device) = request.device() {
-                if !self.pending_requests.is_empty() {
+                // release the lock before calling `queue_frame_event` because it calls this function
+                let has_pending = !device.0.pending_requests.lock().unwrap().is_empty();
+                if has_pending {
                     self.queue_frame_event(device);
                 }
             }
@@ -322,7 +332,8 @@ impl EisRequestConverter {
     ///
     /// # Panics
     ///
-    /// Will panic if an internal Mutex is poisoned.
+    /// Will panic if an internal Mutex is poisoned, or if a request carrying a timestamp
+    /// has no device
     ///
     /// # Errors
     ///
@@ -871,6 +882,7 @@ impl Seat {
             interfaces: Mutex::new(interfaces),
             handle: self.0.handle.clone(),
             down_touch_ids: Mutex::new(HashSet::new()),
+            pending_requests: Mutex::new(VecDeque::new()),
         }));
         if let Some(handle) = connection {
             for interface in device.0.interfaces.lock().unwrap().values() {
@@ -990,6 +1002,8 @@ struct DeviceInner {
     handle: Weak<ConnectionInner>,
     // Applicable only for touch devices
     down_touch_ids: Mutex<HashSet<u32>>,
+    // Requests received for this device but not yet committed by an `ei_device.frame`.
+    pending_requests: Mutex<VecDeque<EisRequest>>,
 }
 
 /// High-level server-side wrapper for `ei_device`.
@@ -1068,6 +1082,9 @@ impl Device {
     ///
     /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
+        // Discard requests still waiting for a frame
+        self.0.pending_requests.lock().unwrap().clear();
+
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             let interfaces: Vec<_> = self
                 .0
