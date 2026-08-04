@@ -116,7 +116,7 @@ pub struct EiEventConverter {
     devices: HashMap<ei::Device, Device>,
     device_for_interface: HashMap<Object, Device>,
     events: VecDeque<EiEvent>,
-    callbacks: HashMap<ei::Callback, Box<dyn FnOnce(u64)>>,
+    callbacks: HashMap<ei::Callback, Box<dyn FnOnce(u64) + Send>>,
     connection: Connection,
 }
 
@@ -740,7 +740,7 @@ impl EiEventConverter {
     }
 
     /// Adds a function to execute when the server informs that the the associated request is done.
-    pub fn add_callback_handler<F: FnOnce(u64) + 'static>(
+    pub fn add_callback_handler<F: FnOnce(u64) + Send + 'static>(
         &mut self,
         callback: ei::Callback,
         cb: F,
