@@ -39,7 +39,7 @@ impl Stream for EiEventStream {
         if let Some(res) = async_shared::poll_pending_event(self.0.get_mut()) {
             return res;
         }
-        match ready!(self.0.poll_read_ready(context)) {
+        match ready!(self.0.poll_read_ready_mut(context)) {
             Ok(mut guard) => {
                 match guard.get_inner().read() {
                     Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => Poll::Ready(None),
@@ -47,7 +47,8 @@ impl Stream for EiEventStream {
                     Ok(_) => {
                         // `Backend::read()` reads until `WouldBlock`, EOF, or error
                         guard.clear_ready();
-                        async_shared::poll_pending_event(self.0.get_mut()).unwrap_or(Poll::Pending)
+                        async_shared::poll_pending_event(guard.get_inner_mut())
+                            .unwrap_or(Poll::Pending)
                     }
                 }
             }
