@@ -5,7 +5,7 @@ use futures_util::{Stream, StreamExt};
 use std::{
     io,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 
 pub use crate::handshake::{HandshakeError, HandshakeResp};
@@ -36,20 +36,16 @@ impl Stream for EiEventStream {
         if let Some(res) = async_shared::poll_pending_event(self.0.get_ref()) {
             return res;
         }
-        if let Poll::Ready(res) = self.0.poll_readable(context) {
-            if let Err(err) = res {
-                return Poll::Ready(Some(Err(err)));
+        if let Err(err) = ready!(self.0.poll_readable(context)) {
+            return Poll::Ready(Some(Err(err)));
+        }
+        match self.0.get_ref().read() {
+            Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => Poll::Ready(None),
+            Err(err) => Poll::Ready(Some(Err(err))),
+            Ok(_) => {
+                // `Backend::read()` reads until `WouldBlock`, EOF, or error
+                async_shared::poll_pending_event(self.0.get_ref()).unwrap_or(Poll::Pending)
             }
-            match self.0.get_ref().read() {
-                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => Poll::Ready(None),
-                Err(err) => Poll::Ready(Some(Err(err))),
-                Ok(_) => {
-                    // `Backend::read()` reads until `WouldBlock`, EOF, or error
-                    async_shared::poll_pending_event(self.0.get_ref()).unwrap_or(Poll::Pending)
-                }
-            }
-        } else {
-            Poll::Pending
         }
     }
 }

@@ -6,7 +6,7 @@ use futures_util::{Stream, StreamExt};
 use std::{
     io,
     pin::Pin,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
 };
 use tokio::io::unix::AsyncFd;
 
@@ -39,24 +39,19 @@ impl Stream for EiEventStream {
         if let Some(res) = async_shared::poll_pending_event(self.0.get_mut()) {
             return res;
         }
-        if let Poll::Ready(guard) = self.0.poll_read_ready(context) {
-            let mut guard = match guard {
-                Ok(guard) => guard,
-                Err(err) => {
-                    return Poll::Ready(Some(Err(err)));
-                }
-            };
-            match guard.get_inner().read() {
-                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => Poll::Ready(None),
-                Err(err) => Poll::Ready(Some(Err(err))),
-                Ok(_) => {
-                    // `Backend::read()` reads until `WouldBlock`, EOF, or error
-                    guard.clear_ready();
-                    async_shared::poll_pending_event(self.0.get_mut()).unwrap_or(Poll::Pending)
+        match ready!(self.0.poll_read_ready(context)) {
+            Ok(mut guard) => {
+                match guard.get_inner().read() {
+                    Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => Poll::Ready(None),
+                    Err(err) => Poll::Ready(Some(Err(err))),
+                    Ok(_) => {
+                        // `Backend::read()` reads until `WouldBlock`, EOF, or error
+                        guard.clear_ready();
+                        async_shared::poll_pending_event(self.0.get_mut()).unwrap_or(Poll::Pending)
+                    }
                 }
             }
-        } else {
-            Poll::Pending
+            Err(err) => Poll::Ready(Some(Err(err))),
         }
     }
 }
