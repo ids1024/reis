@@ -36,7 +36,7 @@ impl Stream for EiEventStream {
         if let Some(res) = async_shared::poll_pending_event(self.0.get_ref()) {
             return res;
         }
-        if let Poll::Ready(res) = Pin::new(&self.0).poll_readable(context) {
+        if let Poll::Ready(res) = self.0.poll_readable(context) {
             if let Err(err) = res {
                 return Poll::Ready(Some(Err(err)));
             }

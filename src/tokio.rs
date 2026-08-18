@@ -39,7 +39,7 @@ impl Stream for EiEventStream {
         if let Some(res) = async_shared::poll_pending_event(self.0.get_mut()) {
             return res;
         }
-        if let Poll::Ready(guard) = Pin::new(&self.0).poll_read_ready(context) {
+        if let Poll::Ready(guard) = self.0.poll_read_ready(context) {
             let mut guard = match guard {
                 Ok(guard) => guard,
                 Err(err) => {

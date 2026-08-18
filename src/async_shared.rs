@@ -43,7 +43,7 @@ impl<S: Stream<Item = io::Result<PendingRequestResult<ei::Event>>> + Unpin> Stre
         if let Some(event) = self.converter.next_event() {
             return Poll::Ready(Some(Ok(event)));
         }
-        while let Poll::Ready(res) = Pin::new(&mut self.inner).poll_next(context) {
+        while let Poll::Ready(res) = self.inner.poll_next_unpin(context) {
             match res {
                 Some(Ok(res)) => match res {
                     PendingRequestResult::Request(event) => {
