@@ -21,6 +21,56 @@ use std::{
 
 pub use crate::event::DeviceCapability;
 
+/// Lifecycle state of a connection, server side.
+///
+/// Reduced from libei's `eis_client_state` to the phases observable after the handshake completes,
+/// since the converter only runs post-handshake.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum EisConnectionState {
+    /// The connection is active.
+    Connected,
+    /// The connection is fully disconnected.
+    Disconnected,
+}
+
+/// Lifecycle state of a device, server side.
+///
+/// Mirrors libei's `eis_device_state`. The pre-`done` `NEW` phase of the C enum is omitted because
+/// the converter only exposes a device after its `done` event.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum EisDeviceState {
+    /// The device has been advertised (`done` sent) but the client has not yet sent `ready`.
+    AwaitingReady,
+    /// Input cannot flow.
+    Paused,
+    /// Input may flow, but emulation has not started.
+    Resumed,
+    /// The client is actively emulating input (between `start_emulating` and `stop_emulating`).
+    Emulating,
+    /// The client released the device.
+    ClosedByClient,
+    /// The server removed the device.
+    Dead,
+}
+
+/// Lifecycle state of a seat, server side.
+///
+/// Mirrors libei's `eis_seat_state`. The pre-`done` `PENDING` phase is omitted because the
+/// converter only exposes a seat after its `done` event, and libeis's internal
+/// `REMOVED_INTERNALLY` is folded into `Removed`.
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum EisSeatState {
+    /// The seat has been advertised and is ready to be bound.
+    Added,
+    /// The client has bound capabilities on the seat.
+    Bound,
+    /// The seat has been removed.
+    Removed,
+}
+
 // For compatability, defined the same way as libei
 const EIS_MAX_TOUCHES: usize = 16;
 
@@ -121,6 +171,16 @@ impl Connection {
     /// An error will be returned if sending the buffered messages fails.
     pub fn flush(&self) -> rustix::io::Result<()> {
         self.0.context.flush()
+    }
+
+    /// Returns the current lifecycle state of this connection.
+    #[must_use]
+    pub fn state(&self) -> EisConnectionState {
+        if self.0.disconnected.load(Ordering::SeqCst) {
+            EisConnectionState::Disconnected
+        } else {
+            EisConnectionState::Connected
+        }
     }
 
     /// Returns the context type of this this connection.
@@ -224,6 +284,7 @@ impl Connection {
             name: name.map(std::borrow::ToOwned::to_owned),
             handle: Arc::downgrade(&self.0),
             advertised_capabilities: capabilities,
+            state: Mutex::new(EisSeatState::Added),
         }));
         self.0
             .seats
@@ -426,6 +487,7 @@ impl EisRequestConverter {
                     return Err(RequestError::InvalidCapabilities.into());
                 }
 
+                *seat.0.state.lock().unwrap() = EisSeatState::Bound;
                 self.queue_request(EisRequest::Bind(Bind { seat, capabilities }));
                 return Ok(());
             }
@@ -464,12 +526,16 @@ impl EisRequestConverter {
         };
         match request {
             eis::device::Request::Release => {
+                // Matches libeis, where eis_device_closed_by_client() updates the
+                // state before the server application calls eis_device_remove().
+                *device.0.state.lock().unwrap() = EisDeviceState::ClosedByClient;
                 self.queue_request(EisRequest::DeviceClosed(DeviceClosed { device }));
             }
             eis::device::Request::StartEmulating {
                 last_serial,
                 sequence,
             } => {
+                *device.0.state.lock().unwrap() = EisDeviceState::Emulating;
                 self.queue_request(EisRequest::DeviceStartEmulating(DeviceStartEmulating {
                     device,
                     last_serial,
@@ -477,6 +543,7 @@ impl EisRequestConverter {
                 }));
             }
             eis::device::Request::StopEmulating { last_serial } => {
+                *device.0.state.lock().unwrap() = EisDeviceState::Resumed;
                 self.queue_request(EisRequest::DeviceStopEmulating(DeviceStopEmulating {
                     device,
                     last_serial,
@@ -493,6 +560,7 @@ impl EisRequestConverter {
                 }));
             }
             eis::device::Request::Ready => {
+                *device.0.state.lock().unwrap() = EisDeviceState::Paused;
                 self.queue_request(EisRequest::Ready(Ready { device }));
             }
         }
@@ -790,6 +858,7 @@ struct SeatInner {
     name: Option<String>,
     handle: Weak<ConnectionInner>,
     advertised_capabilities: BitFlags<DeviceCapability>,
+    state: Mutex<EisSeatState>,
 }
 
 /// High-level server-side wrapper for `ei_seat`.
@@ -813,6 +882,16 @@ impl Seat {
     #[must_use]
     pub fn eis_seat(&self) -> &eis::Seat {
         &self.0.seat
+    }
+
+    /// Returns the current lifecycle state of this seat.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn state(&self) -> EisSeatState {
+        *self.0.state.lock().unwrap()
     }
 
     // builder pattern?
@@ -881,6 +960,7 @@ impl Seat {
             name: name.map(ToOwned::to_owned),
             interfaces: Mutex::new(interfaces),
             handle: self.0.handle.clone(),
+            state: Mutex::new(EisDeviceState::AwaitingReady),
             down_touch_ids: Mutex::new(HashSet::new()),
             pending_requests: Mutex::new(VecDeque::new()),
         }));
@@ -913,6 +993,7 @@ impl Seat {
     ///
     /// Will panic if an internal Mutex is poisoned.
     pub fn remove(&self) {
+        *self.0.state.lock().unwrap() = EisSeatState::Removed;
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             let devices = handle
                 .0
@@ -1000,6 +1081,7 @@ struct DeviceInner {
     name: Option<String>,
     interfaces: Mutex<HashMap<String, crate::Object>>,
     handle: Weak<ConnectionInner>,
+    state: Mutex<EisDeviceState>,
     // Applicable only for touch devices
     down_touch_ids: Mutex<HashSet<u32>>,
     // Requests received for this device but not yet committed by an `ei_device.frame`.
@@ -1073,6 +1155,16 @@ impl Device {
             .contains_key(capability.interface_name())
     }
 
+    /// Returns the current lifecycle state of this device.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
+    #[must_use]
+    pub fn state(&self) -> EisDeviceState {
+        *self.0.state.lock().unwrap()
+    }
+
     /// Removes this device and associated interfaces from the connection.
     ///
     /// After removal, [`interface`](Self::interface) returns `None` and
@@ -1085,6 +1177,7 @@ impl Device {
         // Discard requests still waiting for a frame
         self.0.pending_requests.lock().unwrap().clear();
 
+        *self.0.state.lock().unwrap() = EisDeviceState::Dead;
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             let interfaces: Vec<_> = self
                 .0
@@ -1112,7 +1205,12 @@ impl Device {
     /// Notifies to the client that, depending on the context type, it may request to start emulating or receiving input events. A newly advertised device is in the [`paused`](Self::paused) state.
     ///
     /// See [`eis::Device::resumed`] for documentation from the protocol specification.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if an internal Mutex is poisoned.
     pub fn resumed(&self) {
+        *self.0.state.lock().unwrap() = EisDeviceState::Resumed;
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().resumed(serial));
         }
@@ -1127,6 +1225,7 @@ impl Device {
     ///
     /// Will panic if an internal Mutex is poisoned.
     pub fn paused(&self) {
+        *self.0.state.lock().unwrap() = EisDeviceState::Paused;
         if let Some(handle) = self.0.handle.upgrade().map(Connection) {
             handle.with_next_serial(|serial| self.device().paused(serial));
         }
