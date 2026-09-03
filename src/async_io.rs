@@ -32,19 +32,26 @@ impl Stream for EiEventStream {
         self: Pin<&mut Self>,
         context: &mut Context<'_>,
     ) -> Poll<Option<<Self as Stream>::Item>> {
-        // If we already have a pending event, return that
-        if let Some(res) = async_shared::poll_pending_event(self.0.get_ref()) {
-            return res;
-        }
-        if let Err(err) = ready!(self.0.poll_readable(context)) {
-            return Poll::Ready(Some(Err(err)));
-        }
-        match self.0.get_ref().read() {
-            Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => Poll::Ready(None),
-            Err(err) => Poll::Ready(Some(Err(err))),
-            Ok(_) => {
-                // `Backend::read()` reads until `WouldBlock`, EOF, or error
-                async_shared::poll_pending_event(self.0.get_ref()).unwrap_or(Poll::Pending)
+        loop {
+            // If we already have a pending event, return that
+            if let Some(res) = async_shared::poll_pending_event(self.0.get_ref()) {
+                return res;
+            }
+            if let Err(err) = ready!(self.0.poll_readable(context)) {
+                return Poll::Ready(Some(Err(err)));
+            }
+            match self.0.get_ref().read() {
+                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Poll::Ready(None),
+                Err(err) => return Poll::Ready(Some(Err(err))),
+                Ok(_) => {
+                    // `Backend::read()` reads until `WouldBlock`, EOF, or error, so the
+                    // descriptor is no longer readable even though the `poll_readable`
+                    // call above already returned `Ready` once. Per `Async::poll_readable`'s
+                    // own contract, a `Ready` return only means an edge was delivered
+                    // since the last `Pending`; it registers no waker for what comes
+                    // after. Loop back and call it again instead of returning `Pending`
+                    // directly, so the next edge actually has a waker to invoke.
+                }
             }
         }
     }

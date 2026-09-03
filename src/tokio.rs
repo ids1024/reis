@@ -35,24 +35,30 @@ impl Stream for EiEventStream {
         mut self: Pin<&mut Self>,
         context: &mut Context<'_>,
     ) -> Poll<Option<<Self as Stream>::Item>> {
-        // If we already have a pending event, return that
-        if let Some(res) = async_shared::poll_pending_event(self.0.get_mut()) {
-            return res;
-        }
-        match ready!(self.0.poll_read_ready_mut(context)) {
-            Ok(mut guard) => {
-                match guard.get_inner().read() {
-                    Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => Poll::Ready(None),
-                    Err(err) => Poll::Ready(Some(Err(err))),
-                    Ok(_) => {
-                        // `Backend::read()` reads until `WouldBlock`, EOF, or error
-                        guard.clear_ready();
-                        async_shared::poll_pending_event(guard.get_inner_mut())
-                            .unwrap_or(Poll::Pending)
-                    }
+        loop {
+            // If we already have a pending event, return that
+            if let Some(res) = async_shared::poll_pending_event(self.0.get_mut()) {
+                return res;
+            }
+            let mut guard = match ready!(self.0.poll_read_ready_mut(context)) {
+                Ok(guard) => guard,
+                Err(err) => return Poll::Ready(Some(Err(err))),
+            };
+            match guard.get_inner().read() {
+                Err(err) if err.kind() == io::ErrorKind::UnexpectedEof => return Poll::Ready(None),
+                Err(err) => return Poll::Ready(Some(Err(err))),
+                Ok(_) => {
+                    // `Backend::read()` reads until `WouldBlock`, EOF, or error, so the
+                    // descriptor is no longer ready even though `poll_read_ready_mut`
+                    // returned `Ok` without registering a waker (it only registers one
+                    // on the `Pending` path). Loop back to `poll_read_ready_mut` instead
+                    // of returning `Pending` directly here: that call is what arms the
+                    // waker for the next edge, and skipping it left this stream asleep
+                    // with unread bytes already on the socket, roughly one connection
+                    // in fifty in practice.
+                    guard.clear_ready();
                 }
             }
-            Err(err) => Poll::Ready(Some(Err(err))),
         }
     }
 }
