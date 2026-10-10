@@ -1282,7 +1282,7 @@ pub struct Bind {
     pub capabilities: BitFlags<DeviceCapability>,
 }
 
-/// High-level translation of [`ei_seat.bind`](eis::seat::Request::RequestDevice).
+/// High-level translation of [`ei_seat.request_device`](eis::seat::Request::RequestDevice).
 #[derive(Clone, Debug, PartialEq)]
 pub struct RequestDevice {
     /// High-level [`Seat`] wrapper.
